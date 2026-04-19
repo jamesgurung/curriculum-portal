@@ -1,0 +1,63 @@
+﻿* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-size: 10pt;
+  margin: 0;
+  padding: 0;
+}
+
+@page {
+  size: A4;
+  margin: 9mm 12.7mm;
+}
+
+h1 {
+  font-size: 14pt;
+  margin: 0 0 10px;
+}
+
+h1:not(:first-child) {
+  page-break-before: always;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  margin: 0;
+}
+
+th, td {
+  border: 1px solid #666;
+  padding: 0.05em 0.2em;
+  text-align: left;
+}
+
+thead tr,
+tbody tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+th:first-child {
+  vertical-align: bottom;
+}
+
+th:first-child, td:first-child {
+  width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+th:not(:first-child) {
+  writing-mode: sideways-lr;
+  max-height: 250px;
+}
+
+.marks {
+  font-weight: normal;
+}

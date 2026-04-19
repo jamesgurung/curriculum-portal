@@ -1,0 +1,52 @@
+@page "/privacy"
+@using CurriculumPortal
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
+@inject AppOptions AppOptions
+@{
+  ViewData["Title"] = $"Privacy - {AppOptions.SchoolName}";
+}
+
+@section Head {
+  <link rel="stylesheet" href="/css/curriculum.css" />
+}
+
+<div class="content-page">
+  <main class="active">
+    <h2 class="course-title">Privacy</h2>
+    
+    <p>This notice explains how we collect, store, and use limited personal data when you visit and use this website.</p>
+
+    <p class="course-info">
+      <b>
+        <span class="material-symbols-outlined">account_balance</span>
+        <span>Data controller</span>
+      </b>
+      We, @AppOptions.DataControllerName, are the data controller for the purposes of data protection law.
+    </p>
+
+    <p class="course-info">
+      <b>
+        <span class="material-symbols-outlined">policy</span>
+        <span>Information we use</span>
+      </b>
+      We do not collect any personal information from visitors who are not signed in. When students or staff sign in with a Microsoft account, we match them with basic information from our school records, such as their name and email address. We collect and use records of assignments that students complete.
+    </p>
+
+    <p class="course-info">
+      <b>
+        <span class="material-symbols-outlined">cloud</span>
+        <span>Further information</span>
+      </b>
+      Full details about our handling of personal data are set out in the <a href="@AppOptions.PrivacyNoticeUrl" target="_blank" rel="noopener noreferrer">Privacy Notice for @AppOptions.DataControllerName</a>.
+    </p>
+
+    <p class="course-info">
+      <b>
+        <span class="material-symbols-outlined">cookie</span>
+        <span>Cookies</span>
+      </b>
+      This website only uses essential cookies. These cookies are used to sign you in and recognise who you are while you use the website.
+    </p>
+  </main>
+</div>

@@ -1,0 +1,15 @@
+﻿{
+  "profiles": {
+    "curriculum-portal": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "applicationUrl": "https://localhost:7282;http://localhost:5282",
+      "launchUrl": "assignments",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
+

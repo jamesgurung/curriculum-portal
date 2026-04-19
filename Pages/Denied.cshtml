@@ -1,0 +1,19 @@
+@page "/denied"
+@using CurriculumPortal
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
+@inject AppOptions AppOptions
+@{
+  ViewData["Title"] = $"Access denied - {AppOptions.SchoolName}";
+}
+
+@section Head {
+  <link rel="stylesheet" href="/css/curriculum.css" />
+}
+
+<div class="content-page">
+  <main class="active">
+    <h2 class="course-title"><span class="material-symbols-outlined" style="position: relative; top: 3px; margin-right: 3px">lock</span> Access denied</h2>
+    <p>You do not have permission to view this page.</p>
+  </main>
+</div>

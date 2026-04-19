@@ -1,0 +1,79 @@
+@using CurriculumPortal
+@inject AppOptions AppOptions
+@{
+  var title = ViewData["Title"] as string;
+  var resolvedTitle = string.IsNullOrWhiteSpace(title) ? AppOptions.SchoolName : title;
+  var metaDescription = $"Explore the curriculum at {AppOptions.SchoolName}, including courses, units, and revision quiz content.";
+  var isAssignmentsSection = Context.Request.Path.StartsWithSegments("/assignments");
+  var bodyClass = isAssignmentsSection ? "assignments-layout" : string.Empty;
+  var sectionHomeHref = isAssignmentsSection ? "/assignments" : "/courses";
+  var sectionSwitchLabel = isAssignmentsSection ? "Courses" : "Assignments";
+  var sectionSwitchHref = isAssignmentsSection ? "/courses" : "/assignments";
+
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>@resolvedTitle</title>
+  @if (Context.Request.Path == "/" || Context.Request.Path == "/courses")
+  {
+    <meta name="description" content="@metaDescription" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="@resolvedTitle" />
+    <meta property="og:description" content="@metaDescription" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="@resolvedTitle" />
+    <meta name="twitter:description" content="@metaDescription" />
+  }
+  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=block" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  @RenderSection("Head", required: false)
+</head>
+
+<body class="@bodyClass">
+  <header class="app-header">
+    <div class="header-bar">
+      <h1>
+        <a href="@sectionHomeHref">
+          <span class="hide-mobile">@AppOptions.SchoolName</span>
+          <span class="subheader"><span class="material-symbols-outlined">school</span>Curriculum</span>
+        </a>
+      </h1>
+      <div class="auth-actions">
+        @if (User.Identity.IsAuthenticated)
+        {
+          <span class="signed-in-name hide-mobile">@User.GetDisplayName()</span>
+          <a class="auth-button auth-button-section" href="@sectionSwitchHref">@sectionSwitchLabel</a>
+          <a class="auth-button auth-button-icon" href="/logout" aria-label="Sign Out" title="Sign Out">
+            <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+          </a>
+        }
+        else
+        {
+          var returnUrl = Uri.EscapeDataString($"{Context.Request.Path}{Context.Request.QueryString}");
+          <a class="auth-button" href="/login?path=@returnUrl">Sign In</a>
+        }
+      </div>
+    </div>
+  </header>
+
+  @RenderSection("SubHeader", required: false)
+
+  <div class="app-body">
+    @RenderBody()
+  </div>
+
+  <footer class="app-footer">
+    <a href="/privacy">Privacy Policy</a>
+  </footer>
+
+  @RenderSection("Scripts", required: false)
+</body>
+
+</html>

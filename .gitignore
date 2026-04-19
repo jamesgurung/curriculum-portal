@@ -1,0 +1,12 @@
+.vscode/
+.vs/
+bin/
+obj/
+wwwroot/lib/
+Properties/PublishProfiles/
+Properties/ServiceDependencies/
+appsettings.json
+*.user
+*.lscache
+node_modules/
+.playwright/*.png

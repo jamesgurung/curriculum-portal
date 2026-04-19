@@ -1,0 +1,214 @@
+@page "/courses/{courseId}/{unitId}/build"
+@model CurriculumPortal.BuildModel
+@{
+  ViewData["Title"] = Model.PageTitle;
+}
+
+@section Head {
+  <link rel="stylesheet" href="/css/assessment.css" />
+}
+
+@section SubHeader {
+  <div class="build-subheader app-subheader assessment-build @(Model.IsEditor ? "is-editor" : "is-readonly")">
+    <div class="header-container">
+      <a class="subheader-title" href="/courses/@Model.CourseId" title="Back to curriculum" aria-label="Back to curriculum">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </a>
+      <div class="menu">
+        @if (User.IsInRole("Admin"))
+        {
+          <button id="btn-scheme-of-work" class="material-symbols-outlined menu-button" title="Scheme of Work">calendar_view_week</button>
+        }
+        <button id="btn-key-knowledge" class="material-symbols-outlined menu-button" title="Key Knowledge Sheet">neurology</button>
+        <button id="btn-assessment" class="material-symbols-outlined menu-button" title="Assessment">article</button>
+        <button id="btn-mark-scheme" class="material-symbols-outlined menu-button" title="Mark Scheme">done_all</button>
+        <button id="btn-quiz" class="material-symbols-outlined menu-button" title="Quiz Questions">quiz</button>
+        <button id="btn-edit" class="material-symbols-outlined menu-button menu-emphasis editor-only" title="Edit">edit</button>
+        <button id="btn-save" class="hide subheader-action menu-emphasis" title="Save changes"><span class="material-symbols-outlined">save</span></button>
+      </div>
+      <div class="user-actions">
+        <span id="complete-section">
+          <span id="complete-text" class="hide"><span class="material-symbols-outlined">done</span> <span id="complete-text-content"></span></span>
+          <button id="btn-complete" class="hide editor-only subheader-action"><span class="material-symbols-outlined">done</span> Mark as complete</button>
+        </span>
+        <button id="btn-recordsheets" class="subheader-action">
+          <span class="material-symbols-outlined">table_view</span>
+        </button>
+        <button id="btn-print" class="subheader-action">
+          <span class="material-symbols-outlined">print</span>
+          <span>Print</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<div class="assessment-build @(Model.IsEditor ? "is-editor" : "is-readonly")">
+  <div class="body-container" tabindex="0">
+    <div class="page-container">
+      <div id="scheme-of-work-sheet" class="section-hidden">
+        <div class="scheme-header">
+          <div class="scheme-heading">
+            <span class="scheme-label">Scheme of Work</span>
+            <h2 id="scheme-unit-title">@Model.UnitTitle</h2>
+          </div>
+          <div class="scheme-term-panel">
+            <span class="scheme-label">Term</span>
+            <div id="scheme-term"></div>
+          </div>
+        </div>
+        <div class="scheme-rationale-grid">
+          <section class="scheme-panel">
+            <h3>Why this?</h3>
+            <p id="scheme-why-this" class="scheme-copy"></p>
+          </section>
+          <section class="scheme-panel">
+            <h3>Why now?</h3>
+            <p id="scheme-why-now" class="scheme-copy"></p>
+          </section>
+        </div>
+        <section class="scheme-panel scheme-builder-panel">
+          <div class="scheme-builder-header">
+            <h3>Scheme Builder</h3>
+            <p>Use this space to draft the lesson sequence, key learning, activities and resources for the unit.</p>
+          </div>
+          <div id="scheme-builder-content" class="scheme-builder-content"></div>
+          <p id="scheme-builder-empty" class="scheme-builder-empty">Add the scheme of work here.</p>
+        </section>
+      </div>
+
+      <div id="key-knowledge-sheet">
+        <div class="header">
+          <div class="school-logo">
+            <img src="/images/school-logo.png" class="school-logo-image" alt="School Logo">
+          </div>
+          <div class="header-text">
+            <div class="title-section">
+              <h2 id="key-knowledge-course-title">@Model.CourseTitle Assessment</h2>
+              <h2 id="key-knowledge-assessment-title">@Model.UnitTitle</h2>
+            </div>
+            <div class="details-table kks">
+              <table>
+                <tr>
+                  <td>
+                    <h2>Key Knowledge Sheet</h2>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div id="key-knowledge-content">
+          <h3>Students must know that:</h3>
+          <ul id="declarative-list"></ul>
+          <h3>Students must be able to:</h3>
+          <ul id="procedural-list"></ul>
+          <div id="kki">
+            <button id="kki-add" class="kki-button"><span class="material-symbols-outlined">add</span> Add image</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="assessment">
+        <div class="header">
+          <div class="school-logo">
+            <img src="/images/school-logo.png" class="school-logo-image" alt="School Logo">
+          </div>
+          <div class="header-text">
+            <div class="title-section">
+              <h2 id="course-title">@Model.CourseTitle Assessment</h2>
+              <h2 id="assessment-title">@Model.UnitTitle</h2>
+            </div>
+            <div class="details-table">
+              <table>
+                <tr>
+                  <td>Full name:</td>
+                  <td class="input-field"><span class="mark-scheme">Mark Scheme</span></td>
+                  <td>Score:</td>
+                  <td class="input-field">/ <span class="assessment-total"></span></td>
+                </tr>
+                <tr>
+                  <td>Teacher:</td>
+                  <td class="input-field"></td>
+                  <td>Percentage:</td>
+                  <td class="input-field">%</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div id="assessment-content"></div>
+      </div>
+      <div id="quiz" class="section-hidden">
+        <div class="header">
+          <div class="school-logo">
+            <img src="/images/school-logo.png" class="school-logo-image" alt="School Logo">
+          </div>
+          <div class="header-text">
+            <div class="title-section">
+              <h2 id="quiz-course-title">@Model.CourseTitle Assessment</h2>
+              <h2 id="quiz-title">@Model.UnitTitle</h2>
+            </div>
+            <div class="details-table kks">
+              <table>
+                <tr>
+                  <td>
+                    <h2>Revision Quiz Questions</h2>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div id="quiz-content"></div>
+      </div>
+      <button id="import-assessment" class="ai-button"><span class="material-symbols-outlined">upload</span>Import existing assessment</button>
+      <button id="import-keyknowledge" class="ai-button"><span class="material-symbols-outlined">graph_3</span>Generate key knowledge from scheme</button>
+    </div>
+  </div>
+
+  <div id="modal">
+    <div id="modal-content">
+      <div id="modal-header">
+        <h2 id="modal-title"></h2>
+        <button id="modal-close" class="material-symbols-outlined">close</button>
+      </div>
+      <div id="modal-body">
+        <p id="modal-body-content"></p>
+        <textarea id="modal-text"></textarea>
+        <div id="modal-numbers" class="hide">
+          <label>Multiple choice questions: <input id="modal-multiple-choice-count" type="number" value="10" min="0" max="20" step="1" inputmode="numeric" /></label>
+          <label>Short answer questions: <input id="modal-short-answer-count" type="number" value="5" min="0" max="20" step="1" inputmode="numeric" /></label>
+        </div>
+      </div>
+      <div id="modal-footer">
+        <span id="modal-wait">This uses advanced AI and may take several minutes.</span>
+        <button id="modal-submit" class="btn"><span class="spinner"></span><span id="modal-submit-text"></span></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="csrf"><input type="hidden" name="__RequestVerificationToken" value="@Model.CsrfToken" /></div>
+</div>
+
+@section Scripts {
+  <script>
+    const courseId = @Html.Raw(Model.CourseIdJson);
+    const unitId = @Html.Raw(Model.UnitIdJson);
+    const unit = @Html.Raw(Model.UnitJson);
+    const keyKnowledge = @Html.Raw(Model.KeyKnowledgeJson);
+    const assessment = @Html.Raw(Model.AssessmentJson);
+    const questionBank = @Html.Raw(Model.QuestionBankJson);
+    const isEditor = @Html.Raw(Model.IsEditorJson);
+    const isAdmin = @Html.Raw(Model.IsAdminJson);
+    let isAssessmentComplete = @Html.Raw(Model.AssessmentCompleteJson);
+    let isKeyKnowledgeComplete = @Html.Raw(Model.KeyKnowledgeCompleteJson);
+    let isQuizComplete = @Html.Raw(Model.QuizCompleteJson);
+    window.MathJax = { tex: { inlineMath: [['`', '`']], displayMath: [['$$', '$$']] } };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@4.1.0/tex-chtml.min.js" integrity="sha512-OUE6LMU3sCcbrGuCJgFD7eUyCQ616tVd2BkntHCyKBu7FGDp35bZAwjSKXINYcjWN6MjCS+wdGbGWPG2vngzgA==" crossorigin="anonymous"></script>
+  <script src="/js/scheme-builder.js"></script>
+  <script src="/js/assessment-main.js"></script>
+  <script src="/js/assessment-render.js"></script>
+  <script src="/js/assessment-edit.js"></script>
+}

@@ -1,0 +1,163 @@
+@page "/courses"
+@model CurriculumPortal.CoursesModel
+@{
+  ViewData["Title"] = $"Curriculum - {Model.SchoolName}";
+}
+
+@section Head {
+  <link rel="stylesheet" href="/css/curriculum.css" />
+}
+
+<div id="curriculum-app">
+  <aside id="course-column" class="active" tabindex="0" aria-label="Course list">
+    <ul id="course-list"></ul>
+  </aside>
+  <main>
+    <div id="course-detail">
+      <p class="course-placeholder">Select a course.</p>
+    </div>
+    <div id="unit-detail"></div>
+    <div id="unit-quiz">
+      <button id="quiz-back" class="back-button material-symbols-outlined">arrow_back</button>
+      <div class="quiz-shell">
+        <h2><span id="quiz-title"></span><br />Revision Quiz</h2>
+        <div id="quiz-play">
+          <div id="progress-container"><div id="progress"></div></div>
+          <div id="question"></div>
+          <div class="answers">
+            <button id="answer1"></button>
+            <button id="answer2"></button>
+          </div>
+          <div id="outcome"></div>
+        </div>
+        <div id="quiz-result" class="hide">
+          <span class="material-symbols-outlined">trophy</span>
+          <span class="congratulations">Congratulations! You have completed the quiz.</span>
+          <button id="quiz-restart">Restart</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="modal">
+  <div id="modal-content">
+    <div id="modal-header">
+      <h2 id="modal-title"></h2>
+      <button id="modal-close" class="material-symbols-outlined" aria-label="Close modal">close</button>
+    </div>
+    <div id="modal-body">
+      <p id="modal-body-question"></p>
+      <div id="modal-text-container">
+        <p id="modal-body-example" class="grey"></p>
+        <textarea id="modal-text"></textarea>
+      </div>
+      <div id="modal-select-container">
+        <select id="modal-select">
+          <option value="Autumn">Autumn</option>
+          <option value="Spring">Spring</option>
+          <option value="Summer">Summer</option>
+        </select>
+      </div>
+      <div id="modal-checklist-container" class="hide"></div>
+    </div>
+    <div id="modal-footer">
+      <button id="modal-save" class="btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="csrf"><input type="hidden" name="__RequestVerificationToken" value="@Model.CsrfToken" /></div>
+
+<template id="tpl-course-item">
+  <li class="course-item" data-course-id="">
+    <span class="material-symbols-outlined">book</span><span class="course-name"></span>
+  </li>
+</template>
+
+<template id="tpl-course-placeholder">
+  <p class="course-placeholder">Select a course.</p>
+</template>
+
+<template id="tpl-back-course">
+  <button class="back-button material-symbols-outlined" data-action="back-course">arrow_back</button>
+</template>
+
+<template id="tpl-course-title">
+  <h2 class="course-title"></h2>
+</template>
+
+<template id="tpl-course-info">
+  <p class="course-info">
+    <b><span class="material-symbols-outlined icon"></span><span class="label"></span></b> <span class="value"></span>
+  </p>
+</template>
+
+<template id="tpl-no-course-info">
+  <p class="course-info">There is not yet any information about this course.</p>
+</template>
+
+<template id="tpl-year-group-section">
+  <div class="year-group-section">
+    <b class="year-group-heading"><span class="material-symbols-outlined">stacks</span><span class="year-title"></span></b>
+    <ul class="units-list"></ul>
+    <div class="no-units hide">No units configured</div>
+  </div>
+</template>
+
+<template id="tpl-unit-item">
+  <li class="unit-item" data-id="">
+    <span class="material-symbols-outlined">assignment</span><span><strong class="unit-title"></strong><span class="term-text"></span></span>
+  </li>
+</template>
+
+<template id="tpl-unit-header">
+  <div class="unit-header">
+    <button class="back-button material-symbols-outlined" data-action="back-to-course">arrow_back</button>
+    <h2 class="unit-title"></h2>
+  </div>
+</template>
+
+<template id="tpl-unit-rationale">
+  <div class="unit-rationale">
+    <p class="why-this hide"><span class="material-symbols-outlined">info</span><span><strong>Why this?</strong> <span class="text"></span></span></p>
+    <p class="why-now hide"><span class="material-symbols-outlined">schedule</span><span><strong>Why now?</strong> <span class="text"></span></span></p>
+  </div>
+</template>
+
+<template id="tpl-key-knowledge">
+  <div class="key-knowledge">
+    <div id="declarative-header-container"><h3><span class="material-symbols-outlined">neurology</span>You need to know</h3></div>
+    <div id="declarative-knowledge"><div class="loading">Loading...</div></div>
+    <h3><span class="material-symbols-outlined">rocket_launch</span>You must be able to</h3>
+    <div id="procedural-knowledge"><div class="loading">Loading...</div></div>
+  </div>
+</template>
+
+<template id="tpl-no-unit-info">
+  <p class="course-info">There is not yet any information about this unit.</p>
+</template>
+
+<template id="tpl-outcome">
+  <span>
+    <span class="material-symbols-outlined"></span><span class="outcome-text"></span>
+  </span>
+</template>
+
+@section Scripts {
+  <script>
+    const courses = @Html.Raw(Model.CoursesJson);
+    const units = @Html.Raw(Model.UnitsJson);
+    const editableCourseIds = @Html.Raw(Model.EditableCourseIdsJson);
+    const isAdmin = @Html.Raw(Model.IsAdminJson);
+    const checklistItems = @Html.Raw(Model.ChecklistItemsJson);
+    const isStaff = @(Model.IsStaff ? "true" : "false");
+    const isEditableStaff = @(Model.IsEditableStaff ? "true" : "false");
+    const microsoftSharePointSubdomain = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MicrosoftSharePointSubdomain));
+    const csrfToken = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CsrfToken));
+    window.MathJax = { tex: { inlineMath: [['`', '`'], ['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] } };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@4.1.0/tex-chtml.min.js" integrity="sha512-OUE6LMU3sCcbrGuCJgFD7eUyCQ616tVd2BkntHCyKBu7FGDp35bZAwjSKXINYcjWN6MjCS+wdGbGWPG2vngzgA==" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js" integrity="sha512-ri8dokds012Oxz+iFzMs4KNJXVc+h7J1zq6unM1NTtzBLj4jD1R5BWiK6QycK0TdSdkt7zYcIcv6sUPhmYkbdQ==" crossorigin="anonymous"></script>
+  <script src="/js/curriculum-home.js"></script>
+}

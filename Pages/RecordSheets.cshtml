@@ -1,0 +1,45 @@
+@page "/courses/{courseId}/{unitId}/build/recordsheets"
+@model CurriculumPortal.RecordSheetsModel
+@{
+  Layout = null;
+  var totalMaxScore = Model.Data.Elements.Sum(e => e.MaxMarks);
+}
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@Model.Data.UnitTitle - Record Sheets</title>
+  <link rel="stylesheet" href="/css/recordsheets.css" />
+</head>
+<body>
+  @foreach (var cls in Model.Data.Classes)
+  {
+    <h1>@Model.Data.UnitTitle - @cls.Name</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>Student</th>
+          @foreach (var element in Model.Data.Elements)
+          {
+            <th>@element.Title <span class="marks">(@element.MaxMarks)</span></th>
+          }
+          <th>Total <span class="marks">(@totalMaxScore)</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach (var student in cls.Students)
+        {
+          <tr>
+            <td>@student</td>
+            @foreach (var _ in Model.Data.Elements)
+            {
+              <td></td>
+            }
+            <td></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</body>
+</html>

@@ -1,0 +1,21 @@
+@page "/assignments"
+@model CurriculumPortal.AssignmentsModel
+
+@section Head {
+  <link rel="stylesheet" href="/css/assignments.css" />
+}
+
+<div id="assignments-app" class="assignments-page">
+  <div class="assignments-shell">
+    <div id="assignments-root" class="assignments-root">
+      <p class="assignments-empty">Loading assignments...</p>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+  <script>
+    const assignmentsData = @Html.Raw(Model.PageDataJson);
+  </script>
+  <script src="/js/assignments.js"></script>
+}
