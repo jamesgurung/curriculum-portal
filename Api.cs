@@ -13,6 +13,12 @@ public static class Api
   {
     app.MapGet("/error", [AllowAnonymous] () => Results.Content("An error occurred.", "text/plain"));
 
+    app.MapGet("/refresh", [Authorize(Roles = Roles.Admin)] async (ConfigService config) =>
+    {
+      await config.ReloadAsync();
+      return Results.NoContent();
+    });
+
     app.MapGet("/images/school-logo.png", [AllowAnonymous] (HttpContext context, ConfigService config) =>
     {
       var logo = config.SchoolLogoBytes;

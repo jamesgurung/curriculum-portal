@@ -52,6 +52,12 @@ public partial class ConfigService(AppOptions options)
       var logoResponse = await _configClient.GetBlobClient("school-logo.png").DownloadContentAsync();
       SchoolLogoBytes = logoResponse.Value.Content.ToArray();
 
+      if (forceRefresh)
+      {
+        _classChartsBehavioursLoaded = false;
+        _classChartsBehaviours = new();
+      }
+
       _isLoaded = true;
     }
     finally
