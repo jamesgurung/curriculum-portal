@@ -28,6 +28,12 @@ Deploy effortlessly to Microsoft Azure.
         Start,End
         ```
 
+    * Upload `exemptions.csv` with the following header and one user ID per row for students who should not receive the negative Class Charts behaviour for incomplete homework. If there are no exemptions, this file can be left blank.
+
+      ```csv
+      UserId
+      ```
+
     * If you are using Class Charts to record behaviour events, upload `classcharts-behaviours.json` containing the behaviour settings for `positive` and `negative`.
 
         ```json

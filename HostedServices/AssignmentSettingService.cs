@@ -25,7 +25,7 @@ public class AssignmentSettingService(AssignmentService assignmentService, Teams
             var classChartsService = new ClassChartsService(options, configService);
             var students = await assignmentService.GetStudentsWithCompletionAsync(today);
             var positiveStudents = students.Where(o => o.CompletionRate >= options.AssignmentCompletionHighThreshold).Select(o => o.Student).ToList();
-            var negativeStudents = students.Where(o => o.CompletionRate < options.AssignmentCompletionLowThreshold).Select(o => o.Student).ToList();
+            var negativeStudents = students.Where(o => o.CompletionRate < options.AssignmentCompletionLowThreshold && !configService.Exemptions.Contains(o.Student.Id)).Select(o => o.Student).ToList();
             await classChartsService.IssueBehaviours(positiveStudents, negativeStudents);
             logger.LogInformation("Issued {PositiveCount} positive and {NegativeCount} negative Class Charts behaviour events.", positiveStudents.Count, negativeStudents.Count);
           }

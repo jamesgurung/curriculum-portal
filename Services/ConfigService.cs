@@ -23,6 +23,7 @@ public partial class ConfigService(AppOptions options)
   public IReadOnlyList<User> Teachers { get; private set; }
   public IReadOnlyList<User> Students { get; private set; }
   public IReadOnlyList<Holiday> Holidays { get; private set; } = [];
+  public HashSet<int> Exemptions { get; private set; } = [];
   public IReadOnlyList<ChecklistItemConfig> ChecklistItems { get; private set; } = [];
 
   public Task LoadAsync()
@@ -44,6 +45,7 @@ public partial class ConfigService(AppOptions options)
       Teachers = ParseUsers(await ReadBlobAsync("teachers.csv"), true);
       Students = ParseUsers(await ReadBlobAsync("students.csv"), false);
       Holidays = ParseHolidays(await ReadBlobAsync("holidays.csv"));
+      Exemptions = ParseExemptions(await ReadBlobAsync("exemptions.csv"));
       ChecklistItems = ParseChecklistItems(await ReadBlobAsync("checklist.json"));
       UsersByEmail = Teachers.Concat(Students).ToDictionary(o => o.Email, o => o, StringComparer.OrdinalIgnoreCase);
 
@@ -154,6 +156,25 @@ public partial class ConfigService(AppOptions options)
     }
 
     return records.OrderBy(o => o.Start).ToList();
+  }
+
+  private static HashSet<int> ParseExemptions(string csv)
+  {
+    if (string.IsNullOrWhiteSpace(csv)) return [];
+
+    using var reader = new StringReader(csv.Trim());
+    using var csvReader = new CsvReader(reader, CreateCsvConfiguration());
+    var records = new HashSet<int>();
+    if (!csvReader.Read()) return records;
+
+    csvReader.ReadHeader();
+    while (csvReader.Read())
+    {
+      if (!int.TryParse(csvReader.GetField("UserId"), out var userId)) continue;
+      records.Add(userId);
+    }
+
+    return records;
   }
 
   private static ClassChartsBehaviourSet ParseClassChartsBehaviours(string json)
