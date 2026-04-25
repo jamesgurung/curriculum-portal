@@ -70,7 +70,7 @@ Deploy effortlessly to Microsoft Azure.
 
     * Upload `school-logo.png`.
 
-3. If you are using [Microsoft Foundry](https://ai.azure.com/), create a project and deploy an OpenAI reasoning model (e.g. `gpt-5.4`). Set `MicrosoftFoundryEndpoint` to use Microsoft Foundry. If `MicrosoftFoundryEndpoint` is not set, the app uses the direct OpenAI API instead.
+3. If you are using [Microsoft Foundry](https://ai.azure.com/), create a project and deploy an OpenAI reasoning model (e.g. `gpt-5.5`). Set `MicrosoftFoundryEndpoint` to use Microsoft Foundry. If `MicrosoftFoundryEndpoint` is not set, the app uses the direct OpenAI API instead.
 
 4. Create an Azure app registration.
     * Name - `Curriculum Portal`

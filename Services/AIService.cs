@@ -86,7 +86,7 @@ public partial class AIService
     var options = new CreateResponseOptions
     {
       Instructions = systemMessage,
-      ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = "low" },
+      ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Low },
       StoredOutputEnabled = false,
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("assessment", schema, jsonSchemaIsStrict: true) },
       Model = _model
@@ -128,6 +128,7 @@ public partial class AIService
       - Use Tier 3 vocabulary and student-friendly language that is clear and accessible.
       - Avoid long, complex sentences and prefer plain English instead of technical notation.
       - Avoid the trap of the correct answers being noticably longer than the incorrect answers.
+      - During quizzing, the question will be shown for a few seconds before the options appear. Therefore, make sure the question text is answerable in its own right without seeing the options.
       - Use British English spelling and terminology.
       - For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted.
       """.Trim();
@@ -159,19 +160,88 @@ public partial class AIService
       }
       """u8.ToArray());
 
-    var options = new CreateResponseOptions
+    string CreateUserMessage(IEnumerable<string> knowledgeItems)
     {
-      Instructions = systemMessage,
-      ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = "medium" },
-      StoredOutputEnabled = false,
-      TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
-      Model = _model
-    };
+      return $"# Year {unit.YearGroup} (age {unit.YearGroup + 4}) - {unit.Title}\n\n" + string.Join("\n", knowledgeItems.Select(o => $"* {o}"));
+    }
 
-    options.InputItems.Add(ResponseItem.CreateUserMessageItem($"# Year {unit.YearGroup} (age {unit.YearGroup + 4}) - {unit.Title}\n\n" + string.Join("\n", keyKnowledge.DeclarativeKnowledge.Select(o => $"* {o}"))));
-    var response = await client.CreateResponseAsync(options, cancellationToken);
-    var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
-    return JsonSerializer.Deserialize<QuestionBank>(json, JsonOptions)?.Questions ?? [];
+    CreateResponseOptions CreateOptions(IEnumerable<string> knowledgeItems)
+    {
+      var options = new CreateResponseOptions
+      {
+        Instructions = systemMessage,
+        ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
+        StoredOutputEnabled = false,
+        TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
+        Model = _model
+      };
+
+      options.InputItems.Add(ResponseItem.CreateUserMessageItem(CreateUserMessage(knowledgeItems)));
+      return options;
+    }
+
+    async Task<List<QuestionBankQuestion>> GenerateQuizQuestionsForItemsAsync(IEnumerable<string> knowledgeItems)
+    {
+      var options = CreateOptions(knowledgeItems);
+      var response = await client.CreateResponseAsync(options, cancellationToken);
+      var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
+      return JsonSerializer.Deserialize<QuestionBank>(json, JsonOptions)?.Questions ?? [];
+    }
+
+    if (unit.YearGroup < 10)
+    {
+      return await GenerateQuizQuestionsForItemsAsync(keyKnowledge.DeclarativeKnowledge);
+    }
+
+    async Task<List<QuestionBankQuestion>> GenerateBatchWithRetryAsync(string[] knowledgeItems)
+    {
+      const int maxAttempts = 3;
+      for (var attempt = 1; ; attempt++)
+      {
+        try
+        {
+          return await GenerateQuizQuestionsForItemsAsync(knowledgeItems);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException && attempt < maxAttempts)
+        {
+          await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)), cancellationToken);
+        }
+      }
+    }
+
+    List<string[]> CreateKnowledgeBatches()
+    {
+      if (keyKnowledge.DeclarativeKnowledge.Count < 40)
+      {
+        // Counts 31-39 cannot be split into multiple 20-30 item batches.
+        return [keyKnowledge.DeclarativeKnowledge.ToArray()];
+      }
+
+      var batchCount = (int)Math.Ceiling(keyKnowledge.DeclarativeKnowledge.Count / 30d);
+      var batchSize = keyKnowledge.DeclarativeKnowledge.Count / batchCount;
+      var largerBatchCount = keyKnowledge.DeclarativeKnowledge.Count % batchCount;
+      var batches = new List<string[]>(batchCount);
+      var index = 0;
+
+      for (var i = 0; i < batchCount; i++)
+      {
+        var currentBatchSize = batchSize + (i < largerBatchCount ? 1 : 0);
+        batches.Add(keyKnowledge.DeclarativeKnowledge.Skip(index).Take(currentBatchSize).ToArray());
+        index += currentBatchSize;
+      }
+
+      return batches;
+    }
+
+    var batches = CreateKnowledgeBatches().Select((items, index) => (Items: items, Index: index)).ToList();
+    var results = new List<QuestionBankQuestion>[batches.Count];
+
+    await Parallel.ForEachAsync(batches, new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cancellationToken }, async (batch, _) =>
+    {
+      results[batch.Index] = await GenerateBatchWithRetryAsync(batch.Items);
+    });
+
+    return results.SelectMany(o => o ?? []).ToList();
   }
 
   public async Task<int> CreateQuizQuestionsAsync(CancellationToken cancellationToken = default)
@@ -217,7 +287,7 @@ public partial class AIService
 
     var questionText = $"{question.Question} ({question.Marks} mark{(question.Marks == 1 ? "" : "s")})";
     string specificInstructions;
-    var reasoningEffort = "none";
+    var reasoningEffort = ResponseReasoningEffortLevel.None;
 
     if (question.Answers is not null && question.Answers.Count == 4)
     {
@@ -240,7 +310,7 @@ public partial class AIService
         specificInstructions += "\n* You MUST preface each line of working with 'M1: ' for a method mark, 'A1: ' for an accuracy (answer) mark, or possibly M2, A2, etc. where multiple marks are issued at once (in which case, the next line must show in brackets how the corresponding M1 or A1 would be awarded).";
       }
 
-      reasoningEffort = "low";
+      reasoningEffort = ResponseReasoningEffortLevel.Low;
     }
     else
     {
@@ -250,7 +320,7 @@ public partial class AIService
         specificInstructions += "\n* You MUST preface each line of working with 'M1: ' for a method mark, 'A1: ' for an accuracy (answer) mark, or possibly M2, A2, etc. where multiple marks are issued at once (in which case, the next line must show in brackets how the corresponding M1 or A1 would be awarded).";
       }
 
-      reasoningEffort = "medium";
+      reasoningEffort = ResponseReasoningEffortLevel.Medium;
     }
 
     if (question.SuccessCriteria is not null && question.SuccessCriteria.Count > 0)
@@ -351,7 +421,7 @@ public partial class AIService
     var options = new CreateResponseOptions
     {
       Instructions = systemMessage,
-      ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = "medium" },
+      ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
       StoredOutputEnabled = false,
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("keyKnowledge", schema, jsonSchemaIsStrict: true) },
       Model = _model
@@ -459,7 +529,7 @@ public partial class AIService
     var options = new CreateResponseOptions
     {
       Instructions = systemMessage,
-      ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = "medium" },
+      ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
       StoredOutputEnabled = false,
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
       Model = _model

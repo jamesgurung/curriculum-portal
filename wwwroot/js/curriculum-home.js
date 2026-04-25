@@ -114,7 +114,7 @@ const elements = {
   selectContainer: document.getElementById('modal-select-container')
 };
 
-const state = { courseId: null, unitId: null, courseEditable: false, editMode: false, quizQuestions: [], remainingQuestions: [] };
+const state = { courseId: null, unitId: null, courseEditable: false, editMode: false, quizQuestions: [], remainingQuestions: [], activeQuizQuestionCount: 0 };
 const coursesRootPath = '/courses';
 const coursesPathPrefix = '/courses/';
 
@@ -866,6 +866,7 @@ function setupSortable() {
 function resetQuizState() {
   state.quizQuestions = [];
   state.remainingQuestions = [];
+  state.activeQuizQuestionCount = 0;
 }
 
 async function showUnit(unitId, options = {}) {
@@ -1148,12 +1149,14 @@ function startQuiz(skipHistoryUpdate = false) {
     state.remainingQuestions = state.quizQuestions
       .map(question => [question, Math.random()])
       .sort((a, b) => a[1] - b[1])
-      .map(([question]) => question);
+      .map(([question]) => question)
+      .slice(0, 30);
+    state.activeQuizQuestionCount = state.remainingQuestions.length;
   }
 
   elements.quizTitle.textContent = unit.title;
   showQuestion();
-  elements.progress.style.width = `${(state.quizQuestions.length - state.remainingQuestions.length) / state.quizQuestions.length * 100}%`;
+  updateQuizProgress();
 
   if (!skipHistoryUpdate) {
     updateDisplayPath(buildCurriculumPath(state.courseId, state.unitId, 'quiz'));
@@ -1167,6 +1170,11 @@ function startQuiz(skipHistoryUpdate = false) {
   elements.quizPlay.classList.remove('hide');
   elements.quizResult.classList.add('hide');
 }
+
+function updateQuizProgress() {
+  elements.progress.style.width = `${(state.activeQuizQuestionCount - state.remainingQuestions.length) / state.activeQuizQuestionCount * 100}%`;
+}
+
 function showQuestion() {
   const question = state.remainingQuestions[0];
   elements.question.textContent = question.question;
@@ -1207,7 +1215,7 @@ async function answer(button) {
 
     elements.outcome.appendChild(outcome);
     elements.outcome.style.color = 'var(--success)';
-    elements.progress.style.width = `${(state.quizQuestions.length - state.remainingQuestions.length) / state.quizQuestions.length * 100}%`;
+    updateQuizProgress();
     await new Promise(resolve => setTimeout(resolve, 1000));
   } else {
     button.classList.add('incorrect');

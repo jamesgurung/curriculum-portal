@@ -750,7 +750,7 @@ function showModal(event) {
     if (questionBank.questions.length > 0 && !confirm('Are you sure you want to replace all existing quiz questions? This cannot be undone.')) return;
     document.getElementById('modal').classList.add('active');
     document.getElementById('modal-title').textContent = 'Replace quiz questions from key knowledge';
-    document.getElementById('modal-body-content').textContent = 'Generate a new 20-30 question revision quiz from the unit key knowledge.';
+    document.getElementById('modal-body-content').textContent = 'Generate a new revision quiz from the unit key knowledge.';
     document.getElementById('modal-submit-text').textContent = 'Generate';
     document.getElementById('modal-text').classList.add('hide');
     document.getElementById('modal-submit').onclick = async () => {

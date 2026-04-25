@@ -11,15 +11,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Core" Version="1.52.0" />
+    <PackageReference Include="Azure.Core" Version="1.54.0" />
     <PackageReference Include="Azure.Data.Tables" Version="12.11.0" />
     <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.1" />
-    <PackageReference Include="Azure.Identity" Version="1.20.0" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.29.0-beta.1" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="LigerShark.WebOptimizer.Core" Version="3.0.477" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="11.0.0-preview.2.26159.112" />
-    <PackageReference Include="Microsoft.Graph.Beta" Version="5.132.0-preview" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="11.0.0-preview.3.26207.106" />
+    <PackageReference Include="Microsoft.Graph.Beta" Version="5.134.0-preview" />
     <PackageReference Include="OpenAI" Version="2.10.0" />
   </ItemGroup>
 
