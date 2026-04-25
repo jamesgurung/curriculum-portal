@@ -27,10 +27,10 @@ public class AssignmentService
     _courseService = courseService;
   }
 
-  public async Task<HashSet<int>> GenerateAssignments(DateOnly dueDate)
+  public async Task<HashSet<string>> GenerateAssignments(DateOnly dueDate)
   {
     if (dueDate.DayOfWeek != DayOfWeek.Monday) throw new InvalidOperationException("Assignments must be due on Mondays");
-    var yearGroupsWithAssignments = new HashSet<int>();
+    var assignmentPartitionKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     var courses = await _courseService.ListCoursesAsync();
     foreach (var course in courses.Where(o => o.AssignmentLength > 0))
     {
@@ -51,7 +51,7 @@ public class AssignmentService
         var existing = await _assignmentsClient.GetEntityIfExistsAsync<AssignmentEntity>(assignment.PartitionKey, assignment.RowKey);
         if (existing.HasValue)
         {
-          yearGroupsWithAssignments.Add(yearGroup);
+          assignmentPartitionKeys.Add(assignment.PartitionKey);
           continue;
         }
 
@@ -77,7 +77,7 @@ public class AssignmentService
 
         if (selectedQuestions.Count < course.AssignmentLength) continue;
         await _assignmentsClient.AddEntityAsync(assignment);
-        yearGroupsWithAssignments.Add(yearGroup);
+        assignmentPartitionKeys.Add(assignment.PartitionKey);
 
         var questionEntities = new List<AssignmentQuestionEntity>(selectedQuestions.Count);
         for (var i = 0; i < selectedQuestions.Count; i++)
@@ -99,7 +99,7 @@ public class AssignmentService
         await _questionsClient.BatchAddAsync(questionEntities);
       }
     }
-    return yearGroupsWithAssignments;
+    return assignmentPartitionKeys;
   }
 
   public DateOnly ResolveDueDate(DateOnly dueDate)
