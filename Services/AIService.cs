@@ -119,9 +119,14 @@ public partial class AIService
       Think carefully and reason about all your proposed questions and answers before generating a response. Criteria include:
       - Each question must be multiple-choice with one correct answer and three incorrect answers.
       - The incorrect answers MUST be plausible and not easily dismissable, yet unambiguously wrong.
+      - Incorrect answers must be credible alternatives that a student might genuinely confuse with the correct answer. They should be from the same category, use the same grammatical form, and have a similar level of specificity and realism.
+      - Do not use absurd, extreme, or giveaway distractors, including simple opposites or negations of the correct answer.
+      - Before finalising each question, reject and rewrite any answer option that a student could eliminate without knowing the lesson content.
       - Design the questions to draw out common misconceptions.
       - The difficulty and language should be appropriate for the age of the students. If the key knowledge seems inappropriately easy or difficult for the age group, adjust the questions accordingly to ensure a suitable level of challenge.
       - Make sure every single knowledge item is covered by at least one question. If there are more than 30 knowledge items, prioritise the most important facts that students need to know and remember.
+      - Ensure each question is worded so that it makes sense and is self-contained and answerable in its own right, without relying on any other context.
+      - Before returning the final JSON, silently reject and rewrite any question with ambiguous wording, multiple defensible answers, clueing, or answer options that are obviously implausible using common sense.
       
       # Style
       - Keep all questions and answers as succinct as possible. All answer options should be one word or a short phrase.
@@ -445,8 +450,13 @@ public partial class AIService
     # Multiple-choice questions    
     You must write {model.MultipleChoiceCount} multiple-choice questions, each with one correct answer and three incorrect answers.
     - The incorrect answers MUST be plausible and not easily dismissable, yet unambiguously wrong.
+    - Incorrect answers must be credible alternatives that a student might genuinely confuse with the correct answer. They should be from the same category, use the same grammatical form, and have a similar level of specificity and realism.
+    - Do not use absurd, extreme, or giveaway distractors, including simple opposites or negations of the correct answer.
+    - Before finalising each question, reject and rewrite any answer option that a student could eliminate without knowing the lesson content.
     - Design the questions to draw out common misconceptions.
     - The difficulty and language should be appropriate for secondary school students.
+    - Ensure each question is worded so that it makes sense and is self-contained and answerable in its own right, without relying on the answer options or any other context.
+    - Before returning the final JSON, silently reject and rewrite any question with ambiguous wording, multiple defensible answers, clueing, or answer options that are obviously implausible using common sense.
     - All answer options should be one word or a short phrase. Avoid the trap of the correct answers being noticably longer than the incorrect answers.
 
     # Short-answer questions
