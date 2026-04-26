@@ -15,16 +15,19 @@ public class AssignmentSettingService(
   ILogger<AssignmentSettingService> logger) : BackgroundService
 {
   private static readonly TimeSpan ReauthenticationReminderWindow = TimeSpan.FromDays(14);
+  private static readonly TimeZoneInfo _ukTime = TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time");
 
   protected override async Task ExecuteAsync(CancellationToken stoppingToken)
   {
     while (!stoppingToken.IsCancellationRequested)
     {
-      // Run every Monday at midday
-      var now = DateTimeOffset.Now;
+      // Run every Monday at 08:05
+      var utcNow = DateTime.UtcNow;
+      var now = TimeZoneInfo.ConvertTimeFromUtc(utcNow, _ukTime);
       var daysUntilMonday = ((int)DayOfWeek.Monday - (int)now.DayOfWeek + 7) % 7;
-      if (daysUntilMonday == 0 && now.TimeOfDay >= TimeSpan.FromHours(12)) daysUntilMonday = 7;
-      var wait = now.Date.AddDays(daysUntilMonday).AddHours(12) - now;
+      if (daysUntilMonday == 0 && now.TimeOfDay >= TimeSpan.FromMinutes(485)) daysUntilMonday = 7;
+      var nextRun = now.Date.AddDays(daysUntilMonday).AddHours(8).AddMinutes(5);
+      var wait = TimeZoneInfo.ConvertTimeToUtc(nextRun, _ukTime) - utcNow;
 
       try
       {
