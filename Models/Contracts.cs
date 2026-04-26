@@ -191,6 +191,8 @@ public class ClassCompletionReport
 public class CompletionStudentRow
 {
   public string Name { get; set; } = string.Empty;
+  public string FirstName { get; set; } = string.Empty;
+  public string LastName { get; set; } = string.Empty;
   public int CompletedQuestions { get; set; }
   public int TotalQuestions { get; set; }
   public int CompletionPercentage { get; set; }

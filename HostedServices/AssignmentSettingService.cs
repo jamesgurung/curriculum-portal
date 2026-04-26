@@ -139,43 +139,55 @@ public class AssignmentSettingService(
     }], cancellationToken);
   }
 
-  private async Task SendCompletionEmailsAsync(DateOnly dueDate, CancellationToken cancellationToken)
+  public async Task<(int TutorEmails, int TeacherEmails)> SendTestCompletionEmailsAsync(CancellationToken cancellationToken)
+  {
+    var now = DateOnly.FromDateTime(DateTime.UtcNow);
+    var dueDate = now.AddDays(((int)DayOfWeek.Monday - (int)now.DayOfWeek + 7) % 7);
+    dueDate = assignmentService.ResolveDueDate(dueDate);
+    return await SendCompletionEmailsAsync(dueDate, options.AdminEmails.First(), true, cancellationToken);
+  }
+
+  private async Task<(int TutorEmails, int TeacherEmails)> SendCompletionEmailsAsync(DateOnly dueDate, CancellationToken cancellationToken)
+    => await SendCompletionEmailsAsync(dueDate, null, false, cancellationToken);
+
+  private async Task<(int TutorEmails, int TeacherEmails)> SendCompletionEmailsAsync(DateOnly dueDate, string recipientOverride, bool firstOnly, CancellationToken cancellationToken)
   {
     var reports = await assignmentService.GetWeeklyCompletionReportsAsync(dueDate);
-    if (reports.Tutors.Count == 0 && reports.Teachers.Count == 0) return;
+    if (reports.Tutors.Count == 0 && reports.Teachers.Count == 0) return (0, 0);
 
     using var scope = serviceScopeFactory.CreateScope();
     var emailTemplateService = scope.ServiceProvider.GetRequiredService<EmailTemplateService>();
     var httpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
     var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
     var emails = new List<Email>();
+    var tutorReports = reports.Tutors.Take(firstOnly ? 1 : int.MaxValue).ToList();
+    var teacherReports = reports.Teachers.Take(firstOnly ? 1 : int.MaxValue).ToList();
 
-    foreach (var report in reports.Tutors)
+    foreach (var report in tutorReports)
     {
       emails.Add(new Email
       {
-        To = [report.Tutor.Email],
-        Subject = $"Assignment completion - {report.TutorGroup} - {reports.DueDateLabel}",
-        Body = await emailTemplateService.BuildTutorCompletionEmailAsync(actionContext, report),
-        Attachments = [emailTemplateService.CreateLogoAttachment(configService.SchoolLogoBytes)]
+        To = [recipientOverride ?? report.Tutor.Email],
+        Subject = EmailTemplateService.GetTutorCompletionTitle(report),
+        Body = await emailTemplateService.BuildTutorCompletionEmailAsync(actionContext, report)
       });
     }
 
-    foreach (var report in reports.Teachers)
+    foreach (var report in teacherReports)
     {
       emails.Add(new Email
       {
-        To = [report.Teacher.Email],
-        Subject = $"Assignment completion - {reports.DueDateLabel}",
-        Body = await emailTemplateService.BuildTeacherCompletionEmailAsync(actionContext, report),
-        Attachments = [emailTemplateService.CreateLogoAttachment(configService.SchoolLogoBytes)]
+        To = [recipientOverride ?? report.Teacher.Email],
+        Subject = EmailTemplateService.GetTeacherCompletionTitle(report),
+        Body = await emailTemplateService.BuildTeacherCompletionEmailAsync(actionContext, report)
       });
     }
 
-    if (emails.Count == 0) return;
+    if (emails.Count == 0) return (0, 0);
 
     await mailService.SendAsync(emails, cancellationToken);
-    logger.LogInformation("Sent {TutorEmailCount} tutor and {TeacherEmailCount} teacher completion emails.", reports.Tutors.Count, reports.Teachers.Count);
+    logger.LogInformation("Sent {TutorEmailCount} tutor and {TeacherEmailCount} teacher completion emails.", tutorReports.Count, teacherReports.Count);
+    return (tutorReports.Count, teacherReports.Count);
   }
 
   private static bool IsExamYearExempt(User student, DateOnly dueDate)

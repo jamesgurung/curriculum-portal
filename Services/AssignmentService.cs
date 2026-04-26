@@ -1006,12 +1006,15 @@ public class AssignmentService
       .Select(o => new CompletionStudentRow
       {
         Name = o.Student.DisplayName,
+        FirstName = o.Student.FirstName,
+        LastName = o.Student.LastName,
         CompletedQuestions = o.Cell.Completed,
         TotalQuestions = o.Cell.Total,
         CompletionPercentage = GetCompletionPercentage(o.Cell.Completed, o.Cell.Total)
       })
       .OrderByDescending(o => o.CompletionPercentage)
-      .ThenBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
+      .ThenBy(o => o.LastName, StringComparer.OrdinalIgnoreCase)
+      .ThenBy(o => o.FirstName, StringComparer.OrdinalIgnoreCase)
       .ToList();
   }
 

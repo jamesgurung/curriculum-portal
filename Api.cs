@@ -683,6 +683,12 @@ public static class Api
       return Results.Text($"Created assignments due {dueDate:yyyy-MM-dd}.");
     });
 
+    app.MapGet("/test-emails", [Authorize(Roles = Roles.Admin)] async (AssignmentSettingService assignmentSettingService, CancellationToken cancellationToken) =>
+    {
+      var (tutorEmails, teacherEmails) = await assignmentSettingService.SendTestCompletionEmailsAsync(cancellationToken);
+      return Results.Text($"Sent {tutorEmails} tutor and {teacherEmails} teacher completion emails.");
+    });
+
     app.MapPost("/assignments/{courseId}/year-{year}/{dueDate}/submit", [Authorize(Roles = Roles.Student)] async (HttpContext context, IAntiforgery antiforgery, string courseId, int year, string dueDate, AssignmentAnswerRequest model, ConfigService config, CourseService courseService, AssignmentService assignmentService) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);

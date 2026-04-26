@@ -34,8 +34,9 @@ builder.Services.AddScoped<EmailTemplateService>();
 builder.Services.AddSingleton<ServiceAccountAuthService>();
 builder.Services.AddSingleton<MailService>();
 builder.Services.AddSingleton<TeamsService>();
+builder.Services.AddSingleton<AssignmentSettingService>();
 
-builder.Services.AddHostedService<AssignmentSettingService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<AssignmentSettingService>());
 
 builder.ConfigureAuth(configService);
 builder.Services.AddResponseCompression(options => { options.EnableForHttps = isProduction; });

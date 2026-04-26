@@ -124,21 +124,33 @@ public partial class ConfigService(AppOptions options)
       var email = csvReader.GetField("Email").Trim().ToLowerInvariant();
       if (email.Length == 0) continue;
 
+      var classes = csvReader.GetField("Classes").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(o => o.Length > 0)
+        .Distinct(StringComparer.OrdinalIgnoreCase).Order().ToList();
+      var tutorGroup = (csvReader.GetField("TutorGroup") ?? string.Empty).Trim();
+
       records.Add(new User
       {
         Id = id,
         Email = email,
         FirstName = (csvReader.GetField("FirstName") ?? string.Empty).Trim(),
         LastName = (csvReader.GetField("LastName") ?? string.Empty).Trim(),
-        TutorGroup = (csvReader.GetField("TutorGroup") ?? string.Empty).Trim(),
-        Classes = csvReader.GetField("Classes").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(o => o.Length > 0)
-          .Distinct(StringComparer.OrdinalIgnoreCase).Order().ToList(),
+        TutorGroup = isTeacher && string.IsNullOrWhiteSpace(tutorGroup) ? GetTeacherTutorGroup(classes) : tutorGroup,
+        Classes = classes,
         IsTeacher = isTeacher,
         IsAdmin = isTeacher && _adminEmails.Contains(email)
       });
     }
 
     return records.OrderBy(o => o.LastName).ThenBy(o => o.FirstName).ToList();
+  }
+
+  private static string GetTeacherTutorGroup(IEnumerable<string> classes)
+  {
+    var tutorClass = classes.FirstOrDefault(o => o.Contains("/Tu", StringComparison.OrdinalIgnoreCase));
+    if (string.IsNullOrWhiteSpace(tutorClass)) return string.Empty;
+
+    var suffixIndex = tutorClass.IndexOf("/Tu", StringComparison.OrdinalIgnoreCase);
+    return tutorClass[..suffixIndex].Trim();
   }
 
   private static List<Holiday> ParseHolidays(string csv)

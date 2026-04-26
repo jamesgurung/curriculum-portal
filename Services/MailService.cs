@@ -40,7 +40,7 @@ public class MailService(ServiceAccountAuthService authService)
           message.Attachments = email.Attachments
             .Where(attachment => attachment is not null)
             .Select(CreateAttachment)
-            .Cast<Microsoft.Graph.Beta.Models.Attachment>()
+            .Cast<Attachment>()
             .ToList();
         }
 
