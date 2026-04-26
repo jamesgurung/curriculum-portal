@@ -29,6 +29,10 @@ builder.Services.AddSingleton<CourseService>();
 builder.Services.AddSingleton<AIService>();
 builder.Services.AddSingleton<AssignmentService>();
 builder.Services.AddSingleton<CacheService>();
+builder.Services.AddScoped<IRazorViewRenderer, RazorViewRenderer>();
+builder.Services.AddScoped<EmailTemplateService>();
+builder.Services.AddSingleton<ServiceAccountAuthService>();
+builder.Services.AddSingleton<MailService>();
 builder.Services.AddSingleton<TeamsService>();
 
 builder.Services.AddHostedService<AssignmentSettingService>();

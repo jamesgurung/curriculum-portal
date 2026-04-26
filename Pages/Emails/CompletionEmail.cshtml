@@ -1,0 +1,90 @@
+@model CurriculumPortal.CompletionEmailViewModel
+@{
+  Layout = null;
+  var font = Html.Raw(CurriculumPortal.EmailTemplateService.Font);
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>@Model.Title</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f3f6f9;">
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0;">@Model.Preheader</div>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; background-color:#f3f6f9;">
+    <tr>
+      <td align="center" style="padding:20px 12px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; max-width:720px; border-collapse:collapse; background-color:#ffffff;">
+          <tr>
+            <td align="center" style="padding:28px 20px 12px; font-family:@font;">
+              <img src="cid:@Model.LogoContentId" alt="@Model.SchoolName" width="96" height="96" style="display:block; width:96px; height:96px; border:0;" />
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:0 28px 18px; font-family:@font; color:#17212f;">
+              <div style="font-size:18pt; line-height:1.2; font-weight:700;">@Model.SchoolName</div>
+              <div style="font-size:15pt; line-height:1.35; font-weight:700;">@Model.Title</div>
+              <div style="font-size:10.5pt; color:#516071;">Assignments due @Model.DueDateLabel</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 28px 28px; font-family:@font; font-size:11pt; line-height:1.5; color:#23303f;">
+              @if (!string.IsNullOrWhiteSpace(Model.Summary))
+              {
+                <p style="margin:0 0 16px;">@Model.Summary</p>
+              }
+
+              @foreach (var reportSection in Model.Sections)
+              {
+                <h2 style="margin:0 0 4px; font-size:13pt; color:#17212f;">@reportSection.Title</h2>
+                @if (!string.IsNullOrWhiteSpace(reportSection.Summary))
+                {
+                  <p style="margin:0 0 8px;">@reportSection.Summary</p>
+                }
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; margin:0 0 22px;">
+                  <tr>
+                    <th align="left" style="padding:8px; border-bottom:1px solid #d8e0ea; font-size:10pt;">Student</th>
+                    <th align="right" style="padding:8px; border-bottom:1px solid #d8e0ea; font-size:10pt;">Complete</th>
+                    <th align="right" style="padding:8px; border-bottom:1px solid #d8e0ea; font-size:10pt;">Questions</th>
+                  </tr>
+                  @foreach (var student in reportSection.Students)
+                  {
+                    <tr>
+                      <td style="padding:7px 8px; border-bottom:1px solid #edf1f5;">@student.Name</td>
+                      <td align="right" style="padding:7px 8px; border-bottom:1px solid #edf1f5;">@(student.CompletionPercentage)%</td>
+                      <td align="right" style="padding:7px 8px; border-bottom:1px solid #edf1f5;">@student.CompletedQuestions/@student.TotalQuestions</td>
+                    </tr>
+                  }
+                </table>
+              }
+
+              @if (Model.TutorGroups.Count > 0)
+              {
+                <h2 style="margin:0 0 8px; font-size:13pt; color:#17212f;">Year group leaderboard</h2>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse;">
+                  <tr>
+                    <th align="left" style="padding:8px; border-bottom:1px solid #d8e0ea; font-size:10pt;">Rank</th>
+                    <th align="left" style="padding:8px; border-bottom:1px solid #d8e0ea; font-size:10pt;">Tutor group</th>
+                    <th align="right" style="padding:8px; border-bottom:1px solid #d8e0ea; font-size:10pt;">Complete</th>
+                    <th align="right" style="padding:8px; border-bottom:1px solid #d8e0ea; font-size:10pt;">Questions</th>
+                  </tr>
+                  @foreach (var tutorGroup in Model.TutorGroups)
+                  {
+                    <tr style='@(tutorGroup.IsCurrentTutorGroup ? "font-weight:700; background-color:#eef5ff;" : "")'>
+                      <td style="padding:7px 8px; border-bottom:1px solid #edf1f5;">@tutorGroup.Rank</td>
+                      <td style="padding:7px 8px; border-bottom:1px solid #edf1f5;">@tutorGroup.TutorGroup</td>
+                      <td align="right" style="padding:7px 8px; border-bottom:1px solid #edf1f5;">@(tutorGroup.CompletionPercentage)%</td>
+                      <td align="right" style="padding:7px 8px; border-bottom:1px solid #edf1f5;">@tutorGroup.CompletedQuestions/@tutorGroup.TotalQuestions</td>
+                    </tr>
+                  }
+                </table>
+              }
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

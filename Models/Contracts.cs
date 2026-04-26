@@ -151,6 +151,61 @@ public class StudentWithCompletion
   public double CompletionRate { get; set; }
 }
 
+public class WeeklyCompletionReports
+{
+  public DateOnly DueDate { get; set; }
+  public string DueDateLabel { get; set; } = string.Empty;
+  public List<TutorCompletionReport> Tutors { get; set; } = [];
+  public List<TeacherCompletionReport> Teachers { get; set; } = [];
+}
+
+public class TutorCompletionReport
+{
+  public string DueDateLabel { get; set; } = string.Empty;
+  public User Tutor { get; set; }
+  public string TutorGroup { get; set; } = string.Empty;
+  public int CompletedQuestions { get; set; }
+  public int TotalQuestions { get; set; }
+  public int CompletionPercentage { get; set; }
+  public List<CompletionStudentRow> Students { get; set; } = [];
+  public List<TutorGroupCompletionRow> TutorGroups { get; set; } = [];
+}
+
+public class TeacherCompletionReport
+{
+  public string DueDateLabel { get; set; } = string.Empty;
+  public User Teacher { get; set; }
+  public List<ClassCompletionReport> Classes { get; set; } = [];
+}
+
+public class ClassCompletionReport
+{
+  public string ClassName { get; set; } = string.Empty;
+  public string CourseName { get; set; } = string.Empty;
+  public int CompletedQuestions { get; set; }
+  public int TotalQuestions { get; set; }
+  public int CompletionPercentage { get; set; }
+  public List<CompletionStudentRow> Students { get; set; } = [];
+}
+
+public class CompletionStudentRow
+{
+  public string Name { get; set; } = string.Empty;
+  public int CompletedQuestions { get; set; }
+  public int TotalQuestions { get; set; }
+  public int CompletionPercentage { get; set; }
+}
+
+public class TutorGroupCompletionRow
+{
+  public int Rank { get; set; }
+  public string TutorGroup { get; set; } = string.Empty;
+  public int CompletedQuestions { get; set; }
+  public int TotalQuestions { get; set; }
+  public int CompletionPercentage { get; set; }
+  public bool IsCurrentTutorGroup { get; set; }
+}
+
 public class AssignmentsStudentCard
 {
   public string CourseId { get; set; } = string.Empty;

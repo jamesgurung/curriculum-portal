@@ -1,7 +1,21 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using System.Globalization;
+
 namespace CurriculumPortal;
 
-public class AssignmentSettingService(AssignmentService assignmentService, TeamsService teamsService, ConfigService configService, AppOptions options, ILogger<AssignmentSettingService> logger) : BackgroundService
+public class AssignmentSettingService(
+  AssignmentService assignmentService,
+  TeamsService teamsService,
+  ConfigService configService,
+  AppOptions options,
+  ServiceAccountAuthService serviceAccountAuthService,
+  MailService mailService,
+  IServiceScopeFactory serviceScopeFactory,
+  ILogger<AssignmentSettingService> logger) : BackgroundService
 {
+  private static readonly TimeSpan ReauthenticationReminderWindow = TimeSpan.FromDays(14);
+
   protected override async Task ExecuteAsync(CancellationToken stoppingToken)
   {
     while (!stoppingToken.IsCancellationRequested)
@@ -16,7 +30,33 @@ public class AssignmentSettingService(AssignmentService assignmentService, Teams
       {
         await Task.Delay(wait, stoppingToken);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        try
+        {
+          await SendServiceAccountReauthenticationReminderAsync(stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+          throw;
+        }
+        catch (Exception ex)
+        {
+          logger.LogError(ex, "Failed to send service account reauthentication reminder.");
+        }
+
         if (assignmentService.ResolveDueDate(today) != today) continue;
+
+        try
+        {
+          await SendCompletionEmailsAsync(today, stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+          throw;
+        }
+        catch (Exception ex)
+        {
+          logger.LogError(ex, "Failed to send completion emails.");
+        }
 
         if (!string.IsNullOrWhiteSpace(options.ClassChartsEmail) && !string.IsNullOrWhiteSpace(options.ClassChartsPassword))
         {
@@ -79,6 +119,63 @@ public class AssignmentSettingService(AssignmentService assignmentService, Teams
         logger.LogError(ex, "Weekly assignment setting failed.");
       }
     }
+  }
+
+  private async Task SendServiceAccountReauthenticationReminderAsync(CancellationToken cancellationToken)
+  {
+    var expiry = await serviceAccountAuthService.GetRefreshTokenExpiryAsync();
+    if (expiry is null || expiry.Value - DateTime.UtcNow > ReauthenticationReminderWindow) return;
+
+    var adminEmail = options.AdminEmails.First();
+    var expiryText = expiry.Value.ToString("dddd d MMMM yyyy 'at' HH:mm 'UTC'", CultureInfo.InvariantCulture);
+    await mailService.SendAsync([new Email
+    {
+      To = [adminEmail],
+      Subject = "Service account reauthentication required",
+      Body = "<html><body style=\"font-family: Arial; font-size: 11pt\">The service account refresh token expires on <b>" +
+        expiryText +
+        "</b>.<br/><br/><a href=\"" + options.Website.TrimEnd('/') + "/serviceaccount\">Reauthenticate the service account</a>." +
+        "<br/><br/></body></html>"
+    }], cancellationToken);
+  }
+
+  private async Task SendCompletionEmailsAsync(DateOnly dueDate, CancellationToken cancellationToken)
+  {
+    var reports = await assignmentService.GetWeeklyCompletionReportsAsync(dueDate);
+    if (reports.Tutors.Count == 0 && reports.Teachers.Count == 0) return;
+
+    using var scope = serviceScopeFactory.CreateScope();
+    var emailTemplateService = scope.ServiceProvider.GetRequiredService<EmailTemplateService>();
+    var httpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
+    var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+    var emails = new List<Email>();
+
+    foreach (var report in reports.Tutors)
+    {
+      emails.Add(new Email
+      {
+        To = [report.Tutor.Email],
+        Subject = $"Assignment completion - {report.TutorGroup} - {reports.DueDateLabel}",
+        Body = await emailTemplateService.BuildTutorCompletionEmailAsync(actionContext, report),
+        Attachments = [emailTemplateService.CreateLogoAttachment(configService.SchoolLogoBytes)]
+      });
+    }
+
+    foreach (var report in reports.Teachers)
+    {
+      emails.Add(new Email
+      {
+        To = [report.Teacher.Email],
+        Subject = $"Assignment completion - {reports.DueDateLabel}",
+        Body = await emailTemplateService.BuildTeacherCompletionEmailAsync(actionContext, report),
+        Attachments = [emailTemplateService.CreateLogoAttachment(configService.SchoolLogoBytes)]
+      });
+    }
+
+    if (emails.Count == 0) return;
+
+    await mailService.SendAsync(emails, cancellationToken);
+    logger.LogInformation("Sent {TutorEmailCount} tutor and {TeacherEmailCount} teacher completion emails.", reports.Tutors.Count, reports.Teachers.Count);
   }
 
   private static bool IsExamYearExempt(User student, DateOnly dueDate)

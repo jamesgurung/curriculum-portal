@@ -74,10 +74,10 @@ Deploy effortlessly to Microsoft Azure.
 
 4. Create an Azure app registration.
     * Name - `Curriculum Portal`
-    * Redirect URI - `https://<app-website-domain>/signin-oidc`
+    * Redirect URIs - `https://<app-website-domain>/signin-oidc` and `https://<app-website-domain>/serviceaccount`
     * Implicit grant - ID tokens
     * Supported account types - Accounts in this organizational directory only
-    * API permissions - `Microsoft Graph - User.Read`
+    * API permissions - `Microsoft Graph - User.Read` and delegated `Microsoft Graph - Mail.Send`
     * Token configuration - add an optional claim of type ID: `upn`
     * Certificates & secrets - create a new client secret
 
@@ -114,6 +114,8 @@ Deploy effortlessly to Microsoft Azure.
     * `StorageAccountConnectionString` - the connection string for the Azure Storage account
     * `SyncApiKey` - the secret key to use if you update the `students.csv` and `teachers.csv` files with an automated script (optional)
     * `Website` - the public base URL of your deployed Curriculum Portal, e.g. `https://example.com`
+
+7. Sign in as an admin and visit `/serviceaccount` to authenticate the Microsoft mailbox used for HTML email sending.
 
 ### Contributing
 

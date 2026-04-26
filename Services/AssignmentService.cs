@@ -487,6 +487,154 @@ public class AssignmentService
     };
   }
 
+  public async Task<WeeklyCompletionReports> GetWeeklyCompletionReportsAsync(DateOnly dueDate)
+  {
+    var reports = new WeeklyCompletionReports
+    {
+      DueDate = dueDate,
+      DueDateLabel = FormatLongDate(dueDate)
+    };
+
+    var assignmentCourses = (await _courseService.ListCoursesAsync())
+      .Where(o => o.AssignmentLength > 0 && !string.IsNullOrWhiteSpace(o.SubjectCode))
+      .ToList();
+    var assignmentSubjectCodes = assignmentCourses
+      .Select(o => o.SubjectCode)
+      .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    if (assignmentSubjectCodes.Count == 0) return reports;
+
+    var coursesBySubjectCode = assignmentCourses
+      .GroupBy(o => o.SubjectCode, StringComparer.OrdinalIgnoreCase)
+      .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+    var classRosters = BuildClassRosters();
+    var tutorGroupRosters = BuildTutorGroupRosters();
+    var schoolClasses = ParseClasses(classRosters.Keys)
+      .Where(o => assignmentSubjectCodes.Contains(o.SubjectCode))
+      .ToList();
+    var partitionKeys = NormalizePartitionKeys(schoolClasses.Select(o => o.PartitionKey));
+    if (partitionKeys.Count == 0) return reports;
+
+    var assignmentsByPartition = await LoadAssignmentsByDueDateAsync(partitionKeys, dueDate);
+    if (assignmentsByPartition.Values.All(o => o.Count == 0)) return reports;
+
+    var submissionsTask = LoadSubmissionsByDatesAsync(partitionKeys, assignmentsByPartition);
+    var questionCountsTask = LoadLegacyQuestionCountsAsync(partitionKeys, assignmentsByPartition);
+    await Task.WhenAll(submissionsTask, questionCountsTask);
+
+    var partitionData = BuildPartitionData(partitionKeys, assignmentsByPartition, await questionCountsTask, await submissionsTask);
+    var dueDateText = dueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var classReportsByName = new Dictionary<string, ClassCompletionReport>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var cls in schoolClasses)
+    {
+      if (!partitionData.TryGetValue(cls.PartitionKey, out var data) || !data.AssignmentsByDate.ContainsKey(dueDate)) continue;
+
+      classRosters.TryGetValue(cls.Name, out var roster);
+      roster ??= [];
+      var students = BuildCompletionStudentRows(roster, student => BuildStudentCell(data, student.Id, dueDateText));
+      var totalQuestions = students.Sum(o => o.TotalQuestions);
+      if (totalQuestions <= 0) continue;
+
+      classReportsByName[cls.Name] = new ClassCompletionReport
+      {
+        ClassName = cls.Name,
+        CourseName = coursesBySubjectCode.TryGetValue(cls.SubjectCode, out var course) ? course.Name : cls.SubjectCode,
+        CompletedQuestions = students.Sum(o => o.CompletedQuestions),
+        TotalQuestions = totalQuestions,
+        CompletionPercentage = GetCompletionPercentage(students.Sum(o => o.CompletedQuestions), totalQuestions),
+        Students = students
+      };
+    }
+
+    reports.Teachers = _config.Teachers
+      .OrderBy(o => o.LastName, StringComparer.OrdinalIgnoreCase)
+      .ThenBy(o => o.FirstName, StringComparer.OrdinalIgnoreCase)
+      .Select(teacher => new TeacherCompletionReport
+      {
+        Teacher = teacher,
+        DueDateLabel = reports.DueDateLabel,
+        Classes = ParseClasses(teacher.Classes)
+          .Select(cls => classReportsByName.GetValueOrDefault(cls.Name))
+          .Where(o => o is not null)
+          .DistinctBy(o => o.ClassName, StringComparer.OrdinalIgnoreCase)
+          .OrderBy(o => o.ClassName, StringComparer.OrdinalIgnoreCase)
+          .ToList()
+      })
+      .Where(o => o.Classes.Count > 0)
+      .ToList();
+
+    var tutorGroupRowsByYear = tutorGroupRosters
+      .Select(tutorGroup =>
+      {
+        var studentIdsByPartition = BuildStudentIdsByPartition(tutorGroup.Value, assignmentSubjectCodes, partitionData);
+        var cell = BuildAggregateCell(partitionData, studentIdsByPartition, dueDateText);
+        return new TutorGroupCompletionRow
+        {
+          TutorGroup = tutorGroup.Key,
+          CompletedQuestions = cell.Completed,
+          TotalQuestions = cell.Total,
+          CompletionPercentage = GetCompletionPercentage(cell.Completed, cell.Total)
+        };
+      })
+      .Where(o => o.TotalQuestions > 0 && GetYearGroup(o.TutorGroup) > 0)
+      .GroupBy(o => GetYearGroup(o.TutorGroup))
+      .ToDictionary(
+        g => g.Key,
+        g => g
+          .OrderByDescending(o => o.CompletionPercentage)
+          .ThenBy(o => o.TutorGroup, StringComparer.OrdinalIgnoreCase)
+          .Select((row, index) =>
+          {
+            row.Rank = index + 1;
+            return row;
+          })
+          .ToList());
+
+    foreach (var tutor in _config.Teachers
+      .Where(o => !string.IsNullOrWhiteSpace(o.TutorGroup))
+      .OrderBy(o => o.LastName, StringComparer.OrdinalIgnoreCase)
+      .ThenBy(o => o.FirstName, StringComparer.OrdinalIgnoreCase))
+    {
+      var tutorGroup = tutor.TutorGroup.Trim();
+      if (!tutorGroupRosters.TryGetValue(tutorGroup, out var roster)) continue;
+
+      var students = BuildCompletionStudentRows(roster, student =>
+      {
+        var partitionKeysForStudent = GetStudentPartitionKeys(student, assignmentSubjectCodes, partitionData);
+        return BuildAggregateStudentCell(partitionData, partitionKeysForStudent, student.Id, dueDateText);
+      });
+      var totalQuestions = students.Sum(o => o.TotalQuestions);
+      if (totalQuestions <= 0) continue;
+
+      var yearGroup = GetYearGroup(tutorGroup);
+      var tutorGroupLeaderboard = tutorGroupRowsByYear.GetValueOrDefault(yearGroup)?
+        .Select(o => new TutorGroupCompletionRow
+        {
+          Rank = o.Rank,
+          TutorGroup = o.TutorGroup,
+          CompletedQuestions = o.CompletedQuestions,
+          TotalQuestions = o.TotalQuestions,
+          CompletionPercentage = o.CompletionPercentage,
+          IsCurrentTutorGroup = o.TutorGroup.Equals(tutorGroup, StringComparison.OrdinalIgnoreCase)
+        })
+        .ToList() ?? [];
+
+      reports.Tutors.Add(new TutorCompletionReport
+      {
+        Tutor = tutor,
+        DueDateLabel = reports.DueDateLabel,
+        TutorGroup = tutorGroup,
+        CompletedQuestions = students.Sum(o => o.CompletedQuestions),
+        TotalQuestions = totalQuestions,
+        CompletionPercentage = GetCompletionPercentage(students.Sum(o => o.CompletedQuestions), totalQuestions),
+        Students = students,
+        TutorGroups = tutorGroupLeaderboard
+      });
+    }
+
+    return reports;
+  }
+
   private static List<string> NormalizePartitionKeys(IEnumerable<string> partitionKeys)
   {
     return partitionKeys
@@ -850,6 +998,23 @@ public class AssignmentService
       .ToList();
   }
 
+  private static List<CompletionStudentRow> BuildCompletionStudentRows(IEnumerable<User> students, Func<User, AssignmentsProgressCell> buildCell)
+  {
+    return students
+      .Select(student => new { Student = student, Cell = buildCell(student) })
+      .Where(o => o.Cell.HasAssignment)
+      .Select(o => new CompletionStudentRow
+      {
+        Name = o.Student.DisplayName,
+        CompletedQuestions = o.Cell.Completed,
+        TotalQuestions = o.Cell.Total,
+        CompletionPercentage = GetCompletionPercentage(o.Cell.Completed, o.Cell.Total)
+      })
+      .OrderByDescending(o => o.CompletionPercentage)
+      .ThenBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
+      .ToList();
+  }
+
   private static Dictionary<string, List<int>> BuildStudentIdsByPartition(
     IEnumerable<User> students,
     HashSet<string> assignmentSubjectCodes,
@@ -889,6 +1054,11 @@ public class AssignmentService
     var total = GetAssignmentTotal(assignment, data);
     data.SubmissionsByStudentAndDate.TryGetValue((assignment.DueDate, studentId), out var submission);
     return new AssignmentProgressTotals(Math.Min(submission?.Completed ?? 0, total), total);
+  }
+
+  private static int GetCompletionPercentage(int completed, int total)
+  {
+    return total <= 0 ? 0 : (int)Math.Round(completed * 100d / total);
   }
 
   private async Task<StudentAssignmentContext> LoadStudentAssignmentContextAsync(User student, CourseEntity course, int yearGroup, DateOnly dueDate, string className)
