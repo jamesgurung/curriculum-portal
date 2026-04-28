@@ -114,6 +114,7 @@ public class User
   public string TutorGroup { get; set; }
   public List<string> Classes { get; set; }
   public bool IsTeacher { get; set; }
+  public bool PupilPremium { get; set; }
   public bool IsAdmin { get; set; }
   public string DisplayName => $"{FirstName} {LastName}";
 }

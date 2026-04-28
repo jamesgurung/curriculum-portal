@@ -126,7 +126,8 @@ public partial class ConfigService(AppOptions options)
 
       var classes = csvReader.GetField("Classes").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(o => o.Length > 0)
         .Distinct(StringComparer.OrdinalIgnoreCase).Order().ToList();
-      var tutorGroup = (csvReader.GetField("TutorGroup") ?? string.Empty).Trim();
+      var tutorGroup = isTeacher ? null : (csvReader.GetField("TutorGroup") ?? string.Empty).Trim();
+      var pupilPremium = !isTeacher && bool.TryParse(csvReader.GetField("PupilPremium"), out var parsedPupilPremium) && parsedPupilPremium;
 
       records.Add(new User
       {
@@ -134,9 +135,10 @@ public partial class ConfigService(AppOptions options)
         Email = email,
         FirstName = (csvReader.GetField("FirstName") ?? string.Empty).Trim(),
         LastName = (csvReader.GetField("LastName") ?? string.Empty).Trim(),
-        TutorGroup = isTeacher && string.IsNullOrWhiteSpace(tutorGroup) ? GetTeacherTutorGroup(classes) : tutorGroup,
+        TutorGroup = isTeacher ? GetTeacherTutorGroup(classes) : tutorGroup,
         Classes = classes,
         IsTeacher = isTeacher,
+        PupilPremium = pupilPremium,
         IsAdmin = isTeacher && _adminEmails.Contains(email)
       });
     }

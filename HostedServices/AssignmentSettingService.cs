@@ -33,6 +33,8 @@ public class AssignmentSettingService(
       {
         await Task.Delay(wait, stoppingToken);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (configService.Holidays.Any(holiday => today >= holiday.Start && today <= holiday.End)) continue;
+
         try
         {
           await SendServiceAccountReauthenticationReminderAsync(stoppingToken);

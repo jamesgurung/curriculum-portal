@@ -14,13 +14,17 @@ Deploy effortlessly to Microsoft Azure.
 
     * Upload a blank file `keys.xml`. Generate a SAS URL for this file with read/write permissions and a distant expiry. This will be used to store the application's data protection keys so that auth cookies persist across app restarts.
 
-    * Upload a file `students.csv` with the following headers and populate it with all students in your school. "Id" can be any unique integer identifier. The "Classes" field should contain a comma-separated list of classes, wrapped in double quotes. To correctly represent accented characters in student names, save the file in 'CSV UTF-8' format.
+    * Upload a file `students.csv` with the following headers and populate it with all students in your school. "Id" can be any unique integer identifier. "PupilPremium" should be `true` or `false` for each student. The "Classes" field should contain a comma-separated list of classes, wrapped in double quotes. To correctly represent accented characters in student names, save the file in 'CSV UTF-8' format.
 
         ```csv
-        Id,Email,FirstName,LastName,TutorGroup,Classes
+        Id,Email,FirstName,LastName,TutorGroup,PupilPremium,Classes
         ```
 
-    * Upload a file `teachers.csv` with the same format.
+    * Upload a file `teachers.csv` with the following headers.
+
+        ```csv
+        Id,Email,FirstName,LastName,Classes
+        ```
 
     * Upload a file `holidays.csv` with the following headers and dates in `yyyy-MM-dd` format. If an assignment due date lands within a holiday range, it will be pushed forward.
 
