@@ -2,6 +2,85 @@
 @{
   Layout = null;
   var font = Html.Raw(CurriculumPortal.EmailTemplateService.Font);
+
+  void RenderSectionSpacer()
+  {
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; font-size:0; line-height:0;">
+      <tr>
+        <td height="16" style="height:16px; font-size:0; line-height:16px; mso-line-height-rule:exactly;">&nbsp;</td>
+      </tr>
+    </table>
+  }
+
+  void RenderSectionHeader(string title, string summary = "")
+  {
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f0f2f5" style="width:100%; border-collapse:collapse; margin:0 0 8px; background-color:#f0f2f5; font-family:@font; font-size:11pt;">
+      <tr>
+        <td align="center" style="padding:8px 10px; font-family:@font;">
+          <h2 style="margin:0; font-family:@font; font-size:13pt; line-height:15pt; mso-line-height-rule:exactly; color:#17212f; text-align:center;">@title</h2>
+          @if (!string.IsNullOrWhiteSpace(summary))
+          {
+            <div style="margin:4px 0 0; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly; color:#23303f; text-align:center;">@summary</div>
+          }
+        </td>
+      </tr>
+    </table>
+  }
+
+  void RenderHeaderCell(string align, string label)
+  {
+    <th align="@align" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">@label</th>
+  }
+
+  void RenderTextCell(object value)
+  {
+    <td valign="bottom" style="padding:1px 0 0; border-bottom:1px solid #edf1f5; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly;">@value</td>
+  }
+
+  void RenderCompletionCell(int completionPercentage)
+  {
+    <td align="right" valign="bottom" style="padding:1px 0 0; border-bottom:1px solid #edf1f5; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly;">@(completionPercentage)%</td>
+  }
+
+  void RenderProgressSegments(int completedWidth, int remainingWidth)
+  {
+    <tr>
+      @if (completedWidth > 0)
+      {
+        <td width="@completedWidth" height="10" bgcolor="#176b3a" style="width:@(completedWidth)px; height:10px; font-size:0; line-height:10px; mso-line-height-rule:exactly; background-color:#176b3a;">&nbsp;</td>
+      }
+      @if (remainingWidth > 0)
+      {
+        <td width="@remainingWidth" height="10" bgcolor="#d9dee5" style="width:@(remainingWidth)px; height:10px; font-size:0; line-height:10px; mso-line-height-rule:exactly; background-color:#d9dee5;">&nbsp;</td>
+      }
+    </tr>
+  }
+
+  void RenderProgressTable(int completedWidth, int remainingWidth, bool endStyleWithSemicolon)
+  {
+    if (endStyleWithSemicolon)
+    {
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="@ProgressBarWidth" align="right" bgcolor="#d9dee5" style="width:@(ProgressBarWidth)px; border-collapse:collapse; background-color:#d9dee5; font-family:@font; font-size:11pt;">
+        @{ RenderProgressSegments(completedWidth, remainingWidth); }
+      </table>
+    }
+    else
+    {
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="@ProgressBarWidth" align="right" bgcolor="#d9dee5" style="width:@(ProgressBarWidth)px; border-collapse:collapse; background-color:#d9dee5; font-family:@font; font-size:11pt">
+        @{ RenderProgressSegments(completedWidth, remainingWidth); }
+      </table>
+    }
+  }
+
+  void RenderProgressCell(int completionPercentage, bool endStyleWithSemicolon = true)
+  {
+    var completedWidth = GetProgressBarCompletedWidth(completionPercentage);
+    var remainingWidth = ProgressBarWidth - completedWidth;
+
+    <td align="right" valign="middle" style="padding:3px 0 0; border-bottom:1px solid #edf1f5; line-height:10px; mso-line-height-rule:exactly;">
+        @{ RenderProgressTable(completedWidth, remainingWidth, endStyleWithSemicolon); }
+    </td>
+  }
 }
 @functions {
   private const int ProgressBarWidth = 120;
@@ -57,48 +136,23 @@
 
               @if (Model.ClassOverview.Count > 0)
               {
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; font-size:0; line-height:0;">
-                  <tr>
-                    <td height="16" style="height:16px; font-size:0; line-height:16px; mso-line-height-rule:exactly;">&nbsp;</td>
-                  </tr>
-                </table>
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f0f2f5" style="width:100%; border-collapse:collapse; margin:0 0 8px; background-color:#f0f2f5; font-family:@font; font-size:11pt;">
-                  <tr>
-                    <td align="center" style="padding:8px 10px; font-family:@font;">
-                      <h2 style="margin:0; font-family:@font; font-size:13pt; line-height:15pt; mso-line-height-rule:exactly; color:#17212f; text-align:center;">Your Classes</h2>
-                    </td>
-                  </tr>
-                </table>
+                RenderSectionSpacer();
+                RenderSectionHeader("Your Classes");
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; margin:0 0 18px; font-family:@font; font-size:11pt;">
                   <tr>
                     <td style="padding:0 10px; font-family:@font; font-size:11pt;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; font-family:@font; font-size:11pt;">
                   <tr>
-                    <th align="left" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Class</th>
-                    <th align="right" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Complete</th>
-                    <th align="right" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Progress</th>
+                    @{ RenderHeaderCell("left", "Class"); }
+                    @{ RenderHeaderCell("right", "Complete"); }
+                    @{ RenderHeaderCell("right", "Progress"); }
                   </tr>
                   @foreach (var classRow in Model.ClassOverview)
                   {
-                    var completedWidth = GetProgressBarCompletedWidth(classRow.CompletionPercentage);
-                    var remainingWidth = ProgressBarWidth - completedWidth;
                     <tr>
-                      <td valign="bottom" style="padding:1px 0 0; border-bottom:1px solid #edf1f5; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly;">@classRow.ClassName</td>
-                      <td align="right" valign="bottom" style="padding:1px 0 0; border-bottom:1px solid #edf1f5; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly;">@(classRow.CompletionPercentage)%</td>
-                      <td align="right" valign="middle" style="padding:3px 0 0; border-bottom:1px solid #edf1f5; line-height:10px; mso-line-height-rule:exactly;">
-                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="@ProgressBarWidth" align="right" bgcolor="#d9dee5" style="width:@(ProgressBarWidth)px; border-collapse:collapse; background-color:#d9dee5; font-family:@font; font-size:11pt;">
-                            <tr>
-                              @if (completedWidth > 0)
-                              {
-                                <td width="@completedWidth" height="10" bgcolor="#176b3a" style="width:@(completedWidth)px; height:10px; font-size:0; line-height:10px; mso-line-height-rule:exactly; background-color:#176b3a;">&nbsp;</td>
-                              }
-                              @if (remainingWidth > 0)
-                              {
-                                <td width="@remainingWidth" height="10" bgcolor="#d9dee5" style="width:@(remainingWidth)px; height:10px; font-size:0; line-height:10px; mso-line-height-rule:exactly; background-color:#d9dee5;">&nbsp;</td>
-                              }
-                            </tr>
-                          </table>
-                      </td>
+                      @{ RenderTextCell(classRow.ClassName); }
+                      @{ RenderCompletionCell(classRow.CompletionPercentage); }
+                      @{ RenderProgressCell(classRow.CompletionPercentage); }
                     </tr>
                   }
                 </table>
@@ -109,50 +163,25 @@
 
               @if (Model.TutorGroups.Count > 0)
               {
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; font-size:0; line-height:0;">
-                  <tr>
-                    <td height="16" style="height:16px; font-size:0; line-height:16px; mso-line-height-rule:exactly;">&nbsp;</td>
-                  </tr>
-                </table>
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f0f2f5" style="width:100%; border-collapse:collapse; margin:0 0 8px; background-color:#f0f2f5; font-family:@font; font-size:11pt;">
-                  <tr>
-                    <td align="center" style="padding:8px 10px; font-family:@font;">
-                      <h2 style="margin:0; font-family:@font; font-size:13pt; line-height:15pt; mso-line-height-rule:exactly; color:#17212f; text-align:center;">@Model.LeaderboardTitle</h2>
-                    </td>
-                  </tr>
-                </table>
+                RenderSectionSpacer();
+                RenderSectionHeader(Model.LeaderboardTitle);
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; margin:0 0 18px; font-family:@font; font-size:11pt;">
                   <tr>
                     <td style="padding:0 10px; font-family:@font; font-size:11pt;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; font-family:@font; font-size:11pt;">
                   <tr>
-                    <th align="left" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Rank</th>
-                    <th align="left" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Tutor group</th>
-                    <th align="right" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Complete</th>
-                    <th align="right" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Progress</th>
+                    @{ RenderHeaderCell("left", "Rank"); }
+                    @{ RenderHeaderCell("left", "Tutor group"); }
+                    @{ RenderHeaderCell("right", "Complete"); }
+                    @{ RenderHeaderCell("right", "Progress"); }
                   </tr>
                   @foreach (var tutorGroup in Model.TutorGroups)
                   {
-                    var completedWidth = GetProgressBarCompletedWidth(tutorGroup.CompletionPercentage);
-                    var remainingWidth = ProgressBarWidth - completedWidth;
                     <tr style='@(tutorGroup.IsCurrentTutorGroup ? "font-weight:700; background-color:#eef5ff;" : "")'>
-                      <td valign="bottom" style="padding:1px 0 0; border-bottom:1px solid #edf1f5; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly;">@tutorGroup.Rank</td>
-                      <td valign="bottom" style="padding:1px 0 0; border-bottom:1px solid #edf1f5; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly;">@tutorGroup.TutorGroup</td>
-                      <td align="right" valign="bottom" style="padding:1px 0 0; border-bottom:1px solid #edf1f5; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly;">@(tutorGroup.CompletionPercentage)%</td>
-                      <td align="right" valign="middle" style="padding:3px 0 0; border-bottom:1px solid #edf1f5; line-height:10px; mso-line-height-rule:exactly;">
-                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="@ProgressBarWidth" align="right" bgcolor="#d9dee5" style="width:@(ProgressBarWidth)px; border-collapse:collapse; background-color:#d9dee5; font-family:@font; font-size:11pt;">
-                            <tr>
-                              @if (completedWidth > 0)
-                              {
-                                <td width="@completedWidth" height="10" bgcolor="#176b3a" style="width:@(completedWidth)px; height:10px; font-size:0; line-height:10px; mso-line-height-rule:exactly; background-color:#176b3a;">&nbsp;</td>
-                              }
-                              @if (remainingWidth > 0)
-                              {
-                                <td width="@remainingWidth" height="10" bgcolor="#d9dee5" style="width:@(remainingWidth)px; height:10px; font-size:0; line-height:10px; mso-line-height-rule:exactly; background-color:#d9dee5;">&nbsp;</td>
-                              }
-                            </tr>
-                          </table>
-                      </td>
+                      @{ RenderTextCell(tutorGroup.Rank); }
+                      @{ RenderTextCell(tutorGroup.TutorGroup); }
+                      @{ RenderCompletionCell(tutorGroup.CompletionPercentage); }
+                      @{ RenderProgressCell(tutorGroup.CompletionPercentage); }
                     </tr>
                   }
                 </table>
@@ -163,52 +192,23 @@
 
               @foreach (var reportSection in Model.Sections)
               {
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; font-size:0; line-height:0;">
-                  <tr>
-                    <td height="16" style="height:16px; font-size:0; line-height:16px; mso-line-height-rule:exactly;">&nbsp;</td>
-                  </tr>
-                </table>
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#f0f2f5" style="width:100%; border-collapse:collapse; margin:0 0 8px; background-color:#f0f2f5; font-family:@font; font-size:11pt;">
-                  <tr>
-                    <td align="center" style="padding:8px 10px; font-family:@font;">
-                      <h2 style="margin:0; font-family:@font; font-size:13pt; line-height:15pt; mso-line-height-rule:exactly; color:#17212f; text-align:center;">@reportSection.Title</h2>
-                      @if (!string.IsNullOrWhiteSpace(reportSection.Summary))
-                      {
-                        <div style="margin:4px 0 0; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly; color:#23303f; text-align:center;">@reportSection.Summary</div>
-                      }
-                    </td>
-                  </tr>
-                </table>
+                RenderSectionSpacer();
+                RenderSectionHeader(reportSection.Title, reportSection.Summary);
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; margin:0 0 18px; font-family:@font; font-size:11pt;">
                   <tr>
                     <td style="padding:0 10px; font-family:@font; font-size:11pt;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; font-family:@font; font-size:11pt;">
                   <tr>
-                    <th align="left" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Student</th>
-                    <th align="right" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Complete</th>
-                    <th align="right" style="padding:6px 0 4px; border-bottom:1px solid #d8e0ea; font-family:@font; font-size:10pt; line-height:11pt; mso-line-height-rule:exactly;">Progress</th>
+                    @{ RenderHeaderCell("left", "Student"); }
+                    @{ RenderHeaderCell("right", "Complete"); }
+                    @{ RenderHeaderCell("right", "Progress"); }
                   </tr>
                   @foreach (var student in reportSection.Students)
                   {
-                    var completedWidth = GetProgressBarCompletedWidth(student.CompletionPercentage);
-                    var remainingWidth = ProgressBarWidth - completedWidth;
                     <tr>
-                      <td valign="bottom" style="padding:1px 0 0; border-bottom:1px solid #edf1f5; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly;">@student.Name</td>
-                      <td align="right" valign="bottom" style="padding:1px 0 0; border-bottom:1px solid #edf1f5; font-family:@font; font-size:11pt; line-height:13pt; mso-line-height-rule:exactly;">@(student.CompletionPercentage)%</td>
-                      <td align="right" valign="middle" style="padding:3px 0 0; border-bottom:1px solid #edf1f5; line-height:10px; mso-line-height-rule:exactly;">
-                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="@ProgressBarWidth" align="right" bgcolor="#d9dee5" style="width:@(ProgressBarWidth)px; border-collapse:collapse; background-color:#d9dee5; font-family:@font; font-size:11pt">
-                            <tr>
-                              @if (completedWidth > 0)
-                              {
-                                <td width="@completedWidth" height="10" bgcolor="#176b3a" style="width:@(completedWidth)px; height:10px; font-size:0; line-height:10px; mso-line-height-rule:exactly; background-color:#176b3a;">&nbsp;</td>
-                              }
-                              @if (remainingWidth > 0)
-                              {
-                                <td width="@remainingWidth" height="10" bgcolor="#d9dee5" style="width:@(remainingWidth)px; height:10px; font-size:0; line-height:10px; mso-line-height-rule:exactly; background-color:#d9dee5;">&nbsp;</td>
-                              }
-                            </tr>
-                          </table>
-                      </td>
+                      @{ RenderTextCell(student.Name); }
+                      @{ RenderCompletionCell(student.CompletionPercentage); }
+                      @{ RenderProgressCell(student.CompletionPercentage, false); }
                     </tr>
                   }
                 </table>

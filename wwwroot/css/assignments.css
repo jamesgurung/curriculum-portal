@@ -16,6 +16,7 @@
   --assignments-ring-track: #dbe3ef;
   --assignments-ring-active: #0f7a3f;
   --assignments-ring-complete: #0f7a3f;
+  --assignments-ring-pp: #d9368b;
   --assignments-shadow: 0 14px 30px rgba(11, 26, 45, 0.14);
   min-height: 100%;
   padding: 0.9rem;
@@ -58,9 +59,24 @@ body.assignments-layout .assignments-page {
 }
 
 .assignments-root,
+.assignment-staff-view,
 .assignment-overview {
   display: grid;
   gap: 0.94rem;
+}
+
+.assignment-staff-controls {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.assignment-pp-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--assignments-text-strong);
+  font-size: 0.9rem;
+  font-weight: 650;
 }
 
 .assignment-section,
@@ -595,6 +611,18 @@ a.assignment-card.is-overdue:hover {
   font-weight: 400;
 }
 
+.assignment-pp-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.45rem;
+  padding: 0.08rem 0.32rem;
+  border-radius: 4px;
+  background: var(--assignments-ring-pp);
+  color: #ffffff;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
 .assignments-table-cell {
   text-align: center;
 }
@@ -688,12 +716,17 @@ a.assignment-card.is-overdue:hover {
   background: conic-gradient(var(--assignments-ring-complete) 360deg, var(--assignments-ring-complete) 0);
 }
 
+.assignment-progress-ring.is-pupil-premium {
+  background: conic-gradient(var(--assignments-ring-pp) var(--progress), var(--assignments-ring-track) 0);
+}
+
 .assignment-progress-ring::after {
   content: "";
   position: absolute;
   inset: 5px;
   border-radius: 50%;
   background: var(--assignments-panel);
+  z-index: 0;
 }
 
 .assignment-progress.is-compact .assignment-progress-ring::after {
@@ -702,7 +735,26 @@ a.assignment-card.is-overdue:hover {
 
 .assignment-progress-ring-value {
   position: relative;
+  z-index: 2;
+  grid-area: 1 / 1;
+}
+
+.assignment-progress-pupil-premium {
+  position: relative;
   z-index: 1;
+  grid-area: 1 / 1;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: conic-gradient(var(--assignments-ring-pp) var(--pp-progress), transparent 0);
+}
+
+.assignment-progress-pupil-premium::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--assignments-panel);
 }
 
 .assignment-progress-ring-value {
@@ -730,6 +782,7 @@ a.assignment-card.is-overdue:hover {
     --assignments-ring-track: #2f343d;
     --assignments-ring-active: #5eb288;
     --assignments-ring-complete: #5eb288;
+    --assignments-ring-pp: #f25aa5;
     --assignments-shadow: 0 12px 30px rgba(0, 0, 0, 0.46);
     background: color-mix(in srgb, var(--assignments-bg) 96%, #000000);
   }

@@ -277,6 +277,7 @@ public class AssignmentsStaffRow
 {
   public string Title { get; set; } = string.Empty;
   public string DetailId { get; set; } = string.Empty;
+  public bool PupilPremium { get; set; }
   public List<AssignmentsProgressCell> Cells { get; set; } = [];
 }
 
@@ -295,4 +296,6 @@ public class AssignmentsProgressCell
   public bool HasAssignment { get; set; }
   public int Completed { get; set; }
   public int Total { get; set; }
+  public int PupilPremiumCompleted { get; set; }
+  public int PupilPremiumTotal { get; set; }
 }

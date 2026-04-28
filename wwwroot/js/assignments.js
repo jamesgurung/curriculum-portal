@@ -1,5 +1,5 @@
 const assignmentsRoot = document.getElementById('assignments-root');
-const assignmentState = { detailStack: [] };
+const assignmentState = { detailStack: [], showPupilPremium: false };
 
 document.addEventListener('DOMContentLoaded', () => {
   if (!assignmentsRoot) {
@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   assignmentsRoot.addEventListener('click', onAssignmentsClick);
+  assignmentsRoot.addEventListener('change', onAssignmentsChange);
   assignmentsRoot.addEventListener('keydown', onAssignmentsKeydown);
   renderAssignments();
 });
@@ -25,6 +26,15 @@ function onAssignmentsClick(event) {
     renderAssignments();
     scrollAssignmentsToTop();
   }
+}
+
+function onAssignmentsChange(event) {
+  if (event.target.id !== 'show-pupil-premium') {
+    return;
+  }
+
+  assignmentState.showPupilPremium = event.target.checked;
+  renderAssignments();
 }
 
 function onAssignmentsKeydown(event) {
@@ -102,12 +112,28 @@ function buildStudentCard(card, highlightIncomplete) {
 function renderStaffAssignments() {
   const detailId = assignmentState.detailStack[assignmentState.detailStack.length - 1];
   const detail = (assignmentsData.staff?.details ?? []).find(item => item.id === detailId);
+  const wrapper = createElement('div', 'assignment-staff-view');
+  wrapper.appendChild(buildStaffControls());
   if (detail) {
-    assignmentsRoot.replaceChildren(buildStaffDetail(detail));
+    wrapper.appendChild(buildStaffDetail(detail));
+    assignmentsRoot.replaceChildren(wrapper);
     return;
   }
 
-  assignmentsRoot.replaceChildren(buildStaffOverview());
+  wrapper.appendChild(buildStaffOverview());
+  assignmentsRoot.replaceChildren(wrapper);
+}
+
+function buildStaffControls() {
+  const controls = createElement('div', 'assignment-staff-controls');
+  const label = createElement('label', 'assignment-pp-toggle');
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.id = 'show-pupil-premium';
+  checkbox.checked = assignmentState.showPupilPremium;
+  label.append(checkbox, createElement('span', '', 'Show Pupil Premium breakdown'));
+  controls.appendChild(label);
+  return controls;
 }
 
 function buildStaffOverview() {
@@ -153,14 +179,18 @@ function buildAssignmentsTable(dates, rows, clickable, firstColumnTitle) {
       tr.setAttribute('role', 'button');
     }
 
-    tr.appendChild(createElement('th', 'assignments-table-row-title', row.title ?? row.name ?? ''));
+    const titleCell = createElement('th', 'assignments-table-row-title', row.title ?? row.name ?? '');
+    if (assignmentState.showPupilPremium && row.pupilPremium) {
+      titleCell.appendChild(createElement('span', 'assignment-pp-badge', 'PP'));
+    }
+    tr.appendChild(titleCell);
     for (const cell of row.cells) {
       const td = document.createElement('td');
       td.className = 'assignments-table-cell';
       if (!cell.hasAssignment) {
         td.appendChild(createElement('span', 'assignments-table-empty', ''));
       } else {
-        td.appendChild(buildProgressBadge(cell.completed, cell.total, true));
+        td.appendChild(buildProgressBadge(cell.completed, cell.total, true, cell.pupilPremiumCompleted, cell.pupilPremiumTotal, row.pupilPremium));
       }
       tr.appendChild(td);
     }
@@ -197,14 +227,21 @@ function buildStaffDetail(detail) {
   return wrapper;
 }
 
-function buildProgressBadge(completed, total, compact) {
+function buildProgressBadge(completed, total, compact, pupilPremiumCompleted = 0, pupilPremiumTotal = 0, pupilPremium = false) {
   const badge = createElement('div', `assignment-progress${compact ? ' is-compact' : ''}`);
-  const ring = createElement('span', `assignment-progress-ring${total > 0 && completed >= total ? ' is-complete' : ''}`);
+  const showPupilPremium = compact && assignmentState.showPupilPremium;
+  const ring = createElement('span', `assignment-progress-ring${total > 0 && completed >= total ? ' is-complete' : ''}${showPupilPremium && pupilPremium ? ' is-pupil-premium' : ''}`);
   const progress = total > 0 ? Math.min(completed / total, 1) : 0;
   ring.style.setProperty('--progress', `${progress * 360}deg`);
 
-  const ringValue = createElement('span', 'assignment-progress-ring-value', total > 0 ? `${Math.round(progress * 100)}%` : '0%');
-  ring.appendChild(ringValue);
+  if (showPupilPremium && pupilPremiumTotal > 0 && !pupilPremium) {
+    const pupilPremiumRing = createElement('span', 'assignment-progress-pupil-premium');
+    pupilPremiumRing.style.setProperty('--pp-progress', `${Math.min(pupilPremiumCompleted / pupilPremiumTotal, 1) * 360}deg`);
+    ring.appendChild(pupilPremiumRing);
+  } else {
+    const ringValue = createElement('span', 'assignment-progress-ring-value', total > 0 ? `${Math.round(progress * 100)}%` : '0%');
+    ring.appendChild(ringValue);
+  }
 
   badge.setAttribute('aria-label', `${completed} of ${total} answered`);
   badge.appendChild(ring);

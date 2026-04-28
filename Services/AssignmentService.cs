@@ -349,7 +349,7 @@ public class AssignmentService
 
       classRosters.TryGetValue(cls.Name, out var roster);
       roster ??= [];
-      var cells = dateColumns.Select(date => BuildAggregateCell(data, roster.Select(o => o.Id), date.Value)).ToList();
+      var cells = dateColumns.Select(date => BuildAggregateCell(data, roster.Select(o => o.Id), date.Value, roster.Where(o => o.PupilPremium).Select(o => o.Id))).ToList();
       if (!cells.Any(o => o.HasAssignment)) continue;
 
       var detailId = $"class-{++classDetailIndex}";
@@ -388,9 +388,10 @@ public class AssignmentService
         .DistinctBy(o => o.Id)
         .ToList();
       var yearStudentIdsByPartition = BuildStudentIdsByPartition(yearStudents, assignmentSubjectCodes, partitionData);
+      var yearPupilPremiumStudentIdsByPartition = BuildStudentIdsByPartition(yearStudents.Where(o => o.PupilPremium), assignmentSubjectCodes, partitionData);
       if (yearStudentIdsByPartition.Count == 0) continue;
 
-      var yearCells = dateColumns.Select(date => BuildAggregateCell(partitionData, yearStudentIdsByPartition, date.Value)).ToList();
+      var yearCells = dateColumns.Select(date => BuildAggregateCell(partitionData, yearStudentIdsByPartition, date.Value, yearPupilPremiumStudentIdsByPartition)).ToList();
       if (!yearCells.Any(o => o.HasAssignment)) continue;
 
       var tutorGroupRows = new List<AssignmentsStaffRow>();
@@ -398,9 +399,10 @@ public class AssignmentService
       {
         var tutorStudents = tutorGroup.Value;
         var tutorStudentIdsByPartition = BuildStudentIdsByPartition(tutorStudents, assignmentSubjectCodes, partitionData);
+        var tutorPupilPremiumStudentIdsByPartition = BuildStudentIdsByPartition(tutorStudents.Where(o => o.PupilPremium), assignmentSubjectCodes, partitionData);
         if (tutorStudentIdsByPartition.Count == 0) continue;
 
-        var tutorCells = dateColumns.Select(date => BuildAggregateCell(partitionData, tutorStudentIdsByPartition, date.Value)).ToList();
+        var tutorCells = dateColumns.Select(date => BuildAggregateCell(partitionData, tutorStudentIdsByPartition, date.Value, tutorPupilPremiumStudentIdsByPartition)).ToList();
         if (!tutorCells.Any(o => o.HasAssignment)) continue;
 
         var tutorDetailId = $"tutor-{++tutorGroupDetailIndex}";
@@ -456,7 +458,13 @@ public class AssignmentService
           g => g.Key,
           g => g.SelectMany(cls => classRosters.TryGetValue(cls.Name, out var roster) ? roster.Select(student => student.Id) : []).Distinct().ToList(),
           StringComparer.OrdinalIgnoreCase);
-      var cells = dateColumns.Select(date => BuildAggregateCell(partitionData, courseStudentIdsByPartition, date.Value)).ToList();
+      var coursePupilPremiumStudentIdsByPartition = courseClasses
+        .GroupBy(o => o.PartitionKey, StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(
+          g => g.Key,
+          g => g.SelectMany(cls => classRosters.TryGetValue(cls.Name, out var roster) ? roster.Where(student => student.PupilPremium).Select(student => student.Id) : []).Distinct().ToList(),
+          StringComparer.OrdinalIgnoreCase);
+      var cells = dateColumns.Select(date => BuildAggregateCell(partitionData, courseStudentIdsByPartition, date.Value, coursePupilPremiumStudentIdsByPartition)).ToList();
       if (!cells.Any(o => o.HasAssignment)) continue;
 
       var detailId = $"course-{++courseDetailIndex}";
@@ -880,7 +888,7 @@ public class AssignmentService
     };
   }
 
-  private static AssignmentsProgressCell BuildAggregateCell(PartitionAssignmentData data, IEnumerable<int> studentIds, string dueDate)
+  private static AssignmentsProgressCell BuildAggregateCell(PartitionAssignmentData data, IEnumerable<int> studentIds, string dueDate, IEnumerable<int> pupilPremiumStudentIds = null)
   {
     if (string.IsNullOrWhiteSpace(dueDate)) return new AssignmentsProgressCell();
     var date = DateOnly.ParseExact(dueDate, "yyyy-MM-dd");
@@ -895,31 +903,48 @@ public class AssignmentService
       total += progress.Total;
     }
 
+    var pupilPremiumCompleted = 0;
+    var pupilPremiumTotal = 0;
+    if (pupilPremiumStudentIds is not null)
+    {
+      foreach (var studentId in pupilPremiumStudentIds)
+      {
+        var progress = GetAssignmentProgress(assignment, data, studentId);
+        pupilPremiumCompleted += progress.Completed;
+        pupilPremiumTotal += progress.Total;
+      }
+    }
+
     return new AssignmentsProgressCell
     {
       DueDate = dueDate,
       HasAssignment = true,
       Completed = completed,
-      Total = total
+      Total = total,
+      PupilPremiumCompleted = pupilPremiumCompleted,
+      PupilPremiumTotal = pupilPremiumTotal
     };
   }
 
   private static AssignmentsProgressCell BuildAggregateCell(
     IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
     IReadOnlyDictionary<string, List<int>> studentIdsByPartition,
-    string dueDate)
+    string dueDate,
+    IReadOnlyDictionary<string, List<int>> pupilPremiumStudentIdsByPartition = null)
   {
     var cell = new AssignmentsProgressCell { DueDate = dueDate };
     foreach (var entry in studentIdsByPartition)
     {
       if (!partitionData.TryGetValue(entry.Key, out var data)) continue;
 
-      var partitionCell = BuildAggregateCell(data, entry.Value, dueDate);
+      var partitionCell = BuildAggregateCell(data, entry.Value, dueDate, pupilPremiumStudentIdsByPartition?.GetValueOrDefault(entry.Key));
       if (!partitionCell.HasAssignment) continue;
 
       cell.HasAssignment = true;
       cell.Completed += partitionCell.Completed;
       cell.Total += partitionCell.Total;
+      cell.PupilPremiumCompleted += partitionCell.PupilPremiumCompleted;
+      cell.PupilPremiumTotal += partitionCell.PupilPremiumTotal;
     }
 
     return cell;
@@ -971,6 +996,7 @@ public class AssignmentService
       .Select(student => new AssignmentsStaffRow
       {
         Title = $"{student.LastName}, {student.FirstName}",
+        PupilPremium = student.PupilPremium,
         Cells = dateColumns.Select(date => BuildStudentCell(data, student.Id, date.Value)).ToList()
       })
       .ToList();
@@ -991,6 +1017,7 @@ public class AssignmentService
         return new AssignmentsStaffRow
         {
           Title = $"{student.LastName}, {student.FirstName}",
+          PupilPremium = student.PupilPremium,
           Cells = dateColumns.Select(date => BuildAggregateStudentCell(partitionData, partitionKeys, student.Id, date.Value)).ToList()
         };
       })
