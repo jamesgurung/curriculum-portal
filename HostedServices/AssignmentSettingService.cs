@@ -83,7 +83,7 @@ public class AssignmentSettingService(
           }
         }
 
-        var dueDate = assignmentService.ResolveDueDate(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)));
+        var dueDate = assignmentService.ResolveDueDate(today.AddDays(7));
         HashSet<string> assignmentPartitionKeys;
         try
         {

@@ -286,6 +286,16 @@ public class AssignmentService
       .OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
       .ToList();
     if (assignmentCourses.Count == 0) return new AssignmentsStaffData();
+    var assignmentCourseIds = assignmentCourses
+      .Select(o => o.RowKey)
+      .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var assignmentCourseYearGroups = (await _courseService.ListUnitsAsync())
+      .Where(o => assignmentCourseIds.Contains(o.PartitionKey))
+      .GroupBy(o => o.PartitionKey, StringComparer.OrdinalIgnoreCase)
+      .ToDictionary(
+        g => g.Key,
+        g => g.Select(o => o.YearGroup).ToHashSet(),
+        StringComparer.OrdinalIgnoreCase);
     var assignmentSubjectCodes = assignmentCourses
       .Select(o => o.SubjectCode)
       .Where(o => !string.IsNullOrWhiteSpace(o))
@@ -446,8 +456,11 @@ public class AssignmentService
     var courseDetailIndex = 0;
     foreach (var course in assignmentCourses)
     {
+      if (!assignmentCourseYearGroups.TryGetValue(course.RowKey, out var courseYearGroups) || courseYearGroups.Count == 0) continue;
+
       var courseClasses = schoolClasses
         .Where(o => o.SubjectCode.Equals(course.SubjectCode, StringComparison.OrdinalIgnoreCase))
+        .Where(o => courseYearGroups.Contains(o.YearGroup))
         .Where(o => classRowsByName.ContainsKey(o.Name))
         .ToList();
       if (courseClasses.Count == 0) continue;
