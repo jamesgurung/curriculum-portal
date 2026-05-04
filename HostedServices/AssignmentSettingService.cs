@@ -104,8 +104,9 @@ public class AssignmentSettingService(
             .ToHashSet();
           var classes = configService.Students
             .SelectMany(student => student.Classes)
-            .Where(className => IsKs3TutorClassWithAssignments(className, ks3YearGroupsWithAssignments)
-              || IsKs45SubjectClassWithAssignment(className, assignmentPartitionKeys))
+            .Where(className => !IsExamYearExempt(GetLeadingNumber(className), dueDate)
+              && (IsKs3TutorClassWithAssignments(className, ks3YearGroupsWithAssignments)
+                || IsKs45SubjectClassWithAssignment(className, assignmentPartitionKeys)))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
           await teamsService.SetAssignments(dueDate, classes);
           logger.LogInformation("Set Teams assignments for due date {DueDate}.", dueDate);
@@ -197,7 +198,12 @@ public class AssignmentSettingService(
 
   private static bool IsExamYearExempt(User student, DateOnly dueDate)
   {
-    return dueDate.Month is >= 4 and <= 8 && GetYearGroup(student) is 11 or 13;
+    return IsExamYearExempt(GetYearGroup(student), dueDate);
+  }
+
+  private static bool IsExamYearExempt(int yearGroup, DateOnly dueDate)
+  {
+    return dueDate.Month is >= 4 and <= 8 && yearGroup is 11 or 13;
   }
 
   private static int GetYearGroup(User student)

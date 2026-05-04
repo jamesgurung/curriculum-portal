@@ -110,25 +110,21 @@ public partial class AIService
 
     var client = _aiClient.GetResponsesClient();
 
-    var systemMessage = """
-      You are an experienced secondary school teacher with exceptional pedagogical subject knowledge.
-      The user will provide a list of facts that students need to learn and remember.
-      Your task is to carefully design 20-30 questions, including at least one question about each knowledge item in the list. Return this in a structured JSON format.
-      
-      # Instructions
-      Think carefully and reason about all your proposed questions and answers before generating a response. Criteria include:
+    var criteria = """
+      # Criteria for question design
+    
       - Each question must be multiple-choice with one correct answer and three incorrect answers.
-      - The incorrect answers MUST be plausible and not easily dismissable, yet unambiguously wrong.
-      - Incorrect answers must be credible alternatives that a student might genuinely confuse with the correct answer. They should be from the same category, use the same grammatical form, and have a similar level of specificity and realism.
-      - Do not use absurd, extreme, or giveaway distractors, including simple opposites or negations of the correct answer.
-      - Before finalising each question, reject and rewrite any answer option that a student could eliminate without knowing the lesson content.
+      - The incorrect answers must be unambiguously wrong. There must be no debate or argument about which answer is correct.
+      - The incorrect answers must be plausible, reasonable-sounding answers to the question. They must be credible alternatives that a student might genuinely confuse with the correct answer. They should be from the same conceptual category, use the same grammatical form, and have a similar level of specificity and realism. They could be near misses, misconceptions, confused terms, reversed cause/effect relationships, or answers that apply to a related concept but not this one.
+      - Do not use absurd, extreme, or giveaway distractors, including opposites or negations of the correct answer. Avoid clue words such as "ignoring", "without", "always", "never", or "only" unless they are present across all options.
+      - Assume that students have excellent common sense. They should not be able to guess the answer without strong subject-specific knowledge.
+      - Before finalising each question, reject and rewrite any answer options that a student could eliminate without knowing the lesson content. If it proves difficult to find suitable options that meet these criteria, consider changing the question.
       - Design the questions to draw out common misconceptions.
-      - The difficulty and language should be appropriate for the age of the students. If the key knowledge seems inappropriately easy or difficult for the age group, adjust the questions accordingly to ensure a suitable level of challenge.
-      - Make sure every single knowledge item is covered by at least one question. If there are more than 30 knowledge items, prioritise the most important facts that students need to know and remember.
-      - Ensure each question is worded so that it makes sense and is self-contained and answerable in its own right, without relying on any other context.
-      - Before returning the final JSON, silently reject and rewrite any question with ambiguous wording, multiple defensible answers, clueing, or answer options that are obviously implausible using common sense.
-      
+      - Ensure each question is worded so that it makes sense and is self-contained and answerable in its own right, without relying on previous questions or any other context.
+      - Before returning the final JSON, silently reject and rewrite any question with ambiguous wording, multiple defensible answers, clueing, or answer options that are obviously implausible using common sense. Before finalising each question, apply this test: "Could a student with no lesson knowledge eliminate this option using common sense alone?" If yes, rewrite the option.
+    
       # Style
+    
       - Keep all questions and answers as succinct as possible. All answer options should be one word or a short phrase.
       - Use Tier 3 vocabulary and student-friendly language that is clear and accessible.
       - Avoid long, complex sentences and prefer plain English instead of technical notation.
@@ -136,7 +132,39 @@ public partial class AIService
       - During quizzing, the question will be shown for a few seconds before the options appear. Therefore, make sure the question text is answerable in its own right without seeing the options.
       - Use British English spelling and terminology.
       - For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted.
-      """.Trim();
+      """;
+
+    var generateMessage = $"""
+      You are an experienced secondary school teacher with strong pedagogical subject knowledge.
+      The user will provide a list of facts that students need to learn and remember.
+      Your task is to carefully design 15-30 questions that assess knowledge of these facts. Return these in a structured JSON format.
+      Think carefully and reason about all your proposed questions and answers before generating a response.
+      The difficulty and language should be appropriate for the age of the students. If the key knowledge seems inappropriately easy or difficult for the age group, adjust the questions accordingly to ensure a suitable level of challenge.
+      Most or all knowledge items should be covered by at least one question. If there are more than 30 knowledge items, prioritise the most important facts that students need to know and remember.
+      If a knowledge item does not lend itself to quizzing, for example because it is a common-sense or obvious statement, do not write a question about it.
+      If a stated fact is particularly knowledge-dense, you could ask multiple questions about it, as long as they are disjoint in what they assess.
+
+      {criteria}
+      """;
+
+    var improveMessage = $"""
+      You are an experienced secondary school teacher with strong pedagogical subject knowledge.
+      The user will provide a list of multiple-choice questions.
+      Your task is to develop the questions so that they meet all the requirements below. Return the improved questions in a structured JSON format.
+      Above all:
+      
+      - fix any questions whose correct answer can be guessed through common sense; and
+      - fix any questions where the indicated correct answer is inaccurate or any of the incorrect answers could be argued to be correct.
+      
+      Think carefully and reason about all questions and answers before generating a response.
+      If a question is already high-quality, return it as-is. Do not make unnecessary changes.
+      If a question or its answer options do not fully meet the criteria, make changes to improve it.
+      Typically, you should only make minor changes (for example, modifying one or more answer options), but if needed you can rewrite the whole question.
+      A new or amended question must assess the same core knowledge as the original.
+      If a question is not salvageable, remove it.
+
+      {criteria}
+      """;
 
     var schema = BinaryData.FromBytes("""
       {
@@ -144,7 +172,6 @@ public partial class AIService
         "properties": {
           "questions": {
             "type": "array",
-            "minItems": 20,
             "maxItems": 30,
             "items": {
               "type": "object",
@@ -174,8 +201,8 @@ public partial class AIService
     {
       var options = new CreateResponseOptions
       {
-        Instructions = systemMessage,
-        ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
+        Instructions = generateMessage,
+        ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
         StoredOutputEnabled = false,
         TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
         Model = _model
@@ -188,6 +215,24 @@ public partial class AIService
     async Task<List<QuestionBankQuestion>> GenerateQuizQuestionsForItemsAsync(IEnumerable<string> knowledgeItems)
     {
       var options = CreateOptions(knowledgeItems);
+      var response = await client.CreateResponseAsync(options, cancellationToken);
+      var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
+      var questions = JsonSerializer.Deserialize<QuestionBank>(json, JsonOptions)?.Questions ?? [];
+      return await ImproveQuizQuestionsAsync(questions);
+    }
+
+    async Task<List<QuestionBankQuestion>> ImproveQuizQuestionsAsync(List<QuestionBankQuestion> questions)
+    {
+      var options = new CreateResponseOptions
+      {
+        Instructions = improveMessage,
+        ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
+        StoredOutputEnabled = false,
+        TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
+        Model = _model
+      };
+
+      options.InputItems.Add(ResponseItem.CreateUserMessageItem(JsonSerializer.Serialize(new QuestionBank { Questions = questions }, JsonOptions)));
       var response = await client.CreateResponseAsync(options, cancellationToken);
       var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
       return JsonSerializer.Deserialize<QuestionBank>(json, JsonOptions)?.Questions ?? [];
@@ -240,10 +285,13 @@ public partial class AIService
 
     var batches = CreateKnowledgeBatches().Select((items, index) => (Items: items, Index: index)).ToList();
     var results = new List<QuestionBankQuestion>[batches.Count];
+    var completed = 0;
 
+    Console.WriteLine($"Generating quiz questions in {batches.Count} batches");
     await Parallel.ForEachAsync(batches, new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cancellationToken }, async (batch, _) =>
     {
       results[batch.Index] = await GenerateBatchWithRetryAsync(batch.Items);
+      Console.WriteLine($"Completed batches: {Interlocked.Increment(ref completed)}/{batches.Count}");
     });
 
     return results.SelectMany(o => o ?? []).ToList();

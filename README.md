@@ -109,7 +109,7 @@ Deploy effortlessly to Microsoft Azure.
     * `MicrosoftClientSecret` - the client secret of your Azure app registration
     * `MicrosoftFoundryEndpoint` - the endpoint URL for your Microsoft Foundry deployment, e.g. `https://<project>.cognitiveservices.azure.com/` (optional; if set, this is used instead of the OpenAI API)
     * `MicrosoftSharePointSubdomain` - your Microsoft 365 SharePoint subdomain (for example `contoso` in `https://contoso.sharepoint.com`)
-    * `MicrosoftTeamsPrefix` - the `externalName` prefix used to identify the relevant Microsoft Teams classes when publishing assignment tasks. Teams assignments are published to KS3 tutor groups only for year groups where at least one assignment is set.
+    * `MicrosoftTeamsPrefix` - the `externalName` prefix used to identify the relevant Microsoft Teams classes when publishing assignment tasks.
     * `MicrosoftTenantId` - your Azure tenant ID
     * `OpenAIApiKey` - your OpenAI or Microsoft Foundry API key
     * `OpenAIModel` - the OpenAI model name or Microsoft Foundry deployment name
@@ -119,7 +119,7 @@ Deploy effortlessly to Microsoft Azure.
     * `SyncApiKey` - the secret key to use if you update the `students.csv` and `teachers.csv` files with an automated script (optional)
     * `Website` - the public base URL of your deployed Curriculum Portal, e.g. `https://example.com`
 
-7. Sign in as an admin and visit `/serviceaccount` to authenticate the Microsoft mailbox used for HTML email sending.
+7. Sign in as an admin and visit `/serviceaccount` to authenticate the Microsoft mailbox used for HTML email sending. Note that the service account should not typically be the same as the admin account.
 
 ### Contributing
 
