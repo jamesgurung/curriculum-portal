@@ -7,6 +7,67 @@ const fancyDoubleQuotes = /[\u201C\u201D]/g;
 const cleanText = text => text.replace(fancySingleQuotes, "'").replace(fancyDoubleQuotes, '"').replace(invalidWhitespace, ' ').replace(repeatedSpaces, ' ')
   .replace(trailingSpaces, '').replace(repeatedNewLines, '\n\n').trim();
 
+async function postSseJson(url, body) {
+  const options = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf }
+  };
+  if (body !== undefined) options.body = JSON.stringify(body);
+
+  const response = await fetch(url, options);
+  if (!response.ok) throw new Error(await response.text());
+  if (!response.body) throw new Error('No response stream received.');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  function readEvent(frame) {
+    let event = 'message';
+    const data = [];
+    frame.split(/\r?\n/).forEach(line => {
+      if (line.startsWith('event:')) event = line.slice(6).trimStart();
+      if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+    });
+    return { event, data: data.join('\n') };
+  }
+
+  function processEvent(frame) {
+    if (!frame.trim()) return undefined;
+    const item = readEvent(frame);
+    if (item.event === 'heartbeat') return undefined;
+    if (item.event === 'result') return JSON.parse(item.data);
+    if (item.event === 'error') {
+      let message = item.data;
+      try {
+        message = JSON.parse(item.data).message ?? message;
+      } catch {
+      }
+      throw new Error(message || 'The AI operation failed.');
+    }
+    return undefined;
+  }
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+
+    while (true) {
+      const separator = buffer.match(/\r?\n\r?\n/);
+      if (!separator) break;
+      const result = processEvent(buffer.slice(0, separator.index));
+      if (result !== undefined) return result;
+      buffer = buffer.slice(separator.index + separator[0].length);
+    }
+
+    if (done) break;
+  }
+
+  const result = processEvent(buffer);
+  if (result !== undefined) return result;
+  throw new Error('The response stream ended before a result was received.');
+}
+
 let editMode = false;
 
 window.addEventListener('beforeunload', function (event) { if (editMode) event.preventDefault(); });
@@ -631,13 +692,7 @@ function showModal(event) {
       document.getElementById('modal-close').classList.add('hide');
       document.getElementById('modal-text').disabled = true;
       try {
-        const resp = await fetch('/courses/build/ai/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-          body: JSON.stringify({ value })
-        });
-        if (!resp.ok) throw new Error(await resp.text());
-        const data = await resp.json();
+        const data = await postSseJson('/courses/build/ai/import', { value });
         assessment.sections = data.sections;
         document.getElementById('assessment-content').innerHTML = '';
         const q = { number: 1 };
@@ -670,13 +725,7 @@ function showModal(event) {
       document.getElementById('modal-close').classList.add('hide');
       document.getElementById('modal-text').disabled = true;
       try {
-        const resp = await fetch('/courses/build/ai/generatekeyknowledge', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-          body: JSON.stringify({ value })
-        });
-        if (!resp.ok) throw new Error(await resp.text());
-        const data = await resp.json();
+        const data = await postSseJson('/courses/build/ai/generatekeyknowledge', { value });
         keyKnowledge.declarativeKnowledge = data.declarativeKnowledge;
         keyKnowledge.proceduralKnowledge = data.proceduralKnowledge;
         renderKeyKnowledge();
@@ -715,18 +764,12 @@ function showModal(event) {
       document.getElementById('modal-close').classList.add('hide');
       document.getElementById('modal-text').disabled = true;
       try {
-        const resp = await fetch('/courses/build/ai/generatequestions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-          body: JSON.stringify({
-            declarativeKnowledge: keyKnowledge.declarativeKnowledge,
-            multipleChoiceCount,
-            shortAnswerCount,
-            existingQuestions: currentSection.questions.map(q => q.question).filter(q => q.length > 0)
-          })
+        const data = await postSseJson('/courses/build/ai/generatequestions', {
+          declarativeKnowledge: keyKnowledge.declarativeKnowledge,
+          multipleChoiceCount,
+          shortAnswerCount,
+          existingQuestions: currentSection.questions.map(q => q.question).filter(q => q.length > 0)
         });
-        if (!resp.ok) throw new Error(await resp.text());
-        const data = await resp.json();
         currentSection.questions.push(...data);
         document.getElementById('assessment-content').innerHTML = '';
         const q = { number: 1 };
@@ -759,12 +802,7 @@ function showModal(event) {
       document.getElementById('modal-submit-text').textContent = 'Generating...';
       document.getElementById('modal-close').classList.add('hide');
       try {
-        const resp = await fetch(`/courses/${courseId}/${unitId}/build/ai/generatequiz`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf }
-        });
-        if (!resp.ok) throw new Error(await resp.text());
-        const data = await resp.json();
+        const data = await postSseJson(`/courses/${courseId}/${unitId}/build/ai/generatequiz`);
         questionBank.questions = data.questions ?? [];
         isQuizComplete = false;
         renderQuiz();

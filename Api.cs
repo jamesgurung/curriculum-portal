@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
+using System.Net.ServerSentEvents;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 
@@ -531,8 +534,7 @@ public static class Api
         return Results.Forbid();
       }
 
-      var assessment = await ai.ImportTextAssessmentAsync(model.Value);
-      return Results.Content(JsonSerializer.Serialize(assessment, JsonDefaults.CamelCase), "application/json");
+      return StreamAiOperation(ct => ai.ImportTextAssessmentAsync(model.Value, ct), context.RequestAborted);
     });
 
     app.MapGet("/courses/build/ai/createquizzes", [Authorize(Roles = Roles.Admin)] async (AIService ai) =>
@@ -588,8 +590,7 @@ public static class Api
         return Results.Forbid();
       }
 
-      var keyKnowledge = await ai.GenerateKeyKnowledgeAsync(model.Value);
-      return Results.Json(keyKnowledge);
+      return StreamAiOperation(ct => ai.GenerateKeyKnowledgeAsync(model.Value, ct), context.RequestAborted);
     });
 
     app.MapPost("/courses/build/ai/generatequestions", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, GenerateQuestionsRequest model, CourseService storage, AIService ai) =>
@@ -611,8 +612,7 @@ public static class Api
         return Results.Forbid();
       }
 
-      var questions = await ai.GenerateQuestionsAsync(model);
-      return Results.Json(questions);
+      return StreamAiOperation(ct => ai.GenerateQuestionsAsync(model, ct), context.RequestAborted);
     });
 
     app.MapPost("/courses/{courseId}/{unitId}/build/ai/generatequiz", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, AIService ai) =>
@@ -646,9 +646,11 @@ public static class Api
         return Results.BadRequest("Key knowledge is required before generating quiz questions.");
       }
 
-      var questions = await ai.GenerateQuizQuestionsAsync(unit, keyKnowledge);
-      var questionBank = new QuestionBank { Questions = questions };
-      return Results.Json(questionBank);
+      return StreamAiOperation(async ct =>
+      {
+        var questions = await ai.GenerateQuizQuestionsAsync(unit, keyKnowledge, ct);
+        return new QuestionBank { Questions = questions };
+      }, context.RequestAborted);
     });
 
     app.MapGet("/courses/{courseId}/build/summary", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, string courseId, CourseService storage, AIService ai) =>
@@ -794,6 +796,58 @@ public static class Api
     {
       return Results.BadRequest("Invalid anti-forgery token.");
     }
+  }
+
+  private static ServerSentEventsResult<object> StreamAiOperation<TResult>(Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken) =>
+    TypedResults.ServerSentEvents(StreamAiOperationAsync(operation, cancellationToken));
+
+  private static async IAsyncEnumerable<SseItem<object>> StreamAiOperationAsync<TResult>(Func<CancellationToken, Task<TResult>> operation, [EnumeratorCancellation] CancellationToken cancellationToken)
+  {
+    yield return new SseItem<object>(new { ok = true }, "heartbeat");
+
+    Task<TResult> operationTask;
+    Exception error = null;
+    try
+    {
+      operationTask = operation(cancellationToken);
+    }
+    catch (Exception ex)
+    {
+      error = ex;
+      operationTask = null;
+    }
+
+    if (error is not null)
+    {
+      yield return new SseItem<object>(new { message = error.Message }, "error");
+      yield break;
+    }
+
+    while (!operationTask.IsCompleted)
+    {
+      var delayTask = Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+      if (await Task.WhenAny(operationTask, delayTask) == operationTask) break;
+      cancellationToken.ThrowIfCancellationRequested();
+      yield return new SseItem<object>(new { ok = true }, "heartbeat");
+    }
+
+    object result = null;
+    try
+    {
+      result = await operationTask;
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
+      throw;
+    }
+    catch (Exception ex)
+    {
+      error = ex;
+    }
+
+    yield return error is null
+      ? new SseItem<object>(result, "result")
+      : new SseItem<object>(new { message = error.Message }, "error");
   }
 
   private static List<KeyKnowledgeRevisionQuestion> BuildRevisionQuiz(QuestionBank questionBank)

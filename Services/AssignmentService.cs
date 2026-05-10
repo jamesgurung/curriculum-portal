@@ -1146,20 +1146,6 @@ public class AssignmentService
     return cell;
   }
 
-  private static List<AssignmentsStaffRow> BuildClassStudentRows(IEnumerable<User> students, PartitionAssignmentData data, IReadOnlyList<AssignmentsDateColumn> dateColumns)
-  {
-    return students
-      .OrderBy(o => o.LastName, StringComparer.OrdinalIgnoreCase)
-      .ThenBy(o => o.FirstName, StringComparer.OrdinalIgnoreCase)
-      .Select(student => new AssignmentsStaffRow
-      {
-        Title = $"{student.LastName}, {student.FirstName}",
-        PupilPremium = student.PupilPremium,
-        Cells = dateColumns.Select(date => BuildStudentCell(data, student.Id, date.Value)).ToList()
-      })
-      .ToList();
-  }
-
   private static List<AssignmentsStaffRow> BuildClassStudentRows(
     IEnumerable<User> students,
     PartitionAssignmentData data,
@@ -1175,30 +1161,6 @@ public class AssignmentService
         PupilPremium = student.PupilPremium,
         Cells = dateColumns.Select(date => BuildStudentCell(data, student.Id, date, progressCache)).ToList()
       })
-      .ToList();
-  }
-
-  private static List<AssignmentsStaffRow> BuildAggregateStudentRows(
-    IEnumerable<User> students,
-    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
-    IReadOnlyList<AssignmentsDateColumn> dateColumns,
-    HashSet<string> assignmentSubjectCodes,
-    int yearGroup = 0)
-  {
-    return students
-      .OrderBy(o => o.LastName, StringComparer.OrdinalIgnoreCase)
-      .ThenBy(o => o.FirstName, StringComparer.OrdinalIgnoreCase)
-      .Select(student =>
-      {
-        var partitionKeys = GetStudentPartitionKeys(student, assignmentSubjectCodes, partitionData, yearGroup);
-        return new AssignmentsStaffRow
-        {
-          Title = $"{student.LastName}, {student.FirstName}",
-          PupilPremium = student.PupilPremium,
-          Cells = dateColumns.Select(date => BuildAggregateStudentCell(partitionData, partitionKeys, student.Id, date.Value)).ToList()
-        };
-      })
-      .Where(o => o.Cells.Any(cell => cell.HasAssignment))
       .ToList();
   }
 
@@ -1604,7 +1566,7 @@ public class AssignmentService
     return _config.Students
       .SelectMany(student => studentClassesById.TryGetValue(student.Id, out var classes)
         ? classes.Select(cls => (ClassName: cls.Name, Student: student))
-        : Enumerable.Empty<(string ClassName, User Student)>())
+        : [])
       .GroupBy(o => o.ClassName, StringComparer.OrdinalIgnoreCase)
       .ToDictionary(
         g => g.Key,

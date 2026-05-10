@@ -33,7 +33,7 @@ public partial class AIService
     _model = options.OpenAIModel;
   }
 
-  public async Task<Assessment> ImportTextAssessmentAsync(string value)
+  public async Task<Assessment> ImportTextAssessmentAsync(string value, CancellationToken cancellationToken = default)
   {
     var client = _aiClient.GetResponsesClient();
 
@@ -93,7 +93,7 @@ public partial class AIService
     };
 
     options.InputItems.Add(userMessage);
-    var response = await client.CreateResponseAsync(options);
+    var response = await client.CreateResponseAsync(options, cancellationToken);
 
     var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
     return JsonSerializer.Deserialize<Assessment>(json, JsonOptions) ?? new Assessment();
@@ -412,7 +412,7 @@ public partial class AIService
     return JsonSerializer.Deserialize<MarkSchemeResponse>(json, JsonOptions)?.MarkScheme ?? string.Empty;
   }
 
-  public async Task<KeyKnowledge> GenerateKeyKnowledgeAsync(string value)
+  public async Task<KeyKnowledge> GenerateKeyKnowledgeAsync(string value, CancellationToken cancellationToken = default)
   {
     var client = _aiClient.GetResponsesClient();
 
@@ -481,13 +481,13 @@ public partial class AIService
     };
 
     options.InputItems.Add(userMessage);
-    var response = await client.CreateResponseAsync(options);
+    var response = await client.CreateResponseAsync(options, cancellationToken);
 
     var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
     return JsonSerializer.Deserialize<KeyKnowledge>(json, JsonOptions) ?? new KeyKnowledge();
   }
 
-  public async Task<List<AssessmentQuestion>> GenerateQuestionsAsync(GenerateQuestionsRequest model)
+  public async Task<List<AssessmentQuestion>> GenerateQuestionsAsync(GenerateQuestionsRequest model, CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(model);
     var client = _aiClient.GetResponsesClient();
@@ -594,7 +594,7 @@ public partial class AIService
     };
 
     options.InputItems.Add(ResponseItem.CreateUserMessageItem(userMessage));
-    var response = await client.CreateResponseAsync(options);
+    var response = await client.CreateResponseAsync(options, cancellationToken);
 
     var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
     var typedQuestions = JsonSerializer.Deserialize<GenerateQuestionsResponse>(json, JsonOptions) ?? new GenerateQuestionsResponse();
