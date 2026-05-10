@@ -69,13 +69,16 @@ public class AssignmentSettingService(
           {
             var classChartsService = new ClassChartsService(options, configService);
             var students = await assignmentService.GetStudentsWithCompletionAsync(today);
-            var positiveStudents = students.Where(o => o.CompletionRate >= options.AssignmentCompletionHighThreshold).Select(o => o.Student).ToList();
+            var positiveStudents = students
+              .Where(o => o.CompletionRate >= options.AssignmentCompletionHighThreshold)
+              .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
+              .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
             var negativeStudents = students
               .Where(o => o.CompletionRate < options.AssignmentCompletionLowThreshold && !configService.Exemptions.Contains(o.Student.Id) && !IsExamYearExempt(o.Student, today))
-              .Select(o => o.Student)
-              .ToList();
-            await classChartsService.IssueBehaviours(positiveStudents, negativeStudents);
-            logger.LogInformation("Issued {PositiveCount} positive and {NegativeCount} negative Class Charts behaviour events.", positiveStudents.Count, negativeStudents.Count);
+              .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
+              .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
+            var issued = await classChartsService.IssueBehaviours(positiveStudents, negativeStudents);
+            logger.LogInformation("Issued {PositiveCount} positive and {NegativeCount} negative Class Charts behaviour events.", issued.Positive, issued.Negative);
           }
           catch (Exception ex)
           {

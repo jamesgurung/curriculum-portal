@@ -16,7 +16,7 @@ public partial class ConfigService(AppOptions options)
   private readonly ImmutableHashSet<string> _adminEmails = options.AdminEmails.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
   private volatile bool _isLoaded;
   private volatile bool _classChartsBehavioursLoaded;
-  private ClassChartsBehaviourSet _classChartsBehaviours = new();
+  private Dictionary<string, ClassChartsBehaviourSet> _classChartsBehaviours = new(StringComparer.OrdinalIgnoreCase);
 
   public byte[] SchoolLogoBytes { get; private set; }
   public IReadOnlyDictionary<string, User> UsersByEmail { get; private set; } = new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase);
@@ -55,7 +55,7 @@ public partial class ConfigService(AppOptions options)
       if (forceRefresh)
       {
         _classChartsBehavioursLoaded = false;
-        _classChartsBehaviours = new();
+        _classChartsBehaviours = new(StringComparer.OrdinalIgnoreCase);
       }
 
       _isLoaded = true;
@@ -75,7 +75,7 @@ public partial class ConfigService(AppOptions options)
     await blobClient.UploadAsync(stream, true);
   }
 
-  public async Task<ClassChartsBehaviourSet> GetClassChartsBehavioursAsync()
+  public async Task<Dictionary<string, ClassChartsBehaviourSet>> GetClassChartsBehavioursAsync()
   {
     if (_classChartsBehavioursLoaded) return _classChartsBehaviours;
     await _semaphore.WaitAsync();
@@ -197,16 +197,29 @@ public partial class ConfigService(AppOptions options)
     return records;
   }
 
-  private static ClassChartsBehaviourSet ParseClassChartsBehaviours(string json)
+  private static Dictionary<string, ClassChartsBehaviourSet> ParseClassChartsBehaviours(string json)
   {
     try
     {
-      var blob = JsonSerializer.Deserialize<Dictionary<string, ClassChartsBehaviourConfig>>(json, JsonDefaults.CamelCase) ?? throw new InvalidOperationException("classcharts-behaviours.json is invalid.");
-      return new ClassChartsBehaviourSet
+      var blob = JsonSerializer.Deserialize<Dictionary<string, ClassChartsBehaviourSet>>(json, JsonDefaults.CamelCase) ?? throw new InvalidOperationException("classcharts-behaviours.json is invalid.");
+      if (blob.Count == 0) throw new InvalidOperationException("classcharts-behaviours.json is invalid.");
+
+      var behaviours = new Dictionary<string, ClassChartsBehaviourSet>(StringComparer.OrdinalIgnoreCase);
+      foreach (var item in blob)
       {
-        Positive = ValidateBehaviour(blob.TryGetValue("positive", out var positive) ? positive : null, "positive"),
-        Negative = ValidateBehaviour(blob.TryGetValue("negative", out var negative) ? negative : null, "negative")
-      };
+        var key = item.Key?.Trim();
+        if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("classcharts-behaviours.json contains an empty subject code.");
+        if (!behaviours.TryAdd(key, new ClassChartsBehaviourSet
+        {
+          Positive = ValidateBehaviour(item.Value?.Positive, $"{key}.positive"),
+          Negative = ValidateBehaviour(item.Value?.Negative, $"{key}.negative")
+        }))
+        {
+          throw new InvalidOperationException($"classcharts-behaviours.json contains a duplicate subject code '{key}'.");
+        }
+      }
+
+      return behaviours;
     }
     catch (JsonException ex)
     {

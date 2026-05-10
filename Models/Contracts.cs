@@ -146,6 +146,7 @@ public class AssignmentsStudentData
 
 public class StudentWithCompletion
 {
+  public string BehaviourCode { get; set; } = string.Empty;
   public User Student { get; set; }
   public int CompletedQuestions { get; set; }
   public int TotalQuestions { get; set; }

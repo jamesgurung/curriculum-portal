@@ -21,22 +21,31 @@ public sealed partial class ClassChartsService
     _config = config;
   }
 
-  public async Task IssueBehaviours(List<User> positiveStudents, List<User> negativeStudents)
+  public async Task<(int Positive, int Negative)> IssueBehaviours(Dictionary<string, List<User>> positiveStudentsByBehaviour, Dictionary<string, List<User>> negativeStudentsByBehaviour)
   {
-    ArgumentNullException.ThrowIfNull(positiveStudents);
-    ArgumentNullException.ThrowIfNull(negativeStudents);
+    ArgumentNullException.ThrowIfNull(positiveStudentsByBehaviour);
+    ArgumentNullException.ThrowIfNull(negativeStudentsByBehaviour);
 
-    if (positiveStudents.Count == 0 && negativeStudents.Count == 0) return;
+    if (positiveStudentsByBehaviour.Values.Sum(o => o.Count) == 0 && negativeStudentsByBehaviour.Values.Sum(o => o.Count) == 0) return (0, 0);
     if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
       throw new InvalidOperationException("Class Charts email and password must be configured before issuing behaviours.");
 
+    var behaviours = await _config.GetClassChartsBehavioursAsync();
+    var positiveStudents = positiveStudentsByBehaviour
+      .Where(o => behaviours.ContainsKey(o.Key) && o.Value.Count > 0)
+      .ToDictionary(o => o.Key, o => o.Value, StringComparer.OrdinalIgnoreCase);
+    var negativeStudents = negativeStudentsByBehaviour
+      .Where(o => behaviours.ContainsKey(o.Key) && o.Value.Count > 0)
+      .ToDictionary(o => o.Key, o => o.Value, StringComparer.OrdinalIgnoreCase);
+    if (positiveStudents.Count == 0 && negativeStudents.Count == 0) return (0, 0);
+
     var requestedStudents = positiveStudents.Concat(negativeStudents)
+      .SelectMany(o => o.Value)
       .Select(student => new StudentRequest(student, GetYearGroup(student.TutorGroup)))
       .Where(o => o.YearGroup > 0)
       .DistinctBy(o => o.Student.Id)
       .ToList();
-    if (requestedStudents.Count == 0) return;
-    var behaviours = await _config.GetClassChartsBehavioursAsync();
+    if (requestedStudents.Count == 0) return (0, 0);
 
     using var handler = new HttpClientHandler
     {
@@ -50,8 +59,19 @@ public sealed partial class ClassChartsService
     var session = await LoginAsync(client);
     var lessonPupilIds = await GetLessonPupilIdsAsync(client, requestedStudents.Select(o => o.YearGroup));
 
-    await IssueBehaviourAsync(client, session, positiveStudents, lessonPupilIds, behaviours.Positive);
-    await IssueBehaviourAsync(client, session, negativeStudents, lessonPupilIds, behaviours.Negative);
+    var positiveCount = 0;
+    foreach (var group in positiveStudents)
+    {
+      positiveCount += await IssueBehaviourAsync(client, session, group.Value, lessonPupilIds, behaviours[group.Key].Positive);
+    }
+
+    var negativeCount = 0;
+    foreach (var group in negativeStudents)
+    {
+      negativeCount += await IssueBehaviourAsync(client, session, group.Value, lessonPupilIds, behaviours[group.Key].Negative);
+    }
+
+    return (positiveCount, negativeCount);
   }
 
   private async Task<ClassChartsSession> LoginAsync(HttpClient client)
@@ -124,7 +144,7 @@ public sealed partial class ClassChartsService
     return ids;
   }
 
-  private static async Task IssueBehaviourAsync(HttpClient client, ClassChartsSession session, IEnumerable<User> students, Dictionary<string, int> lessonPupilIds, ClassChartsBehaviourConfig behaviour)
+  private static async Task<int> IssueBehaviourAsync(HttpClient client, ClassChartsSession session, IEnumerable<User> students, Dictionary<string, int> lessonPupilIds, ClassChartsBehaviourConfig behaviour)
   {
     var matchedIds = students
       .Select(student => new StudentRequest(student, GetYearGroup(student.TutorGroup)))
@@ -134,7 +154,7 @@ public sealed partial class ClassChartsService
       .Where(o => o > 0)
       .Distinct()
       .ToList();
-    if (matchedIds.Count == 0) return;
+    if (matchedIds.Count == 0) return 0;
 
     var body = new List<FormField>
     {
@@ -160,6 +180,7 @@ public sealed partial class ClassChartsService
     ]);
 
     using var _ = await PostAsync(client, "/apilesson/addbehaviour", body);
+    return matchedIds.Count;
   }
 
   private static async Task<HttpResponseMessage> PostAsync(HttpClient client, string uri, IReadOnlyList<FormField> fields)

@@ -38,21 +38,37 @@ Deploy effortlessly to Microsoft Azure.
       UserId
       ```
 
-    * If you are using Class Charts to record behaviour events, upload `classcharts-behaviours.json` containing the behaviour settings for `positive` and `negative`.
+    * If you are using Class Charts to record behaviour events, upload `classcharts-behaviours.json` containing the behaviour settings for KS3 aggregate homework and each KS4-5 subject code that should receive points. KS4-5 subjects without an entry are skipped.
 
         ```json
         {
-          "positive": {
-            "id": 123456,
-            "reason": "Revision Quizzes Completed",
-            "score": 10,
-            "icon": "good/+thinking_skills.png"
+          "KS3": {
+            "positive": {
+              "id": 100001,
+              "reason": "Revision Quizzes Completed",
+              "score": 10,
+              "icon": "good/+thinking_skills.png"
+            },
+            "negative": {
+              "id": 100002,
+              "reason": "No Homework - Revision Quizzes Incomplete",
+              "score": -6,
+              "icon": "bad/-lack_of_books.png"
+            }
           },
-          "negative": {
-            "id": 123457,
-            "reason": "Insufficient Completion",
-            "score": -6,
-            "icon": "bad/-lack_of_books.png"
+          "Hi": {
+            "positive": {
+              "id": 100003,
+              "reason": "History Quiz Completed",
+              "score": 6,
+              "icon": "good/+thinking_skills.png"
+            },
+            "negative": {
+              "id": 100004,
+              "reason": "No Homework - History Quiz Incomplete",
+              "score": -6,
+              "icon": "bad/-lack_of_books.png"
+            }
           }
         }
         ```

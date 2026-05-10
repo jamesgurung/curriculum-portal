@@ -131,25 +131,36 @@ public class AssignmentService
 
     foreach (var studentWithClasses in studentsWithClasses)
     {
-      var progress = studentWithClasses.Classes
-        .Select(o => o.PartitionKey)
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .Where(partitionKey => partitionData.TryGetValue(partitionKey, out var data) && data.AssignmentsByDate.ContainsKey(deadline))
-        .Select(partitionKey =>
+      var completionGroups = studentWithClasses.Classes
+        .Select(cls => new
         {
-          var data = partitionData[partitionKey];
-          return GetAssignmentProgress(data.AssignmentsByDate[deadline], data, studentWithClasses.Student.Id);
+          BehaviourCode = cls.YearGroup is >= 7 and <= 9 ? "KS3" : cls.YearGroup is >= 10 and <= 13 ? cls.SubjectCode : null,
+          cls.PartitionKey
         })
-        .Aggregate(new AssignmentProgressTotals(0, 0), (current, next) => new AssignmentProgressTotals(current.Completed + next.Completed, current.Total + next.Total));
-      if (progress.Total <= 0) continue;
+        .Where(o => o.BehaviourCode is not null && partitionData.TryGetValue(o.PartitionKey, out var data) && data.AssignmentsByDate.ContainsKey(deadline))
+        .DistinctBy(o => o.PartitionKey, StringComparer.OrdinalIgnoreCase)
+        .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase);
 
-      students.Add(new StudentWithCompletion
+      foreach (var group in completionGroups)
       {
-        Student = studentWithClasses.Student,
-        CompletedQuestions = progress.Completed,
-        TotalQuestions = progress.Total,
-        CompletionRate = progress.Completed * 100d / progress.Total
-      });
+        var progress = group
+          .Select(o =>
+          {
+            var data = partitionData[o.PartitionKey];
+            return GetAssignmentProgress(data.AssignmentsByDate[deadline], data, studentWithClasses.Student.Id);
+          })
+          .Aggregate(new AssignmentProgressTotals(0, 0), (current, next) => new AssignmentProgressTotals(current.Completed + next.Completed, current.Total + next.Total));
+        if (progress.Total <= 0) continue;
+
+        students.Add(new StudentWithCompletion
+        {
+          BehaviourCode = group.Key,
+          Student = studentWithClasses.Student,
+          CompletedQuestions = progress.Completed,
+          TotalQuestions = progress.Total,
+          CompletionRate = progress.Completed * 100d / progress.Total
+        });
+      }
     }
 
     return students;
