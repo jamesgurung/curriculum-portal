@@ -11,9 +11,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Core" Version="1.54.0" />
+    <PackageReference Include="Azure.Core" Version="1.55.0" />
     <PackageReference Include="Azure.Data.Tables" Version="12.11.0" />
-    <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.2" />
+    <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.3" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.Storage.Blobs" Version="12.29.0-beta.1" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
@@ -22,6 +22,7 @@
     <PackageReference Include="Microsoft.Graph.Beta" Version="5.135.0-preview" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.84.0" />
     <PackageReference Include="OpenAI" Version="2.10.0" />
+    <PackageReference Include="Microsoft.Kiota.Abstractions" Version="[1.22.2]" />
   </ItemGroup>
 
 </Project>
