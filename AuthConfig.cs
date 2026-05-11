@@ -68,6 +68,11 @@ public static class AuthConfig
         options.Scope.Add("profile");
         options.Events = new OpenIdConnectEvents
         {
+          OnRedirectToIdentityProvider = context =>
+          {
+            context.ProtocolMessage.Prompt = "select_account";
+            return Task.CompletedTask;
+          },
           OnTicketReceived = context =>
           {
             var email = context.Principal.FindFirstValue("upn")?.ToLowerInvariant();
