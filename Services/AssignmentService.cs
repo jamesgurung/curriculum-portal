@@ -46,8 +46,7 @@ public class AssignmentService
         {
           PartitionKey = $"{yearGroup:D2}{course.SubjectCode}",
           RowKey = dueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-          Length = course.AssignmentLength,
-          CourseId = course.RowKey
+          Length = course.AssignmentLength
         };
         var existing = await _assignmentsClient.GetEntityIfExistsAsync<AssignmentEntity>(assignment.PartitionKey, assignment.RowKey);
         if (existing.HasValue)
@@ -175,8 +174,10 @@ public class AssignmentService
     var classes = ParseClasses(student.Classes);
     if (classes.Count == 0) return new AssignmentsStudentData();
 
-    var coursesById = (await _courseService.ListCoursesAsync())
-      .ToDictionary(o => o.RowKey, StringComparer.OrdinalIgnoreCase);
+    var coursesByKeyStageAndSubjectCode = (await _courseService.ListCoursesAsync())
+      .Where(o => !string.IsNullOrWhiteSpace(o.SubjectCode))
+      .GroupBy(o => BuildCourseLookupKey(o.KeyStage, o.SubjectCode), StringComparer.OrdinalIgnoreCase)
+      .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
     var partitionKeys = NormalizePartitionKeys(classes.Select(o => o.PartitionKey));
     var assignmentsByPartition = await LoadAssignmentsByPartitionAsync(partitionKeys);
     var submissionsByPartition = await LoadStudentSubmissionsAsync(partitionKeys, assignmentsByPartition, student.Id);
@@ -189,7 +190,8 @@ public class AssignmentService
         return data.AssignmentsByDate.Values.Select(o => new
         {
           o.DueDate,
-          Card = CreateStudentCard(o, data, student.Id, coursesById.GetValueOrDefault(o.CourseId))
+          Card = CreateStudentCard(o, data, student.Id,
+            coursesByKeyStageAndSubjectCode.GetValueOrDefault(BuildCourseLookupKey(GetKeyStage(o.YearGroup), o.SubjectCode)))
         });
       })
       .DistinctBy(o => (o.Card.CourseId, o.Card.DueDate))
@@ -539,8 +541,8 @@ public class AssignmentService
       .ToHashSet(StringComparer.OrdinalIgnoreCase);
     if (assignmentSubjectCodes.Count == 0) return reports;
 
-    var coursesBySubjectCode = assignmentCourses
-      .GroupBy(o => o.SubjectCode, StringComparer.OrdinalIgnoreCase)
+    var coursesByKeyStageAndSubjectCode = assignmentCourses
+      .GroupBy(o => BuildCourseLookupKey(o.KeyStage, o.SubjectCode), StringComparer.OrdinalIgnoreCase)
       .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
     var classRosters = BuildClassRosters();
     var tutorGroupRosters = BuildTutorGroupRosters();
@@ -572,7 +574,9 @@ public class AssignmentService
       classReportsByName[cls.Name] = new ClassCompletionReport
       {
         ClassName = cls.Name,
-        CourseName = coursesBySubjectCode.TryGetValue(cls.SubjectCode, out var course) ? course.Name : cls.SubjectCode,
+        CourseName = coursesByKeyStageAndSubjectCode.TryGetValue(BuildCourseLookupKey(GetKeyStage(cls.YearGroup), cls.SubjectCode), out var course)
+          ? course.Name
+          : cls.SubjectCode,
         CompletedQuestions = students.Sum(o => o.CompletedQuestions),
         TotalQuestions = totalQuestions,
         CompletionPercentage = GetCompletionPercentage(students.Sum(o => o.CompletedQuestions), totalQuestions),
@@ -1303,6 +1307,8 @@ public class AssignmentService
 
   private async Task<StudentAssignmentContext> LoadStudentAssignmentContextAsync(User student, CourseEntity course, int yearGroup, DateOnly dueDate, string className)
   {
+    if (course.KeyStage != GetKeyStage(yearGroup)) return null;
+
     var partitionKey = $"{yearGroup:D2}{course.SubjectCode}";
     var dueDateText = dueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     var assignment = await _assignmentsClient.GetEntityIfExistsAsync<AssignmentEntity>(partitionKey, dueDateText);
@@ -1620,6 +1626,10 @@ public class AssignmentService
     var digits = new string(tutorGroup.Trim().TakeWhile(char.IsDigit).ToArray());
     return int.TryParse(digits, out var yearGroup) ? yearGroup : 0;
   }
+
+  private static int GetKeyStage(int yearGroup) => yearGroup >= 12 ? 5 : yearGroup >= 10 ? 4 : 3;
+
+  private static string BuildCourseLookupKey(int keyStage, string subjectCode) => $"{keyStage}:{subjectCode}";
 
   private static string FormatLongDate(DateOnly date) => date.ToString("dddd d MMMM", CultureInfo.InvariantCulture);
 
