@@ -7,6 +7,7 @@
 - Do not edit or reformat unrelated code. Keep edits local to the relevant files unless a wider change is required.
 - Avoid introducing new dependencies unless they are clearly necessary.
 - Reuse existing code and patterns in the codebase where possible.
+- There is no need to maintain backwards compatibility unless explicitly stated in the task.
 - To avoid interfering with active processes, run validation builds with a temporary artifacts directory outside the repo, then delete it afterwards. Example PowerShell flow: `$artifacts = Join-Path $env:TEMP ("dotnet-build-" + [guid]::NewGuid().ToString("N")); dotnet build --artifacts-path $artifacts; Remove-Item -LiteralPath $artifacts -Recurse -Force`
 - Do not introduce any test projects.
 - Do not access files named `appsettings.json`, `secrets.json`, or `local.settings.json` under any circumstances.
@@ -19,7 +20,7 @@
 ## Code Style
 
 - Match the existing codebase style, structure, naming, and patterns.
-- Use 2-space indentation, spaces not tabs, CRLF line endings, and a final newline.
+- Use 2-space indentation, spaces not tabs, and a final newline.
 - Avoid adding small helper methods that are only called once. Prefer inline code when it is clear and concise.
 - Use small defensive guards only when essential to prevent errors. Avoid over-engineering.
 - When writing C#, prefer:

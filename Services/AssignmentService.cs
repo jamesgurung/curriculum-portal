@@ -46,7 +46,8 @@ public class AssignmentService
         {
           PartitionKey = $"{yearGroup:D2}{course.SubjectCode}",
           RowKey = dueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-          Length = course.AssignmentLength
+          Length = course.AssignmentLength,
+          CourseId = course.RowKey
         };
         var existing = await _assignmentsClient.GetEntityIfExistsAsync<AssignmentEntity>(assignment.PartitionKey, assignment.RowKey);
         if (existing.HasValue)
@@ -174,10 +175,8 @@ public class AssignmentService
     var classes = ParseClasses(student.Classes);
     if (classes.Count == 0) return new AssignmentsStudentData();
 
-    var coursesBySubjectCode = (await _courseService.ListCoursesAsync())
-      .Where(o => !string.IsNullOrWhiteSpace(o.SubjectCode))
-      .GroupBy(o => o.SubjectCode, StringComparer.OrdinalIgnoreCase)
-      .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+    var coursesById = (await _courseService.ListCoursesAsync())
+      .ToDictionary(o => o.RowKey, StringComparer.OrdinalIgnoreCase);
     var partitionKeys = NormalizePartitionKeys(classes.Select(o => o.PartitionKey));
     var assignmentsByPartition = await LoadAssignmentsByPartitionAsync(partitionKeys);
     var submissionsByPartition = await LoadStudentSubmissionsAsync(partitionKeys, assignmentsByPartition, student.Id);
@@ -190,7 +189,7 @@ public class AssignmentService
         return data.AssignmentsByDate.Values.Select(o => new
         {
           o.DueDate,
-          Card = CreateStudentCard(o, data, student.Id, coursesBySubjectCode.GetValueOrDefault(o.SubjectCode))
+          Card = CreateStudentCard(o, data, student.Id, coursesById.GetValueOrDefault(o.CourseId))
         });
       })
       .DistinctBy(o => (o.Card.CourseId, o.Card.DueDate))

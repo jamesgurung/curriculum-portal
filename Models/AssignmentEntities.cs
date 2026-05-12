@@ -35,6 +35,7 @@ public class AssignmentEntity : ITableEntity
   public ETag ETag { get; set; }
 
   public int Length { get; set; }
+  public string CourseId { get; set; }
 
   [IgnoreDataMember]
   public int YearGroup { get; private set; }
