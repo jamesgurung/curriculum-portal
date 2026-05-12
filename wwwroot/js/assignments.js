@@ -224,7 +224,77 @@ function buildStaffDetail(detail) {
   }
 
   wrapper.appendChild(buildAssignmentsTable(assignmentsData.staff.dates, detail.rows, detail.clickableRows, detail.firstColumnTitle));
+  const questionsSection = buildQuestionsSection(detail);
+  if (questionsSection) {
+    wrapper.appendChild(questionsSection);
+  }
   return wrapper;
+}
+
+function buildQuestionsSection(detail) {
+  const questions = detail.questions ?? [];
+  if (questions.length === 0) {
+    return null;
+  }
+
+  const section = createElement('section', 'assignment-questions');
+  section.appendChild(createElement('div', 'assignment-questions-heading', detail.questionsTitle || 'Questions'));
+
+  const list = createElement('div', 'assignment-questions-list');
+  for (const question of [...questions].sort((a, b) => (a.percentage ?? 0) - (b.percentage ?? 0))) {
+    list.appendChild(buildQuestionSummary(question));
+  }
+  section.appendChild(list);
+  return section;
+}
+
+function buildQuestionSummary(question) {
+  const item = createElement('article', 'assignment-question-summary');
+  item.appendChild(buildQuestionProgressBadge(question));
+
+  const body = createElement('div', 'assignment-question-summary-body');
+  if (question.unitTitle) {
+    body.appendChild(createElement('p', 'assignment-question-summary-unit', question.unitTitle));
+  }
+  body.appendChild(createElement('p', 'assignment-question-summary-text', question.questionText));
+
+  const answers = createElement('div', 'assignment-question-summary-answers');
+  answers.appendChild(buildAnswerLine('Correct', question.correctAnswer, true));
+  for (const answer of question.incorrectAnswers ?? []) {
+    answers.appendChild(buildAnswerLine('Incorrect', answer, false));
+  }
+  body.appendChild(answers);
+  item.appendChild(body);
+  return item;
+}
+
+function buildQuestionProgressBadge(question) {
+  const attempted = question.attempted ?? 0;
+  const percentage = attempted > 0 ? question.percentage ?? 0 : 0;
+  const badge = createElement('div', 'assignment-question-score');
+  const ring = createElement('span', 'assignment-question-score-ring');
+  ring.style.setProperty('--question-progress', `${Math.min(percentage / 100, 1) * 360}deg`);
+  ring.style.setProperty('--question-ring-color', getQuestionRingColor(percentage));
+  ring.appendChild(createElement('span', 'assignment-question-score-value', attempted > 0 ? `${percentage}%` : '0%'));
+  badge.appendChild(ring);
+  badge.setAttribute('aria-label', attempted > 0 ? `${percentage}% answered correctly first time` : 'Not answered yet');
+  return badge;
+}
+
+function getQuestionRingColor(value) {
+  const stops = [[50, [0, 86, 70]], [75, [48, 86, 56]], [100, [137, 45, 57]]];
+  const [from, to] = value < 75 ? [stops[0], stops[1]] : [stops[1], stops[2]];
+  const amount = Math.max(0, Math.min(1, (value - from[0]) / (to[0] - from[0])));
+  const hsl = from[1].map((channel, index) => Math.round(channel + (to[1][index] - channel) * amount));
+  return `hsl(${hsl[0]} ${hsl[1]}% ${hsl[2]}%)`;
+}
+
+function buildAnswerLine(label, text, correct) {
+  const line = createElement('p', `assignment-question-summary-answer${correct ? ' is-correct' : ''}`);
+  const icon = createElement('span', 'assignment-question-summary-answer-icon material-symbols-outlined', correct ? 'check' : 'close');
+  icon.setAttribute('aria-label', label);
+  line.append(icon, document.createTextNode(text));
+  return line;
 }
 
 function buildProgressBadge(completed, total, compact, pupilPremiumCompleted = 0, pupilPremiumTotal = 0, pupilPremium = false) {

@@ -564,7 +564,7 @@ a.assignment-card.is-overdue:hover {
 
 .assignments-table thead th:not(:first-child),
 .assignments-table tbody td {
-  width: calc((100% - 240px) / 5);
+  width: calc((100% - 280px) / 5);
   text-align: center;
 }
 
@@ -597,8 +597,8 @@ a.assignment-card.is-overdue:hover {
 
 .assignments-table-label,
 .assignments-table-row-title {
-  width: 240px;
-  min-width: 240px;
+  width: 280px;
+  min-width: 280px;
   color: var(--assignments-text-strong);
   text-align: left;
 }
@@ -659,6 +659,124 @@ a.assignment-card.is-overdue:hover {
   display: inline-block;
   width: 100%;
   min-height: 1.5rem;
+}
+
+.assignment-questions {
+  border-top: 1px solid var(--assignments-border);
+  background: var(--assignments-panel);
+}
+
+.assignment-questions-heading {
+  padding: 0.85rem 1.05rem 0;
+  color: var(--assignments-text-strong);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.assignment-questions-list {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.85rem;
+}
+
+.assignment-question-summary {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+  gap: 0.85rem;
+  padding: 0.8rem;
+  border: 1px solid var(--assignments-border-standard);
+  border-radius: 8px;
+  background: var(--assignments-panel-soft);
+}
+
+.assignment-question-score {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+}
+
+.assignment-question-score-ring {
+  --question-progress: 0deg;
+  --question-ring-color: #c6323f;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: conic-gradient(var(--question-ring-color) var(--question-progress), var(--assignments-ring-track) 0);
+}
+
+.assignment-question-score-ring::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--assignments-panel-soft);
+  z-index: 0;
+}
+
+.assignment-question-score-value {
+  position: relative;
+  z-index: 1;
+  color: var(--assignments-text-strong);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.assignment-question-summary-body {
+  min-width: 0;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.assignment-question-summary-unit,
+.assignment-question-summary-text,
+.assignment-question-summary-answer {
+  margin: 0;
+}
+
+.assignment-question-summary-unit {
+  color: var(--assignments-faint);
+  font-size: 0.76rem;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.assignment-question-summary-text {
+  color: var(--assignments-text-strong);
+  font-size: 0.94rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.assignment-question-summary-answers {
+  display: grid;
+  gap: 0.3rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  margin-top: 0.1rem;
+}
+
+.assignment-question-summary-answer {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--assignments-muted);
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.assignment-question-summary-answer.is-correct {
+  color: var(--assignments-text);
+}
+
+.assignment-question-summary-answer-icon {
+  flex: none;
+  color: var(--assignments-text-strong);
+  font-size: 1rem;
+  line-height: 1.05;
+  font-weight: 400;
 }
 
 .assignment-back-button {
@@ -821,6 +939,14 @@ a.assignment-card.is-overdue:hover {
   .assignment-play-body,
   .assignment-question-card {
     padding: 0.85rem;
+  }
+
+  .assignment-question-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-question-score {
+    justify-items: start;
   }
 
   .assignment-play-title {

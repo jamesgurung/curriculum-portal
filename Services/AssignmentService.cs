@@ -336,7 +336,10 @@ public class AssignmentService
     if (relevantPartitions.Count == 0) return new AssignmentsStaffData();
 
     var partitionKeys = NormalizePartitionKeys(relevantPartitions);
-    var visibleDueDates = GetStaffVisibleDueDates(DateOnly.FromDateTime(DateTime.UtcNow));
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    var visibleDueDates = GetStaffVisibleDueDates(today);
+    var questionDueDate = visibleDueDates.Where(o => o <= today).DefaultIfEmpty(visibleDueDates.Last()).Max();
+    var questionsTitle = $"Questions ({FormatShortDate(questionDueDate)})";
     var staffDateColumns = visibleDueDates
       .Take(5)
       .Select(date =>
@@ -357,13 +360,19 @@ public class AssignmentService
       entry => entry.Key,
       entry => entry.Value.Where(assignment => visibleDates.Contains(assignment.DueDate)).ToList(),
       StringComparer.OrdinalIgnoreCase);
-    var allSubmissionsByPartition = await LoadSubmissionsByDateRangeAsync(partitionKeys, earliestVisibleDueDate, latestVisibleDueDate.AddDays(1));
-    var submissionsByPartition = allSubmissionsByPartition.ToDictionary(
+      var allSubmissionsByPartition = await LoadSubmissionsByDateRangeAsync(partitionKeys, earliestVisibleDueDate, latestVisibleDueDate.AddDays(1), true);
+      var submissionsByPartition = allSubmissionsByPartition.ToDictionary(
       entry => entry.Key,
-      entry => entry.Value.Where(submission => visibleDates.Contains(submission.DueDate)).ToList(),
+        entry => entry.Value.Where(submission => visibleDates.Contains(submission.DueDate)).ToList(),
       StringComparer.OrdinalIgnoreCase);
-    var partitionData = BuildPartitionData(partitionKeys, assignmentsByPartition, submissionsByPartition);
+    var allQuestionsByPartition = await LoadQuestionsByDateRangeAsync(partitionKeys, questionDueDate);
+    var questionsByPartition = allQuestionsByPartition.ToDictionary(
+      entry => entry.Key,
+      entry => entry.Value,
+      StringComparer.OrdinalIgnoreCase);
+    var partitionData = BuildPartitionData(partitionKeys, assignmentsByPartition, submissionsByPartition, questionsByPartition);
     var progressCache = new Dictionary<(string PartitionKey, DateOnly DueDate, int StudentId), AssignmentProgressTotals>();
+    var questionProgressCache = new Dictionary<(string PartitionKey, DateOnly DueDate, int StudentId), List<AssignmentProgressEntry>>();
 
     var details = new List<AssignmentsStaffDetail>();
     var classRowsByName = new Dictionary<string, AssignmentsStaffRow>(StringComparer.OrdinalIgnoreCase);
@@ -393,7 +402,9 @@ public class AssignmentService
         Id = detailId,
         Title = cls.Name,
         FirstColumnTitle = "Student",
-        Rows = BuildClassStudentRows(roster, data, staffDateColumns, progressCache)
+        Rows = BuildClassStudentRows(roster, data, staffDateColumns, progressCache),
+        QuestionsTitle = questionsTitle,
+        Questions = BuildQuestionSummaries(data, studentIds, questionDueDate, questionProgressCache)
       });
     }
 
@@ -475,44 +486,46 @@ public class AssignmentService
     {
       if (!assignmentCourseYearGroups.TryGetValue(course.RowKey, out var courseYearGroups) || courseYearGroups.Count == 0) continue;
 
-      var courseClasses = schoolClasses
-        .Where(o => o.SubjectCode.Equals(course.SubjectCode, StringComparison.OrdinalIgnoreCase))
-        .Where(o => courseYearGroups.Contains(o.YearGroup))
-        .Where(o => classRowsByName.ContainsKey(o.Name))
-        .ToList();
-      if (courseClasses.Count == 0) continue;
-
-      var courseStudentIdsByPartition = courseClasses
-        .GroupBy(o => o.PartitionKey, StringComparer.OrdinalIgnoreCase)
-        .ToDictionary(
-          g => g.Key,
-          g => g.SelectMany(cls => classRosters.TryGetValue(cls.Name, out var roster) ? roster.Select(student => student.Id) : []).Distinct().ToList(),
-          StringComparer.OrdinalIgnoreCase);
-      var coursePupilPremiumStudentIdsByPartition = courseClasses
-        .GroupBy(o => o.PartitionKey, StringComparer.OrdinalIgnoreCase)
-        .ToDictionary(
-          g => g.Key,
-          g => g.SelectMany(cls => classRosters.TryGetValue(cls.Name, out var roster) ? roster.Where(student => student.PupilPremium).Select(student => student.Id) : []).Distinct().ToList(),
-          StringComparer.OrdinalIgnoreCase);
-      var cells = staffDateColumns.Select(date => BuildAggregateCell(partitionData, courseStudentIdsByPartition, date, progressCache, coursePupilPremiumStudentIdsByPartition)).ToList();
-      if (!cells.Any(o => o.HasAssignment)) continue;
-
-      var detailId = $"course-{++courseDetailIndex}";
-      courseRows.Add(new AssignmentsStaffRow
+      foreach (var yearGroup in courseYearGroups.Order())
       {
-        Title = course.Name,
-        DetailId = detailId,
-        Cells = cells
-      });
+        var partitionKey = $"{yearGroup:D2}{course.SubjectCode}";
+        if (!partitionData.TryGetValue(partitionKey, out var data)) continue;
 
-      details.Add(new AssignmentsStaffDetail
-      {
-        Id = detailId,
-        Title = course.Name,
-        FirstColumnTitle = "Class",
-        ClickableRows = true,
-        Rows = courseClasses.Select(o => classRowsByName[o.Name]).ToList()
-      });
+        var courseClasses = schoolClasses
+          .Where(o => o.PartitionKey.Equals(partitionKey, StringComparison.OrdinalIgnoreCase))
+          .Where(o => classRowsByName.ContainsKey(o.Name))
+          .ToList();
+        if (courseClasses.Count == 0) continue;
+
+        var students = courseClasses
+          .SelectMany(cls => classRosters.TryGetValue(cls.Name, out var roster) ? roster : [])
+          .DistinctBy(o => o.Id)
+          .ToList();
+        var studentIds = students.Select(o => o.Id).ToList();
+        var pupilPremiumStudentIds = students.Where(o => o.PupilPremium).Select(o => o.Id).ToList();
+        var cells = staffDateColumns.Select(date => BuildAggregateCell(data, studentIds, date, progressCache, pupilPremiumStudentIds)).ToList();
+        if (!cells.Any(o => o.HasAssignment)) continue;
+
+        var title = $"{course.Name} – Year {yearGroup}";
+        var detailId = $"course-{++courseDetailIndex}";
+        courseRows.Add(new AssignmentsStaffRow
+        {
+          Title = title,
+          DetailId = detailId,
+          Cells = cells
+        });
+
+        details.Add(new AssignmentsStaffDetail
+        {
+          Id = detailId,
+          Title = title,
+          FirstColumnTitle = "Class",
+          ClickableRows = true,
+          Rows = courseClasses.Select(o => classRowsByName[o.Name]).ToList(),
+          QuestionsTitle = questionsTitle,
+          Questions = BuildQuestionSummaries(data, studentIds, questionDueDate, questionProgressCache)
+        });
+      }
     }
 
     return new AssignmentsStaffData
@@ -758,15 +771,23 @@ public class AssignmentService
     return await LoadEntitiesByDueDatesAsync<AssignmentSubmissionEntity>(_submissionsClient, partitionKeys, dueDatesByPartition, ["PartitionKey", "RowKey", "Completed"]);
   }
 
-  private async Task<Dictionary<string, List<AssignmentSubmissionEntity>>> LoadSubmissionsByDateRangeAsync(List<string> partitionKeys, DateOnly startInclusive, DateOnly endExclusive)
+  private async Task<Dictionary<string, List<AssignmentSubmissionEntity>>> LoadSubmissionsByDateRangeAsync(List<string> partitionKeys, DateOnly startInclusive, DateOnly endExclusive, bool includeProgress = false)
   {
-    return await LoadEntitiesByDateRangeAsync<AssignmentSubmissionEntity>(_submissionsClient, partitionKeys, startInclusive, endExclusive, ["PartitionKey", "RowKey", "Completed"]);
+    return await LoadEntitiesByDateRangeAsync<AssignmentSubmissionEntity>(_submissionsClient, partitionKeys, startInclusive, endExclusive,
+      includeProgress ? ["PartitionKey", "RowKey", "Completed", "Progress"] : ["PartitionKey", "RowKey", "Completed"]);
+  }
+
+  private async Task<Dictionary<string, List<AssignmentQuestionEntity>>> LoadQuestionsByDateRangeAsync(List<string> partitionKeys, DateOnly dueDate)
+  {
+    return await LoadEntitiesByDateRangeAsync<AssignmentQuestionEntity>(_questionsClient, partitionKeys, dueDate, dueDate.AddDays(1),
+      ["PartitionKey", "RowKey", "Question", "CorrectAnswer", "IncorrectAnswer1", "IncorrectAnswer2", "IncorrectAnswer3", "UnitTitle"]);
   }
 
   private static Dictionary<string, PartitionAssignmentData> BuildPartitionData(
     List<string> partitionKeys,
     Dictionary<string, List<AssignmentEntity>> assignmentsByPartition,
-    Dictionary<string, List<AssignmentSubmissionEntity>> submissionsByPartition)
+    Dictionary<string, List<AssignmentSubmissionEntity>> submissionsByPartition,
+    Dictionary<string, List<AssignmentQuestionEntity>> questionsByPartition = null)
   {
     var results = new Dictionary<string, PartitionAssignmentData>(partitionKeys.Count, StringComparer.OrdinalIgnoreCase);
 
@@ -774,8 +795,11 @@ public class AssignmentService
     {
       assignmentsByPartition.TryGetValue(partitionKey, out var assignments);
       submissionsByPartition.TryGetValue(partitionKey, out var submissions);
+      List<AssignmentQuestionEntity> questions = null;
+      questionsByPartition?.TryGetValue(partitionKey, out questions);
       assignments ??= [];
       submissions ??= [];
+      questions ??= [];
 
       results[partitionKey] = new PartitionAssignmentData
       {
@@ -783,6 +807,11 @@ public class AssignmentService
           .OrderBy(o => o.DueDate)
           .ToDictionary(o => o.DueDate, o => o),
         SubmissionsByStudentAndDate = submissions.ToDictionary(o => (o.DueDate, o.StudentId), o => o),
+        QuestionsByDate = questions
+          .GroupBy(o => o.DueDate)
+          .ToDictionary(
+            g => g.Key,
+            g => g.OrderBy(o => o.QuestionNumber).ToList())
       };
     }
 
@@ -1275,6 +1304,73 @@ public class AssignmentService
       .ToList();
   }
 
+  private static List<AssignmentsStaffQuestion> BuildQuestionSummaries(
+    PartitionAssignmentData data,
+    IReadOnlyList<int> studentIds,
+    DateOnly dueDate,
+    Dictionary<(string PartitionKey, DateOnly DueDate, int StudentId), List<AssignmentProgressEntry>> progressCache)
+  {
+    if (!data.QuestionsByDate.TryGetValue(dueDate, out var questions) || questions.Count == 0) return [];
+
+    return questions
+      .Select((question, index) => BuildQuestionSummary(data, question, index + 1, studentIds, progressCache))
+      .ToList();
+  }
+
+  private static AssignmentsStaffQuestion BuildQuestionSummary(
+    PartitionAssignmentData data,
+    AssignmentQuestionEntity question,
+    int questionNumber,
+    IReadOnlyList<int> studentIds,
+    Dictionary<(string PartitionKey, DateOnly DueDate, int StudentId), List<AssignmentProgressEntry>> progressCache)
+  {
+    var attempted = 0;
+    var firstTimeCorrect = 0;
+    var totalQuestions = data.QuestionsByDate.TryGetValue(question.DueDate, out var questions) ? questions.Count : 0;
+
+    foreach (var studentId in studentIds)
+    {
+      if (!data.SubmissionsByStudentAndDate.TryGetValue((question.DueDate, studentId), out var submission)) continue;
+
+      var progress = GetAssignmentQuestionProgress(submission, totalQuestions, progressCache);
+      var entry = progress.FirstOrDefault(o => o.QuestionNumber == questionNumber);
+      if (entry is null || entry.Attempts <= 0) continue;
+
+      attempted++;
+      if (entry.IsCorrect && entry.Attempts == 1)
+      {
+        firstTimeCorrect++;
+      }
+    }
+
+    return new AssignmentsStaffQuestion
+    {
+      QuestionNumber = questionNumber,
+      UnitTitle = question.UnitTitle ?? string.Empty,
+      QuestionText = question.Question ?? string.Empty,
+      CorrectAnswer = question.CorrectAnswer ?? string.Empty,
+      IncorrectAnswers = [question.IncorrectAnswer1 ?? string.Empty, question.IncorrectAnswer2 ?? string.Empty, question.IncorrectAnswer3 ?? string.Empty],
+      Attempted = attempted,
+      FirstTimeCorrect = firstTimeCorrect,
+      Percentage = GetCompletionPercentage(firstTimeCorrect, attempted)
+    };
+  }
+
+  private static List<AssignmentProgressEntry> GetAssignmentQuestionProgress(
+    AssignmentSubmissionEntity submission,
+    int questionCount,
+    Dictionary<(string PartitionKey, DateOnly DueDate, int StudentId), List<AssignmentProgressEntry>> progressCache)
+  {
+    var key = (submission.PartitionKey, submission.DueDate, submission.StudentId);
+    if (!progressCache.TryGetValue(key, out var progress))
+    {
+      progress = ParseProgress(submission.Progress, questionCount);
+      progressCache[key] = progress;
+    }
+
+    return progress;
+  }
+
   private static int GetAssignmentTotal(AssignmentEntity assignment) => Math.Max(assignment.Length, 0);
 
   private static AssignmentProgressTotals GetAssignmentProgress(AssignmentEntity assignment, PartitionAssignmentData data, int studentId)
@@ -1646,6 +1742,7 @@ public class AssignmentService
   {
     public required Dictionary<DateOnly, AssignmentEntity> AssignmentsByDate { get; init; }
     public required Dictionary<(DateOnly DueDate, int StudentId), AssignmentSubmissionEntity> SubmissionsByStudentAndDate { get; init; }
+    public required Dictionary<DateOnly, List<AssignmentQuestionEntity>> QuestionsByDate { get; init; }
   }
 
   private sealed record AssignmentProgressTotals(int Completed, int Total);

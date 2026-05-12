@@ -289,6 +289,20 @@ public class AssignmentsStaffDetail
   public string FirstColumnTitle { get; set; } = string.Empty;
   public bool ClickableRows { get; set; }
   public List<AssignmentsStaffRow> Rows { get; set; } = [];
+  public string QuestionsTitle { get; set; } = string.Empty;
+  public List<AssignmentsStaffQuestion> Questions { get; set; } = [];
+}
+
+public class AssignmentsStaffQuestion
+{
+  public int QuestionNumber { get; set; }
+  public string UnitTitle { get; set; } = string.Empty;
+  public string QuestionText { get; set; } = string.Empty;
+  public string CorrectAnswer { get; set; } = string.Empty;
+  public List<string> IncorrectAnswers { get; set; } = [];
+  public int Attempted { get; set; }
+  public int FirstTimeCorrect { get; set; }
+  public int Percentage { get; set; }
 }
 
 public class AssignmentsProgressCell
