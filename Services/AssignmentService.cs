@@ -360,11 +360,11 @@ public class AssignmentService
       entry => entry.Key,
       entry => entry.Value.Where(assignment => visibleDates.Contains(assignment.DueDate)).ToList(),
       StringComparer.OrdinalIgnoreCase);
-      var allSubmissionsByPartition = await LoadSubmissionsByDateRangeAsync(partitionKeys, earliestVisibleDueDate, latestVisibleDueDate.AddDays(1), true);
-      var submissionsByPartition = allSubmissionsByPartition.ToDictionary(
-      entry => entry.Key,
-        entry => entry.Value.Where(submission => visibleDates.Contains(submission.DueDate)).ToList(),
-      StringComparer.OrdinalIgnoreCase);
+    var allSubmissionsByPartition = await LoadSubmissionsByDateRangeAsync(partitionKeys, earliestVisibleDueDate, latestVisibleDueDate.AddDays(1), true);
+    var submissionsByPartition = allSubmissionsByPartition.ToDictionary(
+    entry => entry.Key,
+      entry => entry.Value.Where(submission => visibleDates.Contains(submission.DueDate)).ToList(),
+    StringComparer.OrdinalIgnoreCase);
     var allQuestionsByPartition = await LoadQuestionsByDateRangeAsync(partitionKeys, questionDueDate);
     var questionsByPartition = allQuestionsByPartition.ToDictionary(
       entry => entry.Key,

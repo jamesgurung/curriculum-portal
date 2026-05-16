@@ -114,13 +114,14 @@ public partial class AIService
       # Criteria for question design
     
       - Each question must be multiple-choice with one correct answer and three incorrect answers.
+      - Questions must provide high-quality retrieval practice of learnable, memorable facts.
       - The incorrect answers must be unambiguously wrong. There must be no debate or argument about which answer is correct.
       - The incorrect answers must be plausible, reasonable-sounding answers to the question. They must be credible alternatives that a student might genuinely confuse with the correct answer. They should be from the same conceptual category, use the same grammatical form, and have a similar level of specificity and realism. They could be near misses, misconceptions, confused terms, reversed cause/effect relationships, or answers that apply to a related concept but not this one.
-      - Do not use absurd, extreme, or giveaway distractors, including opposites or negations of the correct answer. Avoid clue words such as "ignoring", "without", "always", "never", or "only" unless they are present across all options.
+      - Do not use absurd, extreme, or giveaway incorrect options, including opposites or negations of the correct answer. Avoid clue words such as "ignoring", "without", "always", "never", or "only" unless they are present across all options.
       - Assume that students have excellent common sense. They should not be able to guess the answer without strong subject-specific knowledge.
       - Before finalising each question, reject and rewrite any answer options that a student could eliminate without knowing the lesson content. If it proves difficult to find suitable options that meet these criteria, consider changing the question.
-      - Design the questions to draw out common misconceptions.
-      - Ensure each question is worded so that it makes sense and is self-contained and answerable in its own right, without relying on previous questions or any other context.
+      - Design the questions to draw out common misconceptions where appropriate.
+      - Ensure each question is worded so that it makes sense and is self-contained and answerable in its own right, without relying on previous questions or any other context. The questions will be presented to students out of sequence and alongside questions from other units.
       - Before returning the final JSON, silently reject and rewrite any question with ambiguous wording, multiple defensible answers, clueing, or answer options that are obviously implausible using common sense. Before finalising each question, apply this test: "Could a student with no lesson knowledge eliminate this option using common sense alone?" If yes, rewrite the option.
     
       # Style
@@ -129,9 +130,9 @@ public partial class AIService
       - Use Tier 3 vocabulary and student-friendly language that is clear and accessible.
       - Avoid long, complex sentences and prefer plain English instead of technical notation.
       - Avoid the trap of the correct answers being noticably longer than the incorrect answers.
-      - During quizzing, the question will be shown for a few seconds before the options appear. Therefore, make sure the question text is answerable in its own right without seeing the options.
+      - During quizzing, the question will be shown for a few seconds before the options appear. Therefore, make sure the question text is answerable in its own right without seeing the options. For example, do not ask "Which of these...".
       - Use British English spelling and terminology.
-      - For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted.
+      - For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted. Do not use backticks for code blocks or any other reason.
       """;
 
     var generateMessage = $"""
@@ -139,9 +140,9 @@ public partial class AIService
       The user will provide a list of facts that students need to learn and remember.
       Your task is to carefully design 15-30 questions that assess knowledge of these facts. Return these in a structured JSON format.
       Think carefully and reason about all your proposed questions and answers before generating a response.
-      The difficulty and language should be appropriate for the age of the students. If the key knowledge seems inappropriately easy or difficult for the age group, adjust the questions accordingly to ensure a suitable level of challenge.
+      The difficulty and language should be appropriate for the age of the students.
       Most or all knowledge items should be covered by at least one question. If there are more than 30 knowledge items, prioritise the most important facts that students need to know and remember.
-      If a knowledge item does not lend itself to quizzing, for example because it is a common-sense or obvious statement, do not write a question about it.
+      If a knowledge item does not lend itself to retrieval practice, for example because it is a common-sense or obvious statement or too vague, do not write a question about it.
       If a stated fact is particularly knowledge-dense, you could ask multiple questions about it, as long as they are disjoint in what they assess.
 
       {criteria}

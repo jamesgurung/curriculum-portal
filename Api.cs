@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using System.Buffers;
 using System.Globalization;
 using System.Net.ServerSentEvents;
 using System.Runtime.CompilerServices;
@@ -798,8 +798,11 @@ public static class Api
     }
   }
 
-  private static ServerSentEventsResult<object> StreamAiOperation<TResult>(Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken) =>
-    TypedResults.ServerSentEvents(StreamAiOperationAsync(operation, cancellationToken));
+  private static IResult StreamAiOperation<TResult>(Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken) =>
+    Results.Stream(stream => SseFormatter.WriteAsync(StreamAiOperationAsync(operation, cancellationToken), stream, WriteSseItem, cancellationToken), "text/event-stream");
+
+  private static void WriteSseItem(SseItem<object> item, IBufferWriter<byte> writer) =>
+    writer.Write(JsonSerializer.SerializeToUtf8Bytes(item.Data, item.Data?.GetType() ?? typeof(object), JsonDefaults.CamelCase));
 
   private static async IAsyncEnumerable<SseItem<object>> StreamAiOperationAsync<TResult>(Func<CancellationToken, Task<TResult>> operation, [EnumeratorCancellation] CancellationToken cancellationToken)
   {
