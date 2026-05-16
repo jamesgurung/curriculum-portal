@@ -275,6 +275,9 @@ function showCourseList(eventOrOptions, maybeOptions = {}) {
 }
 function showCourse(courseId, options = {}) {
   const previousCourseId = state.courseId;
+  const scrollTop = options.preserveScroll
+    ? { main: elements.main.scrollTop, courseDetail: elements.courseDetail.scrollTop }
+    : null;
   if (!options.keepEditMode || previousCourseId !== courseId) {
     state.editMode = false;
   }
@@ -413,8 +416,13 @@ function showCourse(courseId, options = {}) {
   elements.courseDetail.classList.add('active');
   elements.unitDetail.classList.remove('active');
   elements.unitQuiz.classList.remove('active');
-  elements.main.scrollTop = 0;
-  elements.courseDetail.scrollTop = 0;
+  if (scrollTop) {
+    elements.main.scrollTop = scrollTop.main;
+    elements.courseDetail.scrollTop = scrollTop.courseDetail;
+  } else {
+    elements.main.scrollTop = 0;
+    elements.courseDetail.scrollTop = 0;
+  }
 
   if (state.courseEditable && window.Sortable) {
     setupSortable();
@@ -1464,7 +1472,7 @@ async function onSave() {
     }
 
     elements.modal.classList.remove('active');
-    showCourse(course, { keepEditMode: true, skipHistory: true });
+    showCourse(course, { keepEditMode: true, skipHistory: true, preserveScroll: true });
   } catch (error) {
     alert(error.message);
   } finally {
@@ -1482,7 +1490,7 @@ async function createUnit(courseId, yearGroup, title) {
   const newUnit = await request(`/courses/${courseId}/build`, 'POST', { yearGroup, title: title.trim() });
   units.push(newUnit);
   elements.modal.classList.remove('active');
-  showCourse(courseId, { keepEditMode: true, skipHistory: true });
+  showCourse(courseId, { keepEditMode: true, skipHistory: true, preserveScroll: true });
 }
 
 async function sortUnits(event) {

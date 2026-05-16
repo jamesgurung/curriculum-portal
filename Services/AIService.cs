@@ -301,32 +301,40 @@ public partial class AIService
   public async Task<int> CreateQuizQuestionsAsync(CancellationToken cancellationToken = default)
   {
     var units = await _courseService.ListUnitsAsync();
-    var unitsToProcess = units.Where(o => o.RevisionQuizStatus == 0 && o.KeyKnowledgeStatus == 2).ToList();
+    var unitsToProcess = units.Where(o => o.YearGroup <= 9 && o.RevisionQuizStatus < 2 && o.KeyKnowledgeStatus == 2).ToList();
     if (unitsToProcess.Count == 0)
     {
       return 0;
     }
     var processed = 0;
 
-    foreach (var unit in unitsToProcess)
+    await Parallel.ForEachAsync(unitsToProcess, new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cancellationToken }, async (unit, ct) =>
     {
-      cancellationToken.ThrowIfCancellationRequested();
       var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
-      var questions = await GenerateQuizQuestionsAsync(unit, keyKnowledge, cancellationToken);
+      var questions = await GenerateQuizQuestionsAsync(unit, keyKnowledge, ct);
       if (questions.Count == 0)
       {
-        continue;
+        return;
       }
 
       var questionBank = new QuestionBank { Questions = questions };
       await _courseService.UploadBlobAsync(unit.RowKey, questionBank);
 
-      unit.RevisionQuizStatus = 1;
-      await _courseService.UpdateUnitAsync(unit);
-      processed++;
+      keyKnowledge.RevisionQuiz = questionBank.Questions.Select(o => new KeyKnowledgeRevisionQuestion
+      {
+        Question = o.Question,
+        CorrectAnswer = o.CorrectAnswer,
+        IncorrectAnswer = o.IncorrectAnswer1
+      }).ToList();
+      await _courseService.UploadBlobAsync(unit.RowKey, keyKnowledge);
+      _cache.Update(unit.RowKey, JsonSerializer.Serialize(keyKnowledge, JsonDefaults.CamelCase));
 
-      Console.WriteLine($"Generated quiz questions for unit {unit.Title} ({processed}/{unitsToProcess.Count})");
-    }
+      unit.RevisionQuizStatus = 2;
+      await _courseService.UpdateUnitAsync(unit);
+      var completed = Interlocked.Increment(ref processed);
+
+      Console.WriteLine($"Generated quiz questions for unit {unit.Title} ({completed}/{unitsToProcess.Count})");
+    });
 
     _cache.Invalidate("units");
     return processed;
