@@ -178,37 +178,28 @@ public class CourseEvaluationResult
   public List<CourseEvaluationUnitResult> Units { get; set; } = [];
 }
 
-public record CourseEvaluationUnitResult(string Title, KeyKnowledgeEvaluationResponse KeyKnowledge, AssessmentAlignmentEvaluationResponse AssessmentAlignment, AssessmentDesignEvaluationResponse AssessmentDesign);
+public record CourseEvaluationUnitResult(string Title, KeyKnowledgeEvaluationResponse KeyKnowledge, AssessmentEvaluationResponse Assessment);
 
 public class CourseOverallEvaluationResponse
 {
-  public string SequencingRating { get; set; } = string.Empty;
-  public string CoverageBalanceRating { get; set; } = string.Empty;
-  public string Summary { get; set; } = string.Empty;
+  public string Overview { get; set; } = string.Empty;
+  public int SequencingPriority { get; set; }
+  public int CoverageBalancePriority { get; set; }
   public List<string> SequencingIssues { get; set; } = [];
   public List<string> CoverageBalanceIssues { get; set; } = [];
 }
 
 public class KeyKnowledgeEvaluationResponse
 {
-  public string Rating { get; set; } = string.Empty;
+  public int Priority { get; set; }
   public string Overview { get; set; } = string.Empty;
-  public List<string> SpecificityAccuracyIssues { get; set; } = [];
-  public List<string> MissingOrVagueKnowledge { get; set; } = [];
+  public List<string> Issues { get; set; } = [];
 }
 
-public class AssessmentAlignmentEvaluationResponse
+public class AssessmentEvaluationResponse
 {
-  public string Rating { get; set; } = string.Empty;
-  public List<string> AlignedCoverage { get; set; } = [];
-  public List<string> GapsOrMisalignments { get; set; } = [];
-  public string NotApplicableReason { get; set; } = string.Empty;
-}
-
-public class AssessmentDesignEvaluationResponse
-{
-  public string Rating { get; set; } = string.Empty;
   public string Overview { get; set; } = string.Empty;
+  public int Priority { get; set; }
+  public List<string> AlignmentIssues { get; set; } = [];
   public List<string> DesignIssues { get; set; } = [];
-  public string NotApplicableReason { get; set; } = string.Empty;
 }

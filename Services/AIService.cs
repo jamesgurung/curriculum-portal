@@ -128,7 +128,7 @@ public partial class AIService
       - Keep all questions and answers as succinct as possible. All answer options should be one word or a short phrase.
       - Use Tier 3 vocabulary and student-friendly language that is clear and accessible.
       - Avoid long, complex sentences and prefer plain English instead of technical notation.
-      - Avoid the trap of the correct answers being noticably longer than the incorrect answers.
+      - Avoid the trap of the correct answers being noticeably longer than the incorrect answers.
       - During quizzing, the question will be shown for a few seconds before the options appear. Therefore, make sure the question text is answerable in its own right without seeing the options. For example, do not ask "Which of these...".
       - Use British English spelling and terminology.
       - For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted. Do not use backticks for code blocks or any other reason.
@@ -365,7 +365,7 @@ public partial class AIService
     }
     else if (question.Marks < 6)
     {
-      specificInstructions = $"This is a {question.Marks}-mark question, so specify precicely and succinctly what is required for each mark. Where necessary, include indicative content. Keep it very brief and use new lines sparingly.";
+      specificInstructions = $"This is a {question.Marks}-mark question, so specify precisely and succinctly what is required for each mark. Where necessary, include indicative content. Keep it very brief and use new lines sparingly.";
       if (isMathematics)
       {
         specificInstructions += "\n* You MUST preface each line of working with 'M1: ' for a method mark, 'A1: ' for an accuracy (answer) mark, or possibly M2, A2, etc. where multiple marks are issued at once (in which case, the next line must show in brackets how the corresponding M1 or A1 would be awarded).";
@@ -375,7 +375,7 @@ public partial class AIService
     }
     else
     {
-      specificInstructions = $"This is an extended writing question worth {question.Marks}, so respond with a comprehensive mark scheme. Make it specific, objective, and ambitious, not generic. Consider splitting the marks into sections, and specify precicely and succinctly what is required for each mark, including examples where appropriate.";
+      specificInstructions = $"This is an extended writing question worth {question.Marks}, so respond with a comprehensive mark scheme. Make it specific, objective, and ambitious, not generic. Consider splitting the marks into sections, and specify precisely and succinctly what is required for each mark, including examples where appropriate.";
       if (isMathematics)
       {
         specificInstructions += "\n* You MUST preface each line of working with 'M1: ' for a method mark, 'A1: ' for an accuracy (answer) mark, or possibly M2, A2, etc. where multiple marks are issued at once (in which case, the next line must show in brackets how the corresponding M1 or A1 would be awarded).";
@@ -505,7 +505,7 @@ public partial class AIService
 
     # Multiple-choice questions    
     You must write {model.MultipleChoiceCount} multiple-choice questions, each with one correct answer and three incorrect answers.
-    - The incorrect answers MUST be plausible and not easily dismissable, yet unambiguously wrong.
+    - The incorrect answers MUST be plausible and not easily dismissible, yet unambiguously wrong.
     - Incorrect answers must be credible alternatives that a student might genuinely confuse with the correct answer. They should be from the same category, use the same grammatical form, and have a similar level of specificity and realism.
     - Do not use absurd, extreme, or giveaway distractors, including simple opposites or negations of the correct answer.
     - Before finalising each question, reject and rewrite any answer option that a student could eliminate without knowing the lesson content.
@@ -513,7 +513,7 @@ public partial class AIService
     - The difficulty and language should be appropriate for secondary school students.
     - Ensure each question is worded so that it makes sense and is self-contained and answerable in its own right, without relying on the answer options or any other context.
     - Before returning the final JSON, silently reject and rewrite any question with ambiguous wording, multiple defensible answers, clueing, or answer options that are obviously implausible using common sense.
-    - All answer options should be one word or a short phrase. Avoid the trap of the correct answers being noticably longer than the incorrect answers.
+    - All answer options should be one word or a short phrase. Avoid the trap of the correct answers being noticeably longer than the incorrect answers.
 
     # Short-answer questions
     You must write {model.ShortAnswerCount} short-answer questions.
@@ -635,12 +635,12 @@ public partial class AIService
     var sb = new StringBuilder($"# {course.Name}\n\n");
     if (!string.IsNullOrWhiteSpace(course.Intent))
     {
-      sb.Append(CultureInfo.InvariantCulture, $"## Course intent\n{course.Intent}\n\n");
+      sb.Append(CultureInfo.InvariantCulture, $"## Course intent\n\n{course.Intent}\n\n");
     }
 
     if (!string.IsNullOrWhiteSpace(course.Specification))
     {
-      sb.Append(CultureInfo.InvariantCulture, $"## Specification\n{course.Specification}\n\n");
+      sb.Append(CultureInfo.InvariantCulture, $"## Specification\n\n{course.Specification}\n\n");
     }
 
     sb.Append("## Units\n\n");
@@ -680,87 +680,120 @@ public partial class AIService
     ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(units);
 
-    var overallEvaluationPrompt = """
-      You are an expert curriculum designer. The user will provide information about a course from a curriculum portal.
+    var overviewPrompt = """
+      You are an experienced secondary school teacher and expert curriculum designer.
+      The user will provide information about a course being taught to secondary school students in the UK.
       Evaluate the overall quality of the curriculum, focusing on the selection and sequencing of knowledge.
-      Do not evaluate assessment design, rubrics, lesson plans, or other artefacts in this response.
+      You do not need to answer every question below, but consider them when formulating your overall evaluation.
 
-      Consider whether the curriculum is ambitious, knowledge-rich, broad, balanced, appropriately sequenced, accurate, and well matched to any National Curriculum or exam board requirements stated by the user.
+      # Coverage and Balance
 
-      Return structured JSON only.
-      Use every field in the schema. Use empty arrays only when there is no relevant feedback for that field.
-      Give separate ratings for sequencing and for coverage and balance.
-      Put concise plain-English strings in arrays. Do not include Markdown bullet syntax or headings in field values.
-      Use British English spelling and terminology.
-      If the user input includes an [Image] placeholder, assume a real image is part of the key knowledge at that point. Do not ask for the image.
-      Provide one short summary paragraph, then prioritise the highest-impact feedback in the structured arrays.
+      - Is the scheme ambitious and knowledge-rich?
+      - Does it meet the requirements of the National Curriculum or exam board specification, where applicable?
+      - Is it the right level of challenge?
+      - Is it broad and balanced?
+      - Has the most powerful knowledge been included? What is missing?
+      - Is there any unnecessary or low-value content that could be removed to make space for more important knowledge?
+      - Award Priority 4 (broadly fine) if the curriculum is generally ambitious, broad, balanced, well matched to requirements, and includes lots of powerful knowledge (this can be awarded even if refinements are suggested). Award Priority 3 if the curriculum is generally strong but has several omissions, imbalances, or low-value areas. Award Priority 2 if important gaps, imbalance, or level-of-challenge problems require attention. Award Priority 1 (most urgent) if the selected knowledge is not currently fit for purpose and must be prioritised for improvement. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
+
+      # Sequencing
+
+      - Does the order in which units are taught make sense?
+      - Is there a logical progression of knowledge and increasing level of challenge over time?
+      - Are there any significant sequencing issues, such as important knowledge being taught too late?
+      - Are there any units that seem out of place or disconnected from the overall curriculum?
+      - Award Priority 4 (broadly fine) if units are generally sequenced coherently so knowledge builds logically over time (this can be awarded even if refinements are suggested). Award Priority 3 if the sequence mostly works but has some ordering issues, weak links, or missed opportunities to build progression. Award Priority 2 if sequencing problems disrupt how students accumulate knowledge and they therefore require attention. Award Priority 1 (most urgent) if the sequence is not currently fit for purpose and must be prioritised for improvement. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
+
+      # Guidance
+
+      - Give separate priorities for coverage/balance and sequencing. Do not let strengths or weaknesses in one area influence the priority for the other area.
+      - Provide one short overview paragraph, then prioritise the highest-impact feedback in structured arrays of concise, plain-English strings.
+      - Do not include Markdown bullet syntax, headings, or formatting.
+      - The provided curriculum information is not intended to include assessments, rubrics, knowledge organisers, lesson plans, or other artefacts, so do not comment on these.
+      - Keep a high-level view and do not address minor unit-level details.
+      - Use British English spelling and terminology.
+      - Keep your feedback as concise and information-dense as possible. Be judicious about what to include.
       """;
 
-    var keyKnowledgeEvaluationPrompt = """
+    var keyKnowledgePrompt = """
       You are an experienced secondary school teacher with exceptional pedagogical subject knowledge.
-      The user will provide one unit from a curriculum portal.
-      Evaluate the quality of the key knowledge statements. Focus on how effectively they summarise the most powerful knowledge students need to know.
+      The user will provide one unit of a course and show how the unit fits into our broader curriculum.
+      Evaluate the quality of the key knowledge statements. Focus on how effectively they capture the most powerful knowledge students need to know.
+      You do not need to answer every question below, but consider them when formulating your overall evaluation.
 
-      Consider whether the statements are specific, accurate, ambitious, memorable, assessable, well matched to the unit, and written as meaningful knowledge rather than vague signposting.
-      If key knowledge is missing, say this clearly and explain the most important consequence.
+      # Declarative knowledge statements
 
-      Return structured JSON only.
-      Use every field in the schema. Use empty arrays only when there is no relevant feedback for that field.
-      The overview must be a single short sentence or paragraph, not bullet points.
-      Put concise plain-English strings in arrays. Do not include Markdown bullet syntax or headings in field values.
-      Use British English spelling and terminology.
-      Provide concise, constructive, specific feedback in the structured arrays.
+      - Is the coverage comprehensive and ambitious, prioritising the most important knowledge that students need to know and remember?
+      - Does the list comprise powerful knowledge that underpins deep understanding, rather than trivial or low-value facts?
+      - Are all the statements factually accurate?
+      - Are they specific enough to be assessed in a knowledge quiz?
+      - Are they stated as facts, rather than signposts? For example, instead of "Know the houses of Hogwarts.", a well-written statement would say "The houses of Hogwarts are Gryffindor, Hufflepuff, Ravenclaw, and Slytherin."
+      - Is any important knowledge missing?
+
+      # Procedural knowledge statements
+
+      - Does the list comprise specific, knowledge-rich skills and techniques that students need to develop?
+      - Are the highest-priority skills included, within the scope of the unit?
+      - Are the skills precise enough to be assessed through performance, demonstration, or worked responses? Note that detailed success criteria are intentionally omitted.
+      - Does the list correctly avoid generic study skills and vague verbs like "know" and "understand".
+
+      # Guidance
+
+      - Award Priority 4 (broadly fine) if the key knowledge generally captures important declarative and procedural knowledge accurately (this can be awarded even if refinements are suggested). Award Priority 3 if the key knowledge is mostly suitable but has several gaps, vague statements, or uneven choices. Award Priority 2 if important omissions, inaccuracies, or vague signposting require attention. Award Priority 1 (most urgent) if the key knowledge is not currently fit for purpose and must be prioritised for improvement. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
+      - Be mindful that the scheme fits within a wider curriculum, and prior and subsequent knowledge should not be listed. Focus on this specific scheme and its level of challenge.
+      - Provide one short overview paragraph, then prioritise the highest-impact feedback in structured arrays of concise, plain-English strings.
+      - Use empty issue arrays only when there is no relevant feedback.
+      - Do not include Markdown bullet syntax, headings, or formatting.
+      - Use British English spelling and terminology.
+      - Keep your feedback as concise and information-dense as possible. Be judicious about what to include.
       """;
 
-    var assessmentAlignmentEvaluationPrompt = """
+    var assessmentPrompt = """
       You are an experienced secondary school teacher with strong assessment expertise.
-      The user will provide one unit from a curriculum portal, including key knowledge and assessment information where available.
-      Evaluate how closely the assessment assesses students' understanding of the key knowledge.
-      Focus only on alignment between the stated key knowledge and the assessment content; do not evaluate general assessment design quality unless it directly affects alignment.
+      The user will provide one unit from a curriculum portal, including its key knowledge statements and end-of-unit assessment.
+      Evaluate how closely the assessment tests students' understanding of the key knowledge, and evaluate the quality of question design.
 
-      Consider coverage, omissions, overemphasis, whether questions test the intended knowledge, and whether mark schemes reflect the knowledge students should demonstrate.
-      If the assessment or key knowledge is missing, say this clearly and explain what cannot be evaluated.
+      # Alignment
 
-      Return structured JSON only.
-      Use every field in the schema. Use empty arrays only when there is no relevant feedback for that field.
-      Put concise plain-English strings in arrays. Do not include Markdown bullet syntax or headings in field values.
-      Use British English spelling and terminology.
-      If the user input includes an [Image] placeholder, assume a real image is part of the key knowledge or assessment at that point. Do not ask for the image.
-      Set notApplicableReason to an empty string unless the assessment or key knowledge is missing and the alignment cannot be evaluated.
-      Provide concise, constructive, specific feedback in the structured arrays.
+      - Is there close alignment between the key knowledge and assessment?
+      - Does the assessment broadly cover the key knowledge statements? It's fine for the assessment to sample from the key knowledge, as long as it covers the most important knowledge.
+      - Is all the most important knowledge required for the assessment included among the key knowledge statements?
+      - Are both declarative and procedural knowledge statements assessed?
+      - Is the assessment faithful to the spirit of the unit, as defined in the unit information and key knowledge?
+      - Is there a balance of emphasis in the assessment that reflects the relative importance of different knowledge statements?
+      - Does the rigour of the mark scheme reflect the expectations of the key knowledge statements?
+
+      # Design
+
+      - Are the questions clearly and unambiguously worded?
+      - Is there an appropriate level of difficulty, including some questions that are more accessible and others that provide stretch and challenge?
+      - Are the questions resistant to guessing? For multiple choice questions, are the incorrect options plausible and not easily dismissible, yet unambiguously wrong?
+      - Is the mark scheme accurate and specific, and for multiple-mark questions, does it specify what is required for each mark?
+
+      # Guidance
+
+      - Award Priority 4 (broadly fine) if the assessment gives a valid picture of whether students understand the most important key knowledge, with mostly reasonable question design and mark schemes (this can be awarded even if refinements are suggested). Award Priority 3 if the assessment is generally aligned and well designed but has several gaps, overemphases, wording issues, weak distractors, or mark-scheme limitations. Award Priority 2 if misalignment or design flaws meaningfully limit the assessment's validity or usefulness and they therefore require attention. Award Priority 1 (most urgent) if the assessment is not currently fit for purpose and must be prioritised for improvement. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
+      - Assessments typically take the format of Recap (retrieval practice from previous units), Knowledge, and Application. When considering alignment, focus on the Knowledge and Application sections only.
+      - Give a combined priority that considers both alignment and question design.
+      - Provide one short overview paragraph, then prioritise the highest-impact feedback in structured arrays of concise, plain-English strings.
+      - Use empty issue arrays only when there is no relevant feedback.
+      - If the user input includes an [Image] placeholder, assume a real image is part of the key knowledge or assessment at that point. Do not ask for the image.
+      - Do not include Markdown bullet syntax, headings, or formatting.
+      - Use British English spelling and terminology.
+      - Keep your feedback as concise and information-dense as possible. Be judicious about what to include.
       """;
 
-    var assessmentDesignEvaluationPrompt = """
-      You are an experienced secondary school teacher with strong assessment design expertise.
-      The user will provide one unit assessment from a curriculum portal.
-      Evaluate the quality of the assessment design.
-      Focus only on the technical construction of the assessment; do not repeat feedback about whether the assessment covers the stated key knowledge.
-
-      Consider whether questions are clear, unambiguous, appropriately challenging, well sequenced, resistant to guessing, supported by plausible distractors where relevant, and matched to useful mark schemes.
-      For multiple-choice questions, look for implausible distractors, clueing, ambiguity, and correct answers that are noticeably longer than incorrect answers.
-      If assessment information is missing, say this clearly and explain the most important next step.
-
-      Return structured JSON only.
-      Use every field in the schema. Use empty arrays only when there is no relevant feedback for that field.
-      The overview must be a single short sentence or paragraph, not bullet points.
-      Put concise plain-English strings in arrays. Do not include Markdown bullet syntax or headings in field values.
-      Use British English spelling and terminology.
-      If the user input includes an [Image] placeholder, assume a real image is part of the assessment at that point. Do not ask for the image.
-      Set notApplicableReason to an empty string unless assessment information is missing and the design cannot be evaluated.
-      Provide concise, constructive, specific feedback in the structured arrays.
-      """;
-
-    var overallSchema = BinaryData.FromBytes("""
+    var overviewSchema = BinaryData.FromBytes("""
       {
         "type": "object",
         "properties": {
-          "sequencingRating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
-          "coverageBalanceRating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
-          "summary": { "type": "string" },
-          "sequencingIssues": { "type": "array", "items": { "type": "string" } },
-          "coverageBalanceIssues": { "type": "array", "items": { "type": "string" } }
+          "overview": { "type": "string" },
+          "coverageBalancePriority": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "coverageBalanceIssues": { "type": "array", "items": { "type": "string" } },
+          "sequencingPriority": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "sequencingIssues": { "type": "array", "items": { "type": "string" } }
         },
-        "required": ["sequencingRating", "coverageBalanceRating", "summary", "sequencingIssues", "coverageBalanceIssues"],
+        "required": ["overview", "coverageBalancePriority", "coverageBalanceIssues", "sequencingPriority", "sequencingIssues"],
         "additionalProperties": false
       }
       """u8.ToArray());
@@ -769,60 +802,45 @@ public partial class AIService
       {
         "type": "object",
         "properties": {
-          "rating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
           "overview": { "type": "string" },
-          "specificityAccuracyIssues": { "type": "array", "items": { "type": "string" } },
-          "missingOrVagueKnowledge": { "type": "array", "items": { "type": "string" } }
+          "priority": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "issues": { "type": "array", "items": { "type": "string" } }
         },
-        "required": ["rating", "overview", "specificityAccuracyIssues", "missingOrVagueKnowledge"],
+        "required": ["overview", "priority", "issues"],
         "additionalProperties": false
       }
       """u8.ToArray());
 
-    var assessmentAlignmentSchema = BinaryData.FromBytes("""
+    var assessmentSchema = BinaryData.FromBytes("""
       {
         "type": "object",
         "properties": {
-          "rating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
-          "alignedCoverage": { "type": "array", "items": { "type": "string" } },
-          "gapsOrMisalignments": { "type": "array", "items": { "type": "string" } },
-          "notApplicableReason": { "type": "string" }
-        },
-        "required": ["rating", "alignedCoverage", "gapsOrMisalignments", "notApplicableReason"],
-        "additionalProperties": false
-      }
-      """u8.ToArray());
-
-    var assessmentDesignSchema = BinaryData.FromBytes("""
-      {
-        "type": "object",
-        "properties": {
-          "rating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
           "overview": { "type": "string" },
-          "designIssues": { "type": "array", "items": { "type": "string" } },
-          "notApplicableReason": { "type": "string" }
+          "priority": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "alignmentIssues": { "type": "array", "items": { "type": "string" } },
+          "designIssues": { "type": "array", "items": { "type": "string" } }
         },
-        "required": ["rating", "overview", "designIssues", "notApplicableReason"],
+        "required": ["overview", "priority", "alignmentIssues", "designIssues"],
         "additionalProperties": false
       }
       """u8.ToArray());
 
-    var total = 1 + (units.Count * 3);
+    var total = 1 + (units.Count * 2);
     var completed = 0;
     var contexts = new List<CourseEvaluationUnitContext>();
     foreach (var unit in units)
     {
       var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
       var assessment = await _courseService.GetBlobAsync<Assessment>(unit.RowKey);
-      contexts.Add(new CourseEvaluationUnitContext(unit, BuildUnitEvaluationContext(unit, keyKnowledge, assessment)));
+      contexts.Add(new CourseEvaluationUnitContext(unit, BuildKeyKnowledgeEvaluationContext(unit, keyKnowledge, units), BuildAssessmentEvaluationContext(unit, keyKnowledge, assessment)));
     }
 
     var courseSummary = await SummariseCourseAsync(course, units);
     var semaphore = new SemaphoreSlim(5);
     var overallTask = RunEvaluationRequestAsync<CourseOverallEvaluationResponse>(
       semaphore,
-      overallEvaluationPrompt,
-      overallSchema,
+      overviewPrompt,
+      overviewSchema,
       "courseOverallEvaluation",
       courseSummary,
       () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
@@ -830,35 +848,48 @@ public partial class AIService
 
     var unitTasks = contexts.Select(async context =>
     {
-      var keyKnowledgeTask = RunEvaluationRequestAsync<KeyKnowledgeEvaluationResponse>(
-        semaphore,
-        keyKnowledgeEvaluationPrompt,
-        keyKnowledgeSchema,
-        "keyKnowledgeEvaluation",
-        context.Context,
-        () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
-        cancellationToken);
+      var keyKnowledgeTask = context.Unit.KeyKnowledgeStatus < 2
+        ? Task.FromResult(new KeyKnowledgeEvaluationResponse
+        {
+          Overview = "There is no key knowledge for this unit.",
+          Priority = 1,
+        })
+        : RunEvaluationRequestAsync<KeyKnowledgeEvaluationResponse>(
+          semaphore,
+          keyKnowledgePrompt,
+          keyKnowledgeSchema,
+          "keyKnowledgeEvaluation",
+          context.KeyKnowledgeContext,
+          () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
+          cancellationToken);
 
-      var alignmentTask = RunEvaluationRequestAsync<AssessmentAlignmentEvaluationResponse>(
-        semaphore,
-        assessmentAlignmentEvaluationPrompt,
-        assessmentAlignmentSchema,
-        "assessmentAlignmentEvaluation",
-        context.Context,
-        () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
-        cancellationToken);
+      if (context.Unit.KeyKnowledgeStatus < 2)
+      {
+        reportProgress?.Invoke(Interlocked.Increment(ref completed), total);
+      }
 
-      var designTask = RunEvaluationRequestAsync<AssessmentDesignEvaluationResponse>(
-        semaphore,
-        assessmentDesignEvaluationPrompt,
-        assessmentDesignSchema,
-        "assessmentDesignEvaluation",
-        context.Context,
-        () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
-        cancellationToken);
+      var assessmentTask = context.Unit.AssessmentStatus < 2
+        ? Task.FromResult(new AssessmentEvaluationResponse
+        {
+          Overview = "There is no assessment for this unit.",
+          Priority = 1,
+        })
+        : RunEvaluationRequestAsync<AssessmentEvaluationResponse>(
+          semaphore,
+          assessmentPrompt,
+          assessmentSchema,
+          "assessmentEvaluation",
+          context.AssessmentContext,
+          () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
+          cancellationToken);
 
-      await Task.WhenAll(keyKnowledgeTask, alignmentTask, designTask);
-      return new CourseEvaluationUnitResult(context.Unit.Title, await keyKnowledgeTask, await alignmentTask, await designTask);
+      if (context.Unit.AssessmentStatus < 2)
+      {
+        reportProgress?.Invoke(Interlocked.Increment(ref completed), total);
+      }
+
+      await Task.WhenAll(keyKnowledgeTask, assessmentTask);
+      return new CourseEvaluationUnitResult(context.Unit.Title, await keyKnowledgeTask, await assessmentTask);
     }).ToList();
 
     await Task.WhenAll(unitTasks.Cast<Task>().Prepend(overallTask));
@@ -883,7 +914,7 @@ public partial class AIService
         StoredOutputEnabled = false,
         TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat(schemaName, schema, jsonSchemaIsStrict: true) },
 #if DEBUG
-        ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.None },
+        ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
         Model = "gpt-5.4-mini"
 #else
         ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
@@ -903,22 +934,50 @@ public partial class AIService
     }
   }
 
-  private static string BuildUnitEvaluationContext(UnitEntity unit, KeyKnowledge keyKnowledge, Assessment assessment)
+  private static string BuildKeyKnowledgeEvaluationContext(UnitEntity unit, KeyKnowledge keyKnowledge, IReadOnlyList<UnitEntity> units)
+  {
+    var sb = new StringBuilder();
+    AppendUnitEvaluationHeader(sb, unit);
+
+    AppendKeyKnowledgeEvaluationSection(sb, keyKnowledge);
+    sb.Append("## Course units\n\n");
+    foreach (var courseUnit in units)
+    {
+      var current = courseUnit.RowKey == unit.RowKey ? " (current unit)" : string.Empty;
+      var term = string.IsNullOrWhiteSpace(courseUnit.Term) ? "No term" : $"{courseUnit.Term} Term";
+      sb.Append(CultureInfo.InvariantCulture, $"- Year {courseUnit.YearGroup}, {term}: {courseUnit.Title}{current}\n");
+    }
+
+    return sb.ToString().Trim();
+  }
+
+  private static string BuildAssessmentEvaluationContext(UnitEntity unit, KeyKnowledge keyKnowledge, Assessment assessment)
+  {
+    var sb = new StringBuilder();
+    AppendUnitEvaluationHeader(sb, unit);
+    AppendKeyKnowledgeEvaluationSection(sb, keyKnowledge);
+    AppendAssessmentEvaluationSection(sb, assessment);
+    return sb.ToString().Trim();
+  }
+
+  private static void AppendUnitEvaluationHeader(StringBuilder sb, UnitEntity unit)
   {
     var term = string.IsNullOrWhiteSpace(unit.Term) ? string.Empty : $" {unit.Term} Term";
-    var sb = new StringBuilder();
     sb.Append(CultureInfo.InvariantCulture, $"# {unit.Title} (Year {unit.YearGroup}{term})\n\n");
 
     if (!string.IsNullOrWhiteSpace(unit.WhyThis))
     {
-      sb.Append(CultureInfo.InvariantCulture, $"## Why this?\n{unit.WhyThis}\n\n");
+      sb.Append(CultureInfo.InvariantCulture, $"## Why this?\n\n{unit.WhyThis}\n\n");
     }
 
     if (!string.IsNullOrWhiteSpace(unit.WhyNow))
     {
-      sb.Append(CultureInfo.InvariantCulture, $"## Why now?\n{unit.WhyNow}\n\n");
+      sb.Append(CultureInfo.InvariantCulture, $"## Why now?\n\n{unit.WhyNow}\n\n");
     }
+  }
 
+  private static void AppendKeyKnowledgeEvaluationSection(StringBuilder sb, KeyKnowledge keyKnowledge)
+  {
     sb.Append("## Key knowledge\n\n");
     if (keyKnowledge.DeclarativeKnowledge.Count == 0 && keyKnowledge.ProceduralKnowledge.Count == 0)
     {
@@ -928,43 +987,47 @@ public partial class AIService
     {
       if (keyKnowledge.DeclarativeKnowledge.Count > 0)
       {
-        sb.Append("### Students must know that:\n" + string.Join("\n", keyKnowledge.DeclarativeKnowledge.Select(o => $"- {o}")) + "\n\n");
+        sb.Append("### Students must know that:\n\n" + string.Join("\n", keyKnowledge.DeclarativeKnowledge.Select(o => $"- {o}")) + "\n\n");
       }
 
       if (keyKnowledge.ProceduralKnowledge.Count > 0)
       {
-        sb.Append("### Students must be able to:\n" + string.Join("\n", keyKnowledge.ProceduralKnowledge.Select(o => $"- {o}")) + "\n\n");
+        sb.Append("### Students must be able to:\n\n" + string.Join("\n", keyKnowledge.ProceduralKnowledge.Select(o => $"- {o}")) + "\n\n");
       }
     }
+  }
 
+  private static void AppendAssessmentEvaluationSection(StringBuilder sb, Assessment assessment)
+  {
     sb.Append("## Assessment\n\n");
-    var questions = assessment.Sections.SelectMany(section => section.Questions.Select(question => new { section.Title, Question = question })).ToList();
-    if (questions.Count == 0)
+    if (!assessment.Sections.SelectMany(o => o.Questions).Any())
     {
       sb.Append("(No assessment provided.)");
     }
     else
     {
-      foreach (var item in questions)
+      foreach (var section in assessment.Sections.Where(o => o.Questions.Count > 0))
       {
-        var questionPrefix = string.IsNullOrWhiteSpace(item.Question.Image) ? string.Empty : "[Image] ";
-        sb.Append(CultureInfo.InvariantCulture, $"* {item.Title}: {questionPrefix}{item.Question.Question}");
-        if (item.Question.Answers?.Count > 0)
+        sb.Append(CultureInfo.InvariantCulture, $"### {section.Title}\n\n");
+        foreach (var question in section.Questions)
         {
-          sb.Append(CultureInfo.InvariantCulture, $" Options: {string.Join("; ", item.Question.Answers)}.");
-        }
+          var questionPrefix = string.IsNullOrWhiteSpace(question.Image) ? string.Empty : "[Image] ";
+          sb.Append(CultureInfo.InvariantCulture, $"- {questionPrefix}{question.Question}\n");
+          if (question.Answers?.Count > 0)
+          {
+            sb.Append(CultureInfo.InvariantCulture, $"  Options: {string.Join("; ", question.Answers)}.\n");
+          }
 
-        if (!string.IsNullOrWhiteSpace(item.Question.MarkScheme))
-        {
-          sb.Append(CultureInfo.InvariantCulture, $" Mark scheme: {item.Question.MarkScheme}");
+          if (!string.IsNullOrWhiteSpace(question.MarkScheme))
+          {
+            sb.Append(CultureInfo.InvariantCulture, $"  Mark scheme: {question.MarkScheme}\n");
+          }
         }
 
         sb.Append('\n');
       }
     }
-
-    return sb.ToString().Trim();
   }
 
-  private sealed record CourseEvaluationUnitContext(UnitEntity Unit, string Context);
+  private sealed record CourseEvaluationUnitContext(UnitEntity Unit, string KeyKnowledgeContext, string AssessmentContext);
 }

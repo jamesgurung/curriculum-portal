@@ -1119,19 +1119,19 @@ h3 {
   top: 1px;
 }
 
-.rating-excellent {
-  background: #7c3aed;
+.priority-4 {
+  background: #3a97ed;
 }
 
-.rating-broadly-good {
+.priority-3 {
   background: #06a824;
 }
 
-.rating-moderate-issues {
+.priority-2 {
   background: #f59e0b;
 }
 
-.rating-serious-issues {
+.priority-1 {
   background: #eb1717;
 }
 
