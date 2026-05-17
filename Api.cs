@@ -7,6 +7,7 @@ using System.Net.ServerSentEvents;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 
 namespace CurriculumPortal;
 
@@ -676,6 +677,41 @@ public static class Api
       return Results.Text(summary, "text/plain", Encoding.UTF8);
     });
 
+    app.MapPost("/courses/{courseId}/evaluate", [Authorize(Roles = Roles.Admin)] async (HttpContext context, IAntiforgery antiforgery, string courseId, CourseService storage, AIService ai) =>
+    {
+      var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
+      if (csrfError is not null)
+      {
+        return csrfError;
+      }
+
+      var course = await storage.TryGetCourseAsync(courseId);
+      if (course is null)
+      {
+        return Results.NotFound("Course not found.");
+      }
+
+      if (!context.User.CanEditCourse(course))
+      {
+        return Results.Forbid();
+      }
+
+      var units = await storage.ListUnitsAsync(courseId);
+      return CreateProgressStream(async (reportProgress, ct) =>
+      {
+        var result = await ai.EvaluateCourseAsync(course, units, reportProgress, ct);
+        var evaluation = new CourseEvaluation
+        {
+          GeneratedAt = DateTimeOffset.UtcNow,
+          Overall = result.Overall,
+          Units = result.Units
+        };
+        await storage.UploadCourseEvaluationAsync(courseId, evaluation);
+
+        return new { message = "The evaluation has been saved.", generatedAt = evaluation.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
+      }, context.RequestAborted);
+    });
+
     app.MapGet("/assignments/set", [Authorize(Roles = Roles.Admin)] async (AssignmentService assignmentService) =>
     {
       var now = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -801,6 +837,9 @@ public static class Api
   private static IResult StreamAiOperation<TResult>(Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken) =>
     Results.Stream(stream => SseFormatter.WriteAsync(StreamAiOperationAsync(operation, cancellationToken), stream, WriteSseItem, cancellationToken), "text/event-stream");
 
+  private static IResult CreateProgressStream(Func<Action<int, int>, CancellationToken, Task<object>> operation, CancellationToken cancellationToken) =>
+    Results.Stream(stream => SseFormatter.WriteAsync(StreamProgressOperationAsync(operation, cancellationToken), stream, WriteSseItem, cancellationToken), "text/event-stream");
+
   private static void WriteSseItem(SseItem<object> item, IBufferWriter<byte> writer) =>
     writer.Write(JsonSerializer.SerializeToUtf8Bytes(item.Data, item.Data?.GetType() ?? typeof(object), JsonDefaults.CamelCase));
 
@@ -852,6 +891,96 @@ public static class Api
       ? new SseItem<object>(result, "result")
       : new SseItem<object>(new { message = error.Message }, "error");
   }
+
+  private static async IAsyncEnumerable<SseItem<object>> StreamProgressOperationAsync(Func<Action<int, int>, CancellationToken, Task<object>> operation, [EnumeratorCancellation] CancellationToken cancellationToken)
+  {
+    yield return new SseItem<object>(new { ok = true }, "heartbeat");
+
+    var progress = Channel.CreateUnbounded<(int Completed, int Total)>();
+    Task<object> operationTask;
+    Exception error = null;
+    try
+    {
+      operationTask = operation((completed, total) => progress.Writer.TryWrite((completed, total)), cancellationToken);
+      _ = operationTask.ContinueWith(_ => progress.Writer.TryComplete(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+    catch (Exception ex)
+    {
+      error = ex;
+      operationTask = null;
+      progress.Writer.TryComplete();
+    }
+
+    if (error is not null)
+    {
+      yield return new SseItem<object>(new { message = error.Message }, "error");
+      yield break;
+    }
+
+    var progressAvailableTask = progress.Reader.WaitToReadAsync(cancellationToken).AsTask();
+    while (true)
+    {
+      var delayTask = Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+      var completedTask = await Task.WhenAny(operationTask, progressAvailableTask, delayTask);
+
+      if (completedTask == progressAvailableTask)
+      {
+        if (!await progressAvailableTask)
+        {
+          break;
+        }
+
+        while (progress.Reader.TryRead(out var progressItem))
+        {
+          yield return CreateProgressItem(progressItem);
+        }
+
+        progressAvailableTask = progress.Reader.WaitToReadAsync(cancellationToken).AsTask();
+        continue;
+      }
+
+      if (completedTask == operationTask)
+      {
+        progress.Writer.TryComplete();
+        break;
+      }
+
+      if (completedTask == delayTask)
+      {
+        cancellationToken.ThrowIfCancellationRequested();
+        yield return new SseItem<object>(new { ok = true }, "heartbeat");
+      }
+    }
+
+    while (progress.Reader.TryRead(out var progressItem))
+    {
+      yield return CreateProgressItem(progressItem);
+    }
+
+    object result = null;
+    try
+    {
+      result = await operationTask;
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
+      throw;
+    }
+    catch (Exception ex)
+    {
+      error = ex;
+    }
+
+    yield return error is null
+      ? new SseItem<object>(result, "result")
+      : new SseItem<object>(new { message = error.Message }, "error");
+  }
+
+  private static int GetProgressPercentage(int completed, int total) =>
+    total <= 0 ? 100 : Math.Clamp((int)Math.Round(completed * 100d / total), 0, 100);
+
+  private static SseItem<object> CreateProgressItem((int Completed, int Total) progress) =>
+    new(new { completed = progress.Completed, total = progress.Total, percentage = GetProgressPercentage(progress.Completed, progress.Total) }, "progress");
 
   private static List<KeyKnowledgeRevisionQuestion> BuildRevisionQuiz(QuestionBank questionBank)
   {

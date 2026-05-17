@@ -114,6 +114,27 @@ public class CourseService
     return blobClient.UploadAsync(binaryData, overwrite: true);
   }
 
+  public async Task<CourseEvaluation> TryGetCourseEvaluationAsync(string courseId)
+  {
+    var blobClient = _blobClient.GetBlobClient($"evaluations/{courseId}.json");
+    try
+    {
+      var response = await blobClient.DownloadContentAsync();
+      return JsonSerializer.Deserialize<CourseEvaluation>(response.Value.Content.ToString(), JsonOptions);
+    }
+    catch (RequestFailedException ex) when (ex.Status == 404)
+    {
+      return null;
+    }
+  }
+
+  public Task UploadCourseEvaluationAsync(string courseId, CourseEvaluation evaluation)
+  {
+    var blobClient = _blobClient.GetBlobClient($"evaluations/{courseId}.json");
+    var binaryData = new BinaryData(JsonSerializer.Serialize(evaluation, JsonOptions));
+    return blobClient.UploadAsync(binaryData, overwrite: true);
+  }
+
   private static string GetSuffix(Type type)
   {
     if (type == typeof(KeyKnowledge)) return "knowledge";

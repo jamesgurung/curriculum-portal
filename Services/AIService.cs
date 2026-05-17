@@ -4,7 +4,6 @@ using System.ClientModel;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace CurriculumPortal;
 
@@ -195,7 +194,7 @@ public partial class AIService
 
     string CreateUserMessage(IEnumerable<string> knowledgeItems)
     {
-      return $"# Year {unit.YearGroup} (age {unit.YearGroup + 4}) - {unit.Title}\n\n" + string.Join("\n", knowledgeItems.Select(o => $"* {o}"));
+      return $"# Year {unit.YearGroup} (age {unit.YearGroup + 4}) - {unit.Title}\n\n" + string.Join("\n", knowledgeItems.Select(o => $"- {o}"));
     }
 
     CreateResponseOptions CreateOptions(IEnumerable<string> knowledgeItems)
@@ -387,7 +386,7 @@ public partial class AIService
 
     if (question.SuccessCriteria is not null && question.SuccessCriteria.Count > 0)
     {
-      questionText += "\n\nSuccess criteria:\n" + string.Join("\n", question.SuccessCriteria.Select(o => $"* {o}"));
+      questionText += "\n\nSuccess criteria:\n" + string.Join("\n", question.SuccessCriteria.Select(o => $"- {o}"));
       specificInstructions += "\n* If appropriate, base the mark scheme on the success criteria.";
     }
 
@@ -543,7 +542,7 @@ public partial class AIService
     {string.Join("\n", model.DeclarativeKnowledge.Select(o => $"* {o}"))}
 
     # Existing Questions
-    {(model.ExistingQuestions.Count == 0 ? "(None)" : string.Join("\n", model.ExistingQuestions.Select(o => $"* {o}")))}
+    {(model.ExistingQuestions.Count == 0 ? "(None)" : string.Join("\n", model.ExistingQuestions.Select(o => $"- {o}")))}
 
     # Task
     Carefully design {model.MultipleChoiceCount} multiple-choice questions and {model.ShortAnswerCount} short-answer questions to assess the key knowledge provided.
@@ -653,33 +652,319 @@ public partial class AIService
 
       if (!string.IsNullOrWhiteSpace(unit.WhyThis))
       {
-        sb.Append(CultureInfo.InvariantCulture, $"#### Why this?\n{unit.WhyThis}\n\n");
+        sb.Append(CultureInfo.InvariantCulture, $"#### Why this?\n\n{unit.WhyThis}\n\n");
       }
 
       if (!string.IsNullOrWhiteSpace(unit.WhyNow))
       {
-        sb.Append(CultureInfo.InvariantCulture, $"#### Why now?\n{unit.WhyNow}\n\n");
+        sb.Append(CultureInfo.InvariantCulture, $"#### Why now?\n\n{unit.WhyNow}\n\n");
       }
 
       var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
       if (keyKnowledge.DeclarativeKnowledge.Count > 0)
       {
-        sb.Append("#### Students must know that:\n" + string.Join("\n", keyKnowledge.DeclarativeKnowledge.Select(o => $"* {ImageTags.Replace(o, string.Empty).Trim()}")) + "\n\n");
+        sb.Append("#### Students must know that:\n\n" + string.Join("\n", keyKnowledge.DeclarativeKnowledge.Select(o => $"- {o}")) + "\n\n");
       }
 
       if (keyKnowledge.ProceduralKnowledge.Count > 0)
       {
-        sb.Append("#### Students must be able to:\n" + string.Join("\n", keyKnowledge.ProceduralKnowledge.Select(o => $"* {ImageTags.Replace(o, string.Empty).Trim()}")) + "\n\n");
+        sb.Append("#### Students must be able to:\n\n" + string.Join("\n", keyKnowledge.ProceduralKnowledge.Select(o => $"- {o}")) + "\n\n");
       }
     }
 
     return sb.ToString().Trim();
   }
 
-  private static readonly Regex ImageTags = ImageTagsRegex();
+  public async Task<CourseEvaluationResult> EvaluateCourseAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, Action<int, int> reportProgress, CancellationToken cancellationToken = default)
+  {
+    ArgumentNullException.ThrowIfNull(course);
+    ArgumentNullException.ThrowIfNull(units);
 
-  [GeneratedRegex(@"\[img:\d+\]", RegexOptions.Compiled)]
-  private static partial Regex ImageTagsRegex();
+    var overallEvaluationPrompt = """
+      You are an expert curriculum designer. The user will provide information about a course from a curriculum portal.
+      Evaluate the overall quality of the curriculum, focusing on the selection and sequencing of knowledge.
+      Do not evaluate assessment design, rubrics, lesson plans, or other artefacts in this response.
 
+      Consider whether the curriculum is ambitious, knowledge-rich, broad, balanced, appropriately sequenced, accurate, and well matched to any National Curriculum or exam board requirements stated by the user.
+
+      Return structured JSON only.
+      Use every field in the schema. Use empty arrays only when there is no relevant feedback for that field.
+      Give separate ratings for sequencing and for coverage and balance.
+      Put concise plain-English strings in arrays. Do not include Markdown bullet syntax or headings in field values.
+      Use British English spelling and terminology.
+      If the user input includes an [Image] placeholder, assume a real image is part of the key knowledge at that point. Do not ask for the image.
+      Provide one short summary paragraph, then prioritise the highest-impact feedback in the structured arrays.
+      """;
+
+    var keyKnowledgeEvaluationPrompt = """
+      You are an experienced secondary school teacher with exceptional pedagogical subject knowledge.
+      The user will provide one unit from a curriculum portal.
+      Evaluate the quality of the key knowledge statements. Focus on how effectively they summarise the most powerful knowledge students need to know.
+
+      Consider whether the statements are specific, accurate, ambitious, memorable, assessable, well matched to the unit, and written as meaningful knowledge rather than vague signposting.
+      If key knowledge is missing, say this clearly and explain the most important consequence.
+
+      Return structured JSON only.
+      Use every field in the schema. Use empty arrays only when there is no relevant feedback for that field.
+      The overview must be a single short sentence or paragraph, not bullet points.
+      Put concise plain-English strings in arrays. Do not include Markdown bullet syntax or headings in field values.
+      Use British English spelling and terminology.
+      Provide concise, constructive, specific feedback in the structured arrays.
+      """;
+
+    var assessmentAlignmentEvaluationPrompt = """
+      You are an experienced secondary school teacher with strong assessment expertise.
+      The user will provide one unit from a curriculum portal, including key knowledge and assessment information where available.
+      Evaluate how closely the assessment assesses students' understanding of the key knowledge.
+      Focus only on alignment between the stated key knowledge and the assessment content; do not evaluate general assessment design quality unless it directly affects alignment.
+
+      Consider coverage, omissions, overemphasis, whether questions test the intended knowledge, and whether mark schemes reflect the knowledge students should demonstrate.
+      If the assessment or key knowledge is missing, say this clearly and explain what cannot be evaluated.
+
+      Return structured JSON only.
+      Use every field in the schema. Use empty arrays only when there is no relevant feedback for that field.
+      Put concise plain-English strings in arrays. Do not include Markdown bullet syntax or headings in field values.
+      Use British English spelling and terminology.
+      If the user input includes an [Image] placeholder, assume a real image is part of the key knowledge or assessment at that point. Do not ask for the image.
+      Set notApplicableReason to an empty string unless the assessment or key knowledge is missing and the alignment cannot be evaluated.
+      Provide concise, constructive, specific feedback in the structured arrays.
+      """;
+
+    var assessmentDesignEvaluationPrompt = """
+      You are an experienced secondary school teacher with strong assessment design expertise.
+      The user will provide one unit assessment from a curriculum portal.
+      Evaluate the quality of the assessment design.
+      Focus only on the technical construction of the assessment; do not repeat feedback about whether the assessment covers the stated key knowledge.
+
+      Consider whether questions are clear, unambiguous, appropriately challenging, well sequenced, resistant to guessing, supported by plausible distractors where relevant, and matched to useful mark schemes.
+      For multiple-choice questions, look for implausible distractors, clueing, ambiguity, and correct answers that are noticeably longer than incorrect answers.
+      If assessment information is missing, say this clearly and explain the most important next step.
+
+      Return structured JSON only.
+      Use every field in the schema. Use empty arrays only when there is no relevant feedback for that field.
+      The overview must be a single short sentence or paragraph, not bullet points.
+      Put concise plain-English strings in arrays. Do not include Markdown bullet syntax or headings in field values.
+      Use British English spelling and terminology.
+      If the user input includes an [Image] placeholder, assume a real image is part of the assessment at that point. Do not ask for the image.
+      Set notApplicableReason to an empty string unless assessment information is missing and the design cannot be evaluated.
+      Provide concise, constructive, specific feedback in the structured arrays.
+      """;
+
+    var overallSchema = BinaryData.FromBytes("""
+      {
+        "type": "object",
+        "properties": {
+          "sequencingRating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
+          "coverageBalanceRating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
+          "summary": { "type": "string" },
+          "sequencingIssues": { "type": "array", "items": { "type": "string" } },
+          "coverageBalanceIssues": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["sequencingRating", "coverageBalanceRating", "summary", "sequencingIssues", "coverageBalanceIssues"],
+        "additionalProperties": false
+      }
+      """u8.ToArray());
+
+    var keyKnowledgeSchema = BinaryData.FromBytes("""
+      {
+        "type": "object",
+        "properties": {
+          "rating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
+          "overview": { "type": "string" },
+          "specificityAccuracyIssues": { "type": "array", "items": { "type": "string" } },
+          "missingOrVagueKnowledge": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["rating", "overview", "specificityAccuracyIssues", "missingOrVagueKnowledge"],
+        "additionalProperties": false
+      }
+      """u8.ToArray());
+
+    var assessmentAlignmentSchema = BinaryData.FromBytes("""
+      {
+        "type": "object",
+        "properties": {
+          "rating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
+          "alignedCoverage": { "type": "array", "items": { "type": "string" } },
+          "gapsOrMisalignments": { "type": "array", "items": { "type": "string" } },
+          "notApplicableReason": { "type": "string" }
+        },
+        "required": ["rating", "alignedCoverage", "gapsOrMisalignments", "notApplicableReason"],
+        "additionalProperties": false
+      }
+      """u8.ToArray());
+
+    var assessmentDesignSchema = BinaryData.FromBytes("""
+      {
+        "type": "object",
+        "properties": {
+          "rating": { "type": "string", "enum": ["Excellent", "Broadly Good", "Moderate Issues", "Serious Issues"] },
+          "overview": { "type": "string" },
+          "designIssues": { "type": "array", "items": { "type": "string" } },
+          "notApplicableReason": { "type": "string" }
+        },
+        "required": ["rating", "overview", "designIssues", "notApplicableReason"],
+        "additionalProperties": false
+      }
+      """u8.ToArray());
+
+    var total = 1 + (units.Count * 3);
+    var completed = 0;
+    var contexts = new List<CourseEvaluationUnitContext>();
+    foreach (var unit in units)
+    {
+      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
+      var assessment = await _courseService.GetBlobAsync<Assessment>(unit.RowKey);
+      contexts.Add(new CourseEvaluationUnitContext(unit, BuildUnitEvaluationContext(unit, keyKnowledge, assessment)));
+    }
+
+    var courseSummary = await SummariseCourseAsync(course, units);
+    var semaphore = new SemaphoreSlim(5);
+    var overallTask = RunEvaluationRequestAsync<CourseOverallEvaluationResponse>(
+      semaphore,
+      overallEvaluationPrompt,
+      overallSchema,
+      "courseOverallEvaluation",
+      courseSummary,
+      () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
+      cancellationToken);
+
+    var unitTasks = contexts.Select(async context =>
+    {
+      var keyKnowledgeTask = RunEvaluationRequestAsync<KeyKnowledgeEvaluationResponse>(
+        semaphore,
+        keyKnowledgeEvaluationPrompt,
+        keyKnowledgeSchema,
+        "keyKnowledgeEvaluation",
+        context.Context,
+        () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
+        cancellationToken);
+
+      var alignmentTask = RunEvaluationRequestAsync<AssessmentAlignmentEvaluationResponse>(
+        semaphore,
+        assessmentAlignmentEvaluationPrompt,
+        assessmentAlignmentSchema,
+        "assessmentAlignmentEvaluation",
+        context.Context,
+        () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
+        cancellationToken);
+
+      var designTask = RunEvaluationRequestAsync<AssessmentDesignEvaluationResponse>(
+        semaphore,
+        assessmentDesignEvaluationPrompt,
+        assessmentDesignSchema,
+        "assessmentDesignEvaluation",
+        context.Context,
+        () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
+        cancellationToken);
+
+      await Task.WhenAll(keyKnowledgeTask, alignmentTask, designTask);
+      return new CourseEvaluationUnitResult(context.Unit.Title, await keyKnowledgeTask, await alignmentTask, await designTask);
+    }).ToList();
+
+    await Task.WhenAll(unitTasks.Cast<Task>().Prepend(overallTask));
+
+    return new CourseEvaluationResult
+    {
+      Overall = await overallTask,
+      Units = unitTasks.Select(o => o.Result).ToList()
+    };
+  }
+
+  private async Task<T> RunEvaluationRequestAsync<T>(SemaphoreSlim semaphore, string instructions, BinaryData schema, string schemaName, string input, Action onComplete,
+    CancellationToken cancellationToken) where T : new()
+  {
+    await semaphore.WaitAsync(cancellationToken);
+    try
+    {
+      var client = _aiClient.GetResponsesClient();
+      var options = new CreateResponseOptions
+      {
+        Instructions = instructions,
+        StoredOutputEnabled = false,
+        TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat(schemaName, schema, jsonSchemaIsStrict: true) },
+#if DEBUG
+        ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.None },
+        Model = "gpt-5.4-mini"
+#else
+        ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
+        Model = _model
+#endif
+      };
+
+      options.InputItems.Add(ResponseItem.CreateUserMessageItem(input));
+      var response = await client.CreateResponseAsync(options, cancellationToken);
+      var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
+      return JsonSerializer.Deserialize<T>(json, JsonOptions) ?? new T();
+    }
+    finally
+    {
+      semaphore.Release();
+      onComplete?.Invoke();
+    }
+  }
+
+  private static string BuildUnitEvaluationContext(UnitEntity unit, KeyKnowledge keyKnowledge, Assessment assessment)
+  {
+    var term = string.IsNullOrWhiteSpace(unit.Term) ? string.Empty : $" {unit.Term} Term";
+    var sb = new StringBuilder();
+    sb.Append(CultureInfo.InvariantCulture, $"# {unit.Title} (Year {unit.YearGroup}{term})\n\n");
+
+    if (!string.IsNullOrWhiteSpace(unit.WhyThis))
+    {
+      sb.Append(CultureInfo.InvariantCulture, $"## Why this?\n{unit.WhyThis}\n\n");
+    }
+
+    if (!string.IsNullOrWhiteSpace(unit.WhyNow))
+    {
+      sb.Append(CultureInfo.InvariantCulture, $"## Why now?\n{unit.WhyNow}\n\n");
+    }
+
+    sb.Append("## Key knowledge\n\n");
+    if (keyKnowledge.DeclarativeKnowledge.Count == 0 && keyKnowledge.ProceduralKnowledge.Count == 0)
+    {
+      sb.Append("(No key knowledge provided.)\n\n");
+    }
+    else
+    {
+      if (keyKnowledge.DeclarativeKnowledge.Count > 0)
+      {
+        sb.Append("### Students must know that:\n" + string.Join("\n", keyKnowledge.DeclarativeKnowledge.Select(o => $"- {o}")) + "\n\n");
+      }
+
+      if (keyKnowledge.ProceduralKnowledge.Count > 0)
+      {
+        sb.Append("### Students must be able to:\n" + string.Join("\n", keyKnowledge.ProceduralKnowledge.Select(o => $"- {o}")) + "\n\n");
+      }
+    }
+
+    sb.Append("## Assessment\n\n");
+    var questions = assessment.Sections.SelectMany(section => section.Questions.Select(question => new { section.Title, Question = question })).ToList();
+    if (questions.Count == 0)
+    {
+      sb.Append("(No assessment provided.)");
+    }
+    else
+    {
+      foreach (var item in questions)
+      {
+        var questionPrefix = string.IsNullOrWhiteSpace(item.Question.Image) ? string.Empty : "[Image] ";
+        sb.Append(CultureInfo.InvariantCulture, $"* {item.Title}: {questionPrefix}{item.Question.Question}");
+        if (item.Question.Answers?.Count > 0)
+        {
+          sb.Append(CultureInfo.InvariantCulture, $" Options: {string.Join("; ", item.Question.Answers)}.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.Question.MarkScheme))
+        {
+          sb.Append(CultureInfo.InvariantCulture, $" Mark scheme: {item.Question.MarkScheme}");
+        }
+
+        sb.Append('\n');
+      }
+    }
+
+    return sb.ToString().Trim();
+  }
+
+  private sealed record CourseEvaluationUnitContext(UnitEntity Unit, string Context);
 }
-

@@ -311,6 +311,16 @@ function showCourse(courseId, options = {}) {
     const actions = document.createElement('div');
     actions.className = 'staff-course-actions';
 
+    const evaluateButton = document.createElement('button');
+    evaluateButton.type = 'button';
+    evaluateButton.className = 'evaluate-button material-symbols-outlined';
+    evaluateButton.title = 'Evaluate course';
+    evaluateButton.setAttribute('aria-label', 'Evaluate course');
+    evaluateButton.textContent = 'emoji_objects';
+    evaluateButton.addEventListener('click', () => {
+      window.location.href = `/courses/${encodeSegment(courseId)}/evaluation`;
+    });
+
     const summaryButton = document.createElement('button');
     summaryButton.type = 'button';
     summaryButton.className = 'summary-button material-symbols-outlined';
@@ -334,7 +344,7 @@ function showCourse(courseId, options = {}) {
       editToggleButton.classList.add('hide');
     }
 
-    actions.append(summaryButton, editToggleButton);
+    actions.append(evaluateButton, summaryButton, editToggleButton);
     container.appendChild(actions);
   }
 

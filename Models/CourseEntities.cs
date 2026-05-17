@@ -166,3 +166,49 @@ public class QuestionBankQuestionWithUnit : QuestionBankQuestion
   public string UnitId { get; set; }
   public string UnitTitle { get; set; }
 }
+
+public class CourseEvaluation : CourseEvaluationResult
+{
+  public DateTimeOffset GeneratedAt { get; set; }
+}
+
+public class CourseEvaluationResult
+{
+  public CourseOverallEvaluationResponse Overall { get; set; } = new();
+  public List<CourseEvaluationUnitResult> Units { get; set; } = [];
+}
+
+public record CourseEvaluationUnitResult(string Title, KeyKnowledgeEvaluationResponse KeyKnowledge, AssessmentAlignmentEvaluationResponse AssessmentAlignment, AssessmentDesignEvaluationResponse AssessmentDesign);
+
+public class CourseOverallEvaluationResponse
+{
+  public string SequencingRating { get; set; } = string.Empty;
+  public string CoverageBalanceRating { get; set; } = string.Empty;
+  public string Summary { get; set; } = string.Empty;
+  public List<string> SequencingIssues { get; set; } = [];
+  public List<string> CoverageBalanceIssues { get; set; } = [];
+}
+
+public class KeyKnowledgeEvaluationResponse
+{
+  public string Rating { get; set; } = string.Empty;
+  public string Overview { get; set; } = string.Empty;
+  public List<string> SpecificityAccuracyIssues { get; set; } = [];
+  public List<string> MissingOrVagueKnowledge { get; set; } = [];
+}
+
+public class AssessmentAlignmentEvaluationResponse
+{
+  public string Rating { get; set; } = string.Empty;
+  public List<string> AlignedCoverage { get; set; } = [];
+  public List<string> GapsOrMisalignments { get; set; } = [];
+  public string NotApplicableReason { get; set; } = string.Empty;
+}
+
+public class AssessmentDesignEvaluationResponse
+{
+  public string Rating { get; set; } = string.Empty;
+  public string Overview { get; set; } = string.Empty;
+  public List<string> DesignIssues { get; set; } = [];
+  public string NotApplicableReason { get; set; } = string.Empty;
+}

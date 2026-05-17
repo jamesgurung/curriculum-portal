@@ -5,7 +5,7 @@
       "dotnetRunMessages": true,
       "launchBrowser": true,
       "applicationUrl": "https://localhost:7282;http://localhost:5282",
-      "launchUrl": "assignments",
+      "launchUrl": "courses/ks3-art/evaluation",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
