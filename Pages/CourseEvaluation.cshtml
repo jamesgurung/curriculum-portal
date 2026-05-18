@@ -260,12 +260,18 @@
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken }
       });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) throw new Error(await readAiError(response, 'The evaluation failed.'));
       if (!response.body) throw new Error('No response stream received.');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+
+      async function readAiError(response, fallback) {
+        const message = (await response.text()).trim();
+        if (response.status === 429) return message || 'The daily AI token limit has been reached. Please try again later.';
+        return message || fallback;
+      }
 
       function readEvent(frame) {
         let event = 'message';

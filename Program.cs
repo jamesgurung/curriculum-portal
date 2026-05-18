@@ -19,6 +19,7 @@ var appOptions = builder.Configuration.Get<AppOptions>();
 appOptions.Validate();
 builder.Services.AddSingleton(appOptions);
 
+builder.Services.AddHttpClient();
 builder.Services.AddDataProtection().PersistKeysToAzureBlobStorage(new Uri(appOptions.DataProtectionBlobUri));
 
 var configService = new ConfigService(appOptions);

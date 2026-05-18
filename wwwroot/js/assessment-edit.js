@@ -7,6 +7,12 @@ const fancyDoubleQuotes = /[\u201C\u201D]/g;
 const cleanText = text => text.replace(fancySingleQuotes, "'").replace(fancyDoubleQuotes, '"').replace(invalidWhitespace, ' ').replace(repeatedSpaces, ' ')
   .replace(trailingSpaces, '').replace(repeatedNewLines, '\n\n').trim();
 
+async function readAiError(response, fallback) {
+  const message = (await response.text()).trim();
+  if (response.status === 429) return message || 'The daily AI token limit has been reached. Please try again later.';
+  return message || fallback;
+}
+
 async function postSseJson(url, body) {
   const options = {
     method: 'POST',
@@ -15,7 +21,7 @@ async function postSseJson(url, body) {
   if (body !== undefined) options.body = JSON.stringify(body);
 
   const response = await fetch(url, options);
-  if (!response.ok) throw new Error(await response.text());
+  if (!response.ok) throw new Error(await readAiError(response, 'The AI operation failed.'));
   if (!response.body) throw new Error('No response stream received.');
 
   const reader = response.body.getReader();
@@ -418,7 +424,7 @@ async function handleSideButtonClick(event) {
         row.querySelector('.mark-scheme').dataset.text = question.markScheme;
       }
     } else {
-      alert(`Error generating mark scheme: ${await resp.text()}`);
+      alert(`Error generating mark scheme: ${await readAiError(resp, 'The AI operation failed.')}`);
       row.querySelector('.mark-scheme').textContent = '';
     }
     button.textContent = 'wand_stars';

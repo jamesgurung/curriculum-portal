@@ -119,6 +119,7 @@ Deploy effortlessly to Microsoft Azure.
     * `AssignmentCompletionLowThreshold` - the integer percentage completion rate below which students due assignments today receive the negative Class Charts behaviour (set this below `0` to disable negative behaviours)
     * `ClassChartsEmail` - the email address of the Class Charts account used to issue behaviours (if you are using Class Charts to record behaviour events)
     * `ClassChartsPassword` - the password for the Class Charts account used to issue behaviours (if you are using Class Charts to record behaviour events)
+    * `DailyTokenLimit` - the maximum number of OpenAI tokens to use per UTC day (optional)
     * `DataControllerName` - the name of the organisation acting as data controller for the privacy page
     * `DataProtectionBlobUri` - the SAS URL for the keys file you created earlier
     * `MicrosoftClientId` - the client ID of your Azure app registration
@@ -127,6 +128,7 @@ Deploy effortlessly to Microsoft Azure.
     * `MicrosoftSharePointSubdomain` - your Microsoft 365 SharePoint subdomain (for example `contoso` in `https://contoso.sharepoint.com`)
     * `MicrosoftTeamsPrefix` - the `externalName` prefix used to identify the relevant Microsoft Teams classes when publishing assignment tasks.
     * `MicrosoftTenantId` - your Azure tenant ID
+    * `OpenAIAdminApiKey` - an OpenAI admin API key used to check daily token usage when `DailyTokenLimit` is set
     * `OpenAIApiKey` - your OpenAI or Microsoft Foundry API key
     * `OpenAIModel` - the OpenAI model name or Microsoft Foundry deployment name
     * `PrivacyNoticeUrl` - the absolute URL of the school's official privacy notice

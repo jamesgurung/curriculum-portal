@@ -540,8 +540,15 @@ public static class Api
 
     app.MapGet("/courses/build/ai/createquizzes", [Authorize(Roles = Roles.Admin)] async (AIService ai) =>
     {
-      var processed = await ai.CreateQuizQuestionsAsync();
-      return Results.Text($"{processed} quizzes created", "text/plain");
+      try
+      {
+        var processed = await ai.CreateQuizQuestionsAsync();
+        return Results.Text($"{processed} quizzes created", "text/plain");
+      }
+      catch (InsufficientTokensException ex)
+      {
+        return CreateInsufficientTokensResult(ex);
+      }
     });
 
     app.MapPost("/courses/{courseId}/build/ai/generatemarkscheme", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, AssessmentQuestion question, CourseService storage, AIService ai) =>
@@ -568,8 +575,15 @@ public static class Api
         return Results.Forbid();
       }
 
-      var markScheme = await ai.GenerateMarkSchemeAsync(courseId, question);
-      return Results.Content(JsonSerializer.Serialize(markScheme, JsonDefaults.CamelCase), "application/json");
+      try
+      {
+        var markScheme = await ai.GenerateMarkSchemeAsync(courseId, question);
+        return Results.Content(JsonSerializer.Serialize(markScheme, JsonDefaults.CamelCase), "application/json");
+      }
+      catch (InsufficientTokensException ex)
+      {
+        return CreateInsufficientTokensResult(ex);
+      }
     });
 
     app.MapPost("/courses/build/ai/generatekeyknowledge", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, SingleValueModel model, CourseService storage, AIService ai) =>
@@ -834,6 +848,9 @@ public static class Api
     }
   }
 
+  private static IResult CreateInsufficientTokensResult(InsufficientTokensException ex) =>
+    Results.Text(ex.Message, "text/plain", statusCode: StatusCodes.Status429TooManyRequests);
+
   private static IResult StreamAiOperation<TResult>(Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken) =>
     Results.Stream(stream => SseFormatter.WriteAsync(StreamAiOperationAsync(operation, cancellationToken), stream, WriteSseItem, cancellationToken), "text/event-stream");
 
@@ -845,8 +862,6 @@ public static class Api
 
   private static async IAsyncEnumerable<SseItem<object>> StreamAiOperationAsync<TResult>(Func<CancellationToken, Task<TResult>> operation, [EnumeratorCancellation] CancellationToken cancellationToken)
   {
-    yield return new SseItem<object>(new { ok = true }, "heartbeat");
-
     Task<TResult> operationTask;
     Exception error = null;
     try
@@ -894,8 +909,6 @@ public static class Api
 
   private static async IAsyncEnumerable<SseItem<object>> StreamProgressOperationAsync(Func<Action<int, int>, CancellationToken, Task<object>> operation, [EnumeratorCancellation] CancellationToken cancellationToken)
   {
-    yield return new SseItem<object>(new { ok = true }, "heartbeat");
-
     var progress = Channel.CreateUnbounded<(int Completed, int Total)>();
     Task<object> operationTask;
     Exception error = null;

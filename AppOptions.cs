@@ -7,6 +7,7 @@ public sealed class AppOptions
   public int AssignmentCompletionLowThreshold { get; set; }
   public string ClassChartsEmail { get; set; }
   public string ClassChartsPassword { get; set; }
+  public int DailyTokenLimit { get; set; }
   public string DataControllerName { get; set; }
   public string DataProtectionBlobUri { get; set; }
   public string MicrosoftClientId { get; set; }
@@ -15,6 +16,7 @@ public sealed class AppOptions
   public string MicrosoftSharePointSubdomain { get; set; }
   public string MicrosoftTeamsPrefix { get; set; }
   public string MicrosoftTenantId { get; set; }
+  public string OpenAIAdminApiKey { get; set; }
   public string OpenAIApiKey { get; set; }
   public string OpenAIModel { get; set; }
   public string PrivacyNoticeUrl { get; set; }
@@ -52,6 +54,10 @@ public sealed class AppOptions
       throw new InvalidOperationException($"{nameof(AdminEmails)} must contain at least one valid email address.");
     if (AssignmentCompletionLowThreshold > AssignmentCompletionHighThreshold)
       throw new InvalidOperationException($"{nameof(AssignmentCompletionLowThreshold)} must be less than or equal to {nameof(AssignmentCompletionHighThreshold)}.");
+    if (DailyTokenLimit < 0)
+      throw new InvalidOperationException($"{nameof(DailyTokenLimit)} must not be negative.");
+    if (DailyTokenLimit > 0)
+      EnsureValue(OpenAIAdminApiKey, nameof(OpenAIAdminApiKey));
   }
 
   private static void EnsureValue(string value, string keyName)

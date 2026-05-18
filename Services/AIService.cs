@@ -2,6 +2,7 @@ using OpenAI;
 using OpenAI.Responses;
 using System.ClientModel;
 using System.Globalization;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
@@ -12,12 +13,16 @@ public partial class AIService
   private readonly OpenAIClient _aiClient;
   private readonly CourseService _courseService;
   private readonly CacheService _cache;
+  private readonly IHttpClientFactory _httpClientFactory;
+  private readonly string _openAIAdminApiKey;
   private readonly string _model;
+  private readonly int _dailyTokenLimit;
   private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-  public AIService(AppOptions options, CourseService courseService, CacheService cache)
+  public AIService(AppOptions options, CourseService courseService, CacheService cache, IHttpClientFactory httpClientFactory)
   {
     ArgumentNullException.ThrowIfNull(options);
+    ArgumentNullException.ThrowIfNull(httpClientFactory);
     var clientOptions = new OpenAIClientOptions { NetworkTimeout = TimeSpan.FromMinutes(10) };
     var credential = new ApiKeyCredential(options.OpenAIApiKey);
 
@@ -29,11 +34,15 @@ public partial class AIService
     _aiClient = new OpenAIClient(credential, clientOptions);
     _courseService = courseService;
     _cache = cache;
+    _httpClientFactory = httpClientFactory;
+    _openAIAdminApiKey = options.OpenAIAdminApiKey;
     _model = options.OpenAIModel;
+    _dailyTokenLimit = options.DailyTokenLimit;
   }
 
   public async Task<Assessment> ImportTextAssessmentAsync(string value, CancellationToken cancellationToken = default)
   {
+    await AssertTokensRemainingAsync(20000, cancellationToken);
     var client = _aiClient.GetResponsesClient();
 
     var systemMessage = """
@@ -102,6 +111,7 @@ public partial class AIService
   {
     ArgumentNullException.ThrowIfNull(unit);
     ArgumentNullException.ThrowIfNull(keyKnowledge);
+    await AssertTokensRemainingAsync(12000, cancellationToken);
     if (keyKnowledge.DeclarativeKnowledge.Count == 0)
     {
       return [];
@@ -301,10 +311,8 @@ public partial class AIService
   {
     var units = await _courseService.ListUnitsAsync();
     var unitsToProcess = units.Where(o => o.YearGroup <= 9 && o.RevisionQuizStatus < 2 && o.KeyKnowledgeStatus == 2).ToList();
-    if (unitsToProcess.Count == 0)
-    {
-      return 0;
-    }
+    if (unitsToProcess.Count == 0) return 0;
+    await AssertTokensRemainingAsync(unitsToProcess.Count * 12000, cancellationToken);
     var processed = 0;
 
     await Parallel.ForEachAsync(unitsToProcess, new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cancellationToken }, async (unit, ct) =>
@@ -343,6 +351,7 @@ public partial class AIService
   {
     ArgumentNullException.ThrowIfNull(courseId);
     ArgumentNullException.ThrowIfNull(question);
+    await AssertTokensRemainingAsync(20000);
     var isMathematics = courseId.Contains("mathematics", StringComparison.OrdinalIgnoreCase);
     var client = _aiClient.GetResponsesClient();
 
@@ -422,6 +431,7 @@ public partial class AIService
 
   public async Task<KeyKnowledge> GenerateKeyKnowledgeAsync(string value, CancellationToken cancellationToken = default)
   {
+    await AssertTokensRemainingAsync(20000, cancellationToken);
     var client = _aiClient.GetResponsesClient();
 
     var systemMessage = """
@@ -498,6 +508,7 @@ public partial class AIService
   public async Task<List<AssessmentQuestion>> GenerateQuestionsAsync(GenerateQuestionsRequest model, CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(model);
+    await AssertTokensRemainingAsync(20000, cancellationToken);
     var client = _aiClient.GetResponsesClient();
     var systemMessage = $"""
     You are an experienced secondary school teacher with exceptional pedagogical subject knowledge.
@@ -679,6 +690,7 @@ public partial class AIService
   {
     ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(units);
+    await AssertTokensRemainingAsync(12000 * ((units.Count * 2) + 1), cancellationToken);
 
     var overviewPrompt = """
       You are an experienced secondary school teacher and expert curriculum designer.
@@ -901,6 +913,35 @@ public partial class AIService
     };
   }
 
+  private async Task AssertTokensRemainingAsync(int reservedTokens, CancellationToken cancellationToken = default)
+  {
+    if (_dailyTokenLimit == default) return;
+
+    var start = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
+    var end = start.AddDays(1);
+    var url = new Uri($"https://api.openai.com/v1/organization/usage/completions?start_time={start.ToUnixTimeSeconds()}&end_time={end.ToUnixTimeSeconds()}&bucket_width=1d");
+
+    using var http = _httpClientFactory.CreateClient();
+    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _openAIAdminApiKey);
+
+    var json = await http.GetStringAsync(url, cancellationToken);
+    using var doc = JsonDocument.Parse(json);
+
+    var inputTokens = 0;
+    var outputTokens = 0;
+
+    foreach (var bucket in doc.RootElement.GetProperty("data").EnumerateArray())
+    {
+      foreach (var result in bucket.GetProperty("results").EnumerateArray())
+      {
+        inputTokens += result.GetProperty("input_tokens").GetInt32();
+        outputTokens += result.GetProperty("output_tokens").GetInt32();
+      }
+    }
+
+    if (inputTokens + outputTokens + reservedTokens >= _dailyTokenLimit) throw new InsufficientTokensException();
+  }
+
   private async Task<T> RunEvaluationRequestAsync<T>(SemaphoreSlim semaphore, string instructions, BinaryData schema, string schemaName, string input, Action onComplete,
     CancellationToken cancellationToken) where T : new()
   {
@@ -1030,4 +1071,11 @@ public partial class AIService
   }
 
   private sealed record CourseEvaluationUnitContext(UnitEntity Unit, string KeyKnowledgeContext, string AssessmentContext);
+}
+
+public class InsufficientTokensException : Exception
+{
+  public InsufficientTokensException() : base("Daily OpenAI token limit has been reached.") { }
+  public InsufficientTokensException(string message) : base(message) { }
+  public InsufficientTokensException(string message, Exception innerException) : base(message, innerException) { }
 }
