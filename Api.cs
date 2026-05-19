@@ -726,7 +726,7 @@ public static class Api
       }, context.RequestAborted);
     });
 
-    app.MapPost("/courses/{courseId}/evaluate/overview", [Authorize(Roles = Roles.Admin)] async (HttpContext context, IAntiforgery antiforgery, string courseId, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/{courseId}/evaluate/overview", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, CourseService storage, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -762,7 +762,7 @@ public static class Api
       }, context.RequestAborted);
     });
 
-    app.MapPost("/courses/{courseId}/evaluate/units/{unitId}", [Authorize(Roles = Roles.Admin)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/{courseId}/evaluate/units/{unitId}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)

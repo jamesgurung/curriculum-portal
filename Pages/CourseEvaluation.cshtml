@@ -91,13 +91,10 @@
       <section class="evaluation-overview">
         <div class="evaluation-section-header">
           <h3>Curriculum Overview</h3>
-          @if (Model.IsAdmin)
-          {
-            <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/overview" data-evaluation-label="the curriculum overview">
-              <span class="material-symbols-outlined">refresh</span>
-              <span>Re-evaluate overview</span>
-            </button>
-          }
+          <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/overview" data-evaluation-label="the curriculum overview">
+            <span class="material-symbols-outlined">refresh</span>
+            <span>Re-evaluate overview</span>
+          </button>
         </div>
         @if (!string.IsNullOrWhiteSpace(Model.Evaluation.Overall.Overview))
         {
@@ -147,7 +144,7 @@
           <section class="evaluation-unit">
             <div class="evaluation-section-header evaluation-unit-header">
               <h3>@unit.Title</h3>
-              @if (Model.IsAdmin && !string.IsNullOrWhiteSpace(unitId))
+              @if (!string.IsNullOrWhiteSpace(unitId))
               {
                 <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/units/@Uri.EscapeDataString(unitId)" data-evaluation-label="@unit.Title">
                   <span class="material-symbols-outlined">refresh</span>

@@ -734,7 +734,7 @@ public partial class AIService
       - Is it broad and balanced?
       - Has the most powerful knowledge been included? What is missing?
       - Is there any unnecessary or low-value content that could be removed to make space for more important knowledge?
-      - Award Priority 4 (low urgency for improvement) if the curriculum is generally ambitious, broad, balanced, well matched to requirements, and includes powerful threshold concepts (this can be awarded even if refinements are suggested). Award Priority 3 if the curriculum is somewhat effective but has several omissions, imbalances, or low-value areas. Award Priority 2 if important gaps, imbalance, or level-of-challenge problems limit effectiveness and therefore require attention. Award Priority 1 (most urgent) if the selected knowledge is not sufficiently fit for purpose and should be prioritised for improvement, or if the requirements of the National Curriculum or exam board specification are not met. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
+      - Award Priority 4 if the curriculum is generally ambitious, broad, balanced, well matched to requirements, and includes powerful threshold concepts (this can be awarded even if refinements are suggested). Award Priority 3 if the curriculum is somewhat effective but has several omissions, imbalances, or low-value areas. Award Priority 2 if important gaps, imbalance, or level-of-challenge problems limit effectiveness and therefore require attention. Award Priority 1 if the selected knowledge is not sufficiently fit for purpose and should be prioritised for improvement, or if the requirements of the National Curriculum or exam board specification are not met.
 
       # Sequencing
 
@@ -742,11 +742,12 @@ public partial class AIService
       - Is there a logical progression of knowledge and increasing level of challenge over time?
       - Are there any significant sequencing issues, such as important knowledge being taught too late?
       - Are there any units that seem out of place or disconnected from the overall curriculum?
-      - Award Priority 4 (low urgency for improvement) if units are generally sequenced coherently so knowledge builds logically over time (this can be awarded even if refinements are suggested). Award Priority 3 if the sequence somewhat works but has some ordering issues or weak links. Award Priority 2 if sequencing problems may disrupt how students accumulate knowledge and they therefore require attention. Award Priority 1 (most urgent) if the sequence is not sufficiently fit for purpose and should be prioritised for improvement. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
+      - Award Priority 4 if units are generally sequenced coherently so knowledge builds logically over time (this can be awarded even if refinements are suggested). Award Priority 3 if the sequence somewhat works but has some ordering issues or weak links. Award Priority 2 if sequencing problems may disrupt how students accumulate knowledge and they therefore require attention. Award Priority 1 if the sequence is not sufficiently fit for purpose and should be prioritised for improvement.
 
       # Guidance
 
       - Give separate priorities for coverage/balance and sequencing. Do not let strengths or weaknesses in one area influence the priority for the other area.
+      - Use a best fit approach. Have courage to use the full 1-4 scale and do not default to Priority 2 or 3.
       - Provide one short overview paragraph, then prioritise the highest-impact feedback in structured arrays of concise, plain-English strings (up to 5 statements in each array).
       - Do not include Markdown bullet syntax, headings, or formatting.
       - The provided curriculum information is not intended to include assessments, rubrics, knowledge organisers, lesson plans, or other artefacts, so do not comment on these.
@@ -765,7 +766,6 @@ public partial class AIService
 
       - Is the coverage comprehensive and ambitious, prioritising the most important knowledge that students need to know and remember?
       - Does the list comprise powerful knowledge and threshold concepts that underpin deep understanding, rather than trivial or low-value facts?
-      - Are the statements valuable to include in a knowledge-rich curriculum?
       - Are all the statements factually accurate?
       - Are they specific enough to be assessed in a knowledge quiz?
       - Are they stated as facts, rather than signposts? For example, instead of "Know the houses of Hogwarts.", a well-written statement would say "The houses of Hogwarts are Gryffindor, Hufflepuff, Ravenclaw, and Slytherin."
@@ -780,7 +780,8 @@ public partial class AIService
 
       # Guidance
 
-      - Award Priority 4 (low urgency for improvement) if the statements generally capture relevant declarative and procedural knowledge, including powerful threshold concepts (this can be awarded even if refinements are suggested). Award Priority 3 if the statements are mostly suitable but have some weaknesses such as vagueness or trivia among the powerful knowledge. Award Priority 2 if the statements require attention because they do not focus enough on powerful knowledge or are too vague, inaccurate, or trivial. Award Priority 1 (most urgent) if the statements are not sufficiently fit for purpose to achieve rich study of this unit and they should be prioritised for improvement, for example if there are notable inaccuracies or if most of the statements are not powerful threshold concepts. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
+      - Award Priority 4 if the statements generally capture relevant declarative and procedural knowledge, including powerful threshold concepts (this can be awarded even if refinements are suggested). Award Priority 3 if the statements are mostly suitable but have some weaknesses such as vagueness or trivia among the powerful knowledge. Award Priority 2 if the statements require attention because they do not focus enough on powerful knowledge or are too vague, inaccurate, or trivial. Award Priority 1 if the statements are not sufficiently fit for purpose to achieve rich study of this unit and they should be prioritised for improvement, for example if there are notable inaccuracies or if many of the statements are not powerful threshold concepts.
+      - Use a best fit approach. Have courage to use the full 1-4 scale and do not default to Priority 2 or 3.
       - Be mindful that the scheme fits within a wider curriculum, and prior and subsequent knowledge should not be listed. Focus on this specific scheme and its level of challenge.
       - Provide one short overview paragraph, then prioritise the highest-impact feedback in a structured array of concise, plain-English strings (up to 5 statements).
       - Use empty issue arrays only when there is no relevant feedback.
@@ -813,7 +814,8 @@ public partial class AIService
 
       # Guidance
 
-      - Award Priority 4 (low urgency for improvement) if the assessment gives a valid picture of whether students understand the most important key knowledge, with mostly reasonable question design and mark schemes (this can be awarded even if refinements are suggested). Award Priority 3 if the assessment is somewhat aligned and well designed but has several gaps, overemphases, wording issues, weak distractors, or mark-scheme limitations. Award Priority 2 if misalignment or design flaws may limit the assessment's validity or usefulness and they therefore require attention. Award Priority 1 (most urgent) if the assessment is not sufficiently fit for purpose and should be prioritised for improvement, for example if it does not adequately assess the key knowledge or is poorly designed. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
+      - Award Priority 4 if the assessment gives a valid picture of whether students understand the most important key knowledge, with mostly reasonable question design and mark schemes (this can be awarded even if refinements are suggested). Award Priority 3 if the assessment is somewhat aligned and well designed but has several gaps, overemphases, wording issues, weak distractors, or mark-scheme limitations. Award Priority 2 if misalignment or design flaws may limit the assessment's validity or usefulness and they therefore require attention. Award Priority 1 if the assessment is not sufficiently fit for purpose and should be prioritised for improvement, for example if it does not adequately assess the key knowledge or has significant design issues.
+      - Use a best fit approach. Have courage to use the full 1-4 scale and do not default to Priority 2 or 3.
       - Assessments typically take the format of Recap (retrieval practice from previous units), Knowledge, and Application. When considering alignment, focus on the Knowledge and Application sections only.
       - Give a combined priority that considers both alignment and question design.
       - Provide one short overview paragraph, then prioritise the highest-impact feedback in a structured array of concise, plain-English strings (up to 5 statements).
@@ -993,13 +995,8 @@ public partial class AIService
         Instructions = instructions,
         StoredOutputEnabled = false,
         TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat(schemaName, schema, jsonSchemaIsStrict: true) },
-#if DEBUG
-        ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
-        Model = "gpt-5.4-mini"
-#else
         ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
         Model = _model
-#endif
       };
 
       options.InputItems.Add(ResponseItem.CreateUserMessageItem(input));

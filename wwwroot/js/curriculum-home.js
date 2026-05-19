@@ -321,14 +321,6 @@ function showCourse(courseId, options = {}) {
       window.location.href = `/courses/${encodeSegment(courseId)}/evaluation`;
     });
 
-    const summaryButton = document.createElement('button');
-    summaryButton.type = 'button';
-    summaryButton.className = 'summary-button material-symbols-outlined';
-    summaryButton.title = 'Text summary';
-    summaryButton.setAttribute('aria-label', 'Open text summary');
-    summaryButton.textContent = 'summarize';
-    summaryButton.addEventListener('click', () => window.open(`/courses/${courseId}/build/summary`, '_blank'));
-
     const editToggleButton = document.createElement('button');
     editToggleButton.type = 'button';
     editToggleButton.className = 'edit-toggle-button material-symbols-outlined';
@@ -344,7 +336,7 @@ function showCourse(courseId, options = {}) {
       editToggleButton.classList.add('hide');
     }
 
-    actions.append(evaluateButton, summaryButton, editToggleButton);
+    actions.append(evaluateButton, editToggleButton);
     container.appendChild(actions);
   }
 

@@ -23,4 +23,4 @@
 [assembly: SuppressMessage("Design", "CA1056:URI-like properties should not be strings")]
 [assembly: SuppressMessage("Design", "CA1002:Do not expose generic lists")]
 [assembly: SuppressMessage("Naming", "CA1724:Type names should not match namespaces")]
-[assembly: SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Scope = "member", Target = "~M:CurriculumPortal.AIService.EvaluateCourseAsync(CurriculumPortal.CourseEntity,System.Collections.Generic.IReadOnlyList{CurriculumPortal.UnitEntity},System.Action{System.Int32,System.Int32},System.Threading.CancellationToken)~System.Threading.Tasks.Task{CurriculumPortal.CourseEvaluationResult}")]
+[assembly: SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Scope = "member", Target = "~M:CurriculumPortal.AIService.EvaluateCourseSectionsAsync(CurriculumPortal.CourseEntity,System.Collections.Generic.IReadOnlyList{CurriculumPortal.UnitEntity},System.Collections.Generic.IReadOnlyList{CurriculumPortal.UnitEntity},System.Boolean,System.Action{System.Int32,System.Int32},System.Threading.CancellationToken)~System.Threading.Tasks.Task{CurriculumPortal.CourseEvaluationResult}")]
