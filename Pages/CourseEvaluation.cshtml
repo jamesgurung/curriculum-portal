@@ -78,12 +78,12 @@
         <div class="evaluation-rating-summary">
           @foreach (var priority in priorities)
           {
-            <article class="evaluation-rating-box">
+            <button type="button" class="evaluation-rating-box" data-priority="@priority" aria-pressed="false">
               <span>@priorityCounts[priority]</span>
               <span aria-hidden="true">&times;</span>
               <span class="evaluation-rating priority-@priority" role="img" aria-label="@PriorityText(priority)"></span>
               <span>@PriorityText(priority)</span>
-            </article>
+            </button>
           }
         </div>
       </section>
@@ -97,22 +97,7 @@
           <p class="evaluation-summary">@Model.Evaluation.Overall.Overview</p>
         }
         <div class="evaluation-grid">
-          <article class="evaluation-panel">
-            <div class="evaluation-title-row">
-              <span class="evaluation-rating priority-@Model.Evaluation.Overall.SequencingPriority" role="img" aria-label="@PriorityText(Model.Evaluation.Overall.SequencingPriority)"></span>
-              <h4>Sequencing</h4>
-            </div>
-            @if (HasItems(Model.Evaluation.Overall.SequencingIssues))
-            {
-              <ul>
-                @foreach (var item in Clean(Model.Evaluation.Overall.SequencingIssues))
-                {
-                  <li>@item</li>
-                }
-              </ul>
-            }
-          </article>
-          <article class="evaluation-panel">
+          <article class="evaluation-panel" data-priority="@Model.Evaluation.Overall.CoverageBalancePriority">
             <div class="evaluation-title-row">
               <span class="evaluation-rating priority-@Model.Evaluation.Overall.CoverageBalancePriority" role="img" aria-label="@PriorityText(Model.Evaluation.Overall.CoverageBalancePriority)"></span>
               <h4>Coverage and balance</h4>
@@ -121,6 +106,21 @@
             {
               <ul>
                 @foreach (var item in Clean(Model.Evaluation.Overall.CoverageBalanceIssues))
+                {
+                  <li>@item</li>
+                }
+              </ul>
+            }
+          </article>
+          <article class="evaluation-panel" data-priority="@Model.Evaluation.Overall.SequencingPriority">
+            <div class="evaluation-title-row">
+              <span class="evaluation-rating priority-@Model.Evaluation.Overall.SequencingPriority" role="img" aria-label="@PriorityText(Model.Evaluation.Overall.SequencingPriority)"></span>
+              <h4>Sequencing</h4>
+            </div>
+            @if (HasItems(Model.Evaluation.Overall.SequencingIssues))
+            {
+              <ul>
+                @foreach (var item in Clean(Model.Evaluation.Overall.SequencingIssues))
                 {
                   <li>@item</li>
                 }
@@ -136,7 +136,7 @@
           <section class="evaluation-unit">
             <h3>@unit.Title</h3>
             <div class="evaluation-criteria">
-              <article class="evaluation-criterion">
+              <article class="evaluation-criterion" data-priority="@unit.KeyKnowledge.Priority">
                 <div class="evaluation-criterion-header">
                   <div class="evaluation-title-row">
                     <span class="evaluation-rating priority-@unit.KeyKnowledge.Priority" role="img" aria-label="@PriorityText(unit.KeyKnowledge.Priority)"></span>
@@ -160,7 +160,7 @@
                 }
               </article>
 
-              <article class="evaluation-criterion">
+              <article class="evaluation-criterion" data-priority="@unit.Assessment.Priority">
                 <div class="evaluation-criterion-header">
                   <div class="evaluation-title-row">
                     <span class="evaluation-rating priority-@unit.Assessment.Priority" role="img" aria-label="@PriorityText(unit.Assessment.Priority)"></span>
@@ -221,10 +221,37 @@
       evaluate: document.getElementById('evaluate-course'),
       modal: document.getElementById('modal'),
       progressTrack: document.querySelector('.evaluation-progress-track'),
-      progressBar: document.getElementById('evaluation-progress-bar')
+      progressBar: document.getElementById('evaluation-progress-bar'),
+      ratingBoxes: [...document.querySelectorAll('.evaluation-rating-box')],
+      overviewSummary: document.querySelector('.evaluation-overview .evaluation-summary'),
+      filterItems: [...document.querySelectorAll('.evaluation-panel[data-priority], .evaluation-criterion[data-priority]')],
+      filterParents: [...document.querySelectorAll('.evaluation-overview, .evaluation-unit')]
     };
+    let selectedPriority = '';
 
     elements.evaluate?.addEventListener('click', evaluateCourse);
+    elements.ratingBoxes.forEach(box => box.addEventListener('click', () => filterPriority(box.dataset.priority)));
+
+    function filterPriority(priority) {
+      selectedPriority = selectedPriority === priority ? '' : priority;
+
+      elements.ratingBoxes.forEach(box => {
+        const selected = box.dataset.priority === selectedPriority;
+        box.classList.toggle('selected', selected);
+        box.setAttribute('aria-pressed', String(selected));
+      });
+
+      elements.filterItems.forEach(item => {
+        item.classList.toggle('evaluation-filter-hidden', selectedPriority !== '' && item.dataset.priority !== selectedPriority);
+      });
+
+      elements.overviewSummary?.classList.toggle('evaluation-filter-hidden', selectedPriority !== '');
+
+      elements.filterParents.forEach(parent => {
+        const visibleItem = parent.querySelector('.evaluation-panel:not(.evaluation-filter-hidden), .evaluation-criterion:not(.evaluation-filter-hidden)');
+        parent.classList.toggle('evaluation-filter-hidden', selectedPriority !== '' && !visibleItem);
+      });
+    }
 
     function setProgress(percentage) {
       const value = Math.max(0, Math.min(Number(percentage) || 0, 100));
