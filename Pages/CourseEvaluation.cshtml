@@ -58,7 +58,8 @@
       var evaluationPriorities = new[]
       {
         Model.Evaluation.Overall.SequencingPriority,
-        Model.Evaluation.Overall.CoverageBalancePriority
+        Model.Evaluation.Overall.CoverageBalancePriority,
+        Model.Evaluation.Overall.AssessmentRecapPriority
       }.Concat(Model.Evaluation.Units.SelectMany(unit => new[]
       {
         unit.KeyKnowledge.Priority,
@@ -91,7 +92,7 @@
       <section class="evaluation-overview">
         <div class="evaluation-section-header">
           <h3>Curriculum Overview</h3>
-          <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/overview" data-evaluation-label="the curriculum overview">
+          <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/overview" data-evaluation-label="the curriculum overview" data-evaluation-title="curriculum overview">
             <span class="material-symbols-outlined">refresh</span>
             <span>Re-evaluate overview</span>
           </button>
@@ -125,6 +126,21 @@
             {
               <ul>
                 @foreach (var item in Clean(Model.Evaluation.Overall.SequencingIssues))
+                {
+                  <li>@item</li>
+                }
+              </ul>
+            }
+          </article>
+          <article class="evaluation-panel" data-priority="@Model.Evaluation.Overall.AssessmentRecapPriority">
+            <div class="evaluation-title-row">
+              <span class="evaluation-rating priority-@Model.Evaluation.Overall.AssessmentRecapPriority" role="img" aria-label="@PriorityText(Model.Evaluation.Overall.AssessmentRecapPriority)"></span>
+              <h4>Assessment recap questions</h4>
+            </div>
+            @if (HasItems(Model.Evaluation.Overall.AssessmentRecapIssues))
+            {
+              <ul>
+                @foreach (var item in Clean(Model.Evaluation.Overall.AssessmentRecapIssues))
                 {
                   <li>@item</li>
                 }
@@ -221,7 +237,7 @@
 <div id="modal" class="evaluation-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div id="modal-content">
     <div id="modal-body">
-      <h2 id="modal-title"><span class="spinner"></span><span>Evaluating the course...</span></h2>
+      <h2 id="modal-title"><span class="spinner"></span><span id="modal-title-text">Evaluating the course...</span></h2>
       <p class="evaluation-progress-note">This may take several minutes. Do not close the page.</p>
       <div class="evaluation-progress-track" role="progressbar" aria-label="Evaluation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div id="evaluation-progress-bar"></div>
@@ -237,6 +253,7 @@
     const elements = {
       evaluate: document.getElementById('evaluate-course'),
       modal: document.getElementById('modal'),
+      modalTitleText: document.getElementById('modal-title-text'),
       progressTrack: document.querySelector('.evaluation-progress-track'),
       progressBar: document.getElementById('evaluation-progress-bar'),
       evaluationButtons: [...document.querySelectorAll('#evaluate-course, .evaluation-section-action')],
@@ -286,19 +303,21 @@
     async function evaluateCourse() {
       if (!window.confirm('Are you sure you want to run the evaluation? This may take several minutes.')) return;
 
-      await runEvaluation(`/courses/${encodeURIComponent(courseId)}/evaluate`);
+      await runEvaluation(`/courses/${encodeURIComponent(courseId)}/evaluate`, 'Evaluating the course...');
     }
 
     async function evaluateSection(button) {
       const label = button.dataset.evaluationLabel || 'this section';
       if (!window.confirm(`Are you sure you want to re-evaluate ${label}? This may take several minutes.`)) return;
 
-      await runEvaluation(button.dataset.evaluationUrl);
+      const title = button.dataset.evaluationTitle || label;
+      await runEvaluation(button.dataset.evaluationUrl, `Re-evaluating ${title}...`);
     }
 
-    async function runEvaluation(url) {
+    async function runEvaluation(url, title) {
       setEvaluationButtonsDisabled(true);
       setProgress(0);
+      elements.modalTitleText.textContent = title;
       elements.modal.classList.add('active');
 
       try {

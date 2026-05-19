@@ -710,6 +710,11 @@ public static class Api
         return Results.Forbid();
       }
 
+      if (course.KeyStage != 3)
+      {
+        return Results.BadRequest("Course evaluations are only available for Key Stage 3 courses.");
+      }
+
       var units = await storage.ListUnitsAsync(courseId);
       return CreateProgressStream(async (reportProgress, ct) =>
       {
@@ -743,6 +748,11 @@ public static class Api
       if (!context.User.CanEditCourse(course))
       {
         return Results.Forbid();
+      }
+
+      if (course.KeyStage != 3)
+      {
+        return Results.BadRequest("Course evaluations are only available for Key Stage 3 courses.");
       }
 
       var evaluation = await storage.TryGetCourseEvaluationAsync(courseId);
@@ -779,6 +789,11 @@ public static class Api
       if (!context.User.CanEditCourse(course))
       {
         return Results.Forbid();
+      }
+
+      if (course.KeyStage != 3)
+      {
+        return Results.BadRequest("Course evaluations are only available for Key Stage 3 courses.");
       }
 
       var evaluation = await storage.TryGetCourseEvaluationAsync(courseId);

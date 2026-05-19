@@ -185,8 +185,10 @@ public class CourseOverallEvaluationResponse
   public string Overview { get; set; } = string.Empty;
   public int SequencingPriority { get; set; }
   public int CoverageBalancePriority { get; set; }
+  public int AssessmentRecapPriority { get; set; } = 1;
   public List<string> SequencingIssues { get; set; } = [];
   public List<string> CoverageBalanceIssues { get; set; } = [];
+  public List<string> AssessmentRecapIssues { get; set; } = [];
 }
 
 public class KeyKnowledgeEvaluationResponse

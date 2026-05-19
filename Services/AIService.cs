@@ -690,7 +690,7 @@ public partial class AIService
   {
     ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(units);
-    await AssertTokensRemainingAsync(12000 * ((units.Count * 2) + 1), cancellationToken);
+    await AssertTokensRemainingAsync(12000 * ((units.Count * 2) + 2), cancellationToken);
     return await EvaluateCourseSectionsAsync(course, units, units, true, reportProgress, cancellationToken);
   }
 
@@ -698,7 +698,7 @@ public partial class AIService
   {
     ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(units);
-    await AssertTokensRemainingAsync(12000, cancellationToken);
+    await AssertTokensRemainingAsync(24000, cancellationToken);
     var result = await EvaluateCourseSectionsAsync(course, units, [], true, reportProgress, cancellationToken);
     return result.Overall;
   }
@@ -826,6 +826,34 @@ public partial class AIService
       - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
       """;
 
+    var assessmentRecapPrompt = """
+      You are an experienced secondary school teacher with strong assessment expertise.
+      The user will provide course information in Markdown. For each unit, they will provide the questions from the Recap section of the assessment, followed by the declarative knowledge statements taught in that unit.
+      Evaluate the effectiveness of the Recap sections as retrieval practice of previous units across the course.
+      You do not need to answer every question below, but consider them when formulating your overall evaluation.
+
+      # Assessment recap questions
+
+      - Do the Recap questions align with knowledge that has already been taught by that point in the course?
+      - Do they prioritise the most powerful knowledge and threshold concepts taught to date?
+      - Do they retrieve knowledge cumulatively over time, rather than repeatedly focusing only on the immediately preceding unit?
+      - Across successive assessments, is there a reasonable range of topics revisited?
+
+      # Guidance
+
+      - Recap sections are intended to be very short, so only a small sample of prior knowledge can be revisited each time. Do not penalise the curriculum simply because every prior topic is not included in every recap.
+      - Reward thoughtful sampling: the most powerful knowledge should recur when useful, but the recap pattern should also help students retrieve a range of important topics over time.
+      - Award Priority 4 if the Recap questions are well aligned with knowledge taught to date, prioritise powerful threshold concepts, provide effective cumulative retrieval, and revisit a useful range of topics over time (this can be awarded even if refinements are suggested). Award Priority 3 if the Recap questions are well aligned but have some imbalance or over-reliance on recent units. Award Priority 2 if there is some misalignment, narrow sampling, missing recap sections, or poor choices of the most important topics to revisit. Award Priority 1 if retrieval practice through assessment recaps is poorly aligned, chooses trivial over important topics, or is for any other reason not fit for purpose.
+      - Use a best fit approach. Have courage to use the full 1-4 scale and do not default to Priority 2 or 3.
+      - Provide the highest-impact feedback in a structured array of concise, plain-English strings (up to 5 statements).
+      - Use empty issue arrays only when there is no relevant feedback.
+      - If the user input includes an [Image] placeholder, assume a real image is part of the recap question at that point. Do not ask for the image.
+      - Do not feed back on individual question wording. Focus on the overall quality of retrieval practice provided by the recap sections, and highlight specific assessments that are notably strong or require improvement.
+      - Do not include Markdown bullet syntax, headings, or formatting.
+      - Use British English spelling and terminology.
+      - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
+      """;
+
     var overviewSchema = BinaryData.FromBytes("""
       {
         "type": "object",
@@ -854,6 +882,18 @@ public partial class AIService
       }
       """u8.ToArray());
 
+    var assessmentRecapSchema = BinaryData.FromBytes("""
+      {
+        "type": "object",
+        "properties": {
+          "priority": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "issues": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["priority", "issues"],
+        "additionalProperties": false
+      }
+      """u8.ToArray());
+
     var assessmentSchema = BinaryData.FromBytes("""
       {
         "type": "object",
@@ -868,7 +908,7 @@ public partial class AIService
       }
       """u8.ToArray());
 
-    var total = (includeOverall ? 1 : 0) + (unitsToEvaluate.Count * 2);
+    var total = (includeOverall ? 2 : 0) + (unitsToEvaluate.Count * 2);
     var completed = 0;
     var contexts = new List<CourseEvaluationUnitContext>();
     foreach (var unit in unitsToEvaluate)
@@ -880,6 +920,7 @@ public partial class AIService
 
     var semaphore = new SemaphoreSlim(5);
     Task<CourseOverallEvaluationResponse> overallTask = null;
+    Task<AssessmentRecapEvaluationResponse> assessmentRecapTask = null;
     if (includeOverall)
     {
       var courseSummary = await SummariseCourseAsync(course, units);
@@ -889,6 +930,16 @@ public partial class AIService
         overviewSchema,
         "courseOverallEvaluation",
         courseSummary,
+        () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
+        cancellationToken);
+
+      var assessmentRecapContext = await BuildAssessmentRecapEvaluationContextAsync(units);
+      assessmentRecapTask = RunEvaluationRequestAsync<AssessmentRecapEvaluationResponse>(
+        semaphore,
+        assessmentRecapPrompt,
+        assessmentRecapSchema,
+        "assessmentRecapEvaluation",
+        assessmentRecapContext,
         () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
         cancellationToken);
     }
@@ -945,11 +996,23 @@ public partial class AIService
       tasks.Add(overallTask);
     }
 
+    if (assessmentRecapTask is not null)
+    {
+      tasks.Add(assessmentRecapTask);
+    }
+
     await Task.WhenAll(tasks);
+    var overall = overallTask is null ? new CourseOverallEvaluationResponse() : await overallTask;
+    if (assessmentRecapTask is not null)
+    {
+      var assessmentRecap = await assessmentRecapTask;
+      overall.AssessmentRecapPriority = assessmentRecap.Priority;
+      overall.AssessmentRecapIssues = assessmentRecap.Issues;
+    }
 
     return new CourseEvaluationResult
     {
-      Overall = overallTask is null ? new CourseOverallEvaluationResponse() : await overallTask,
+      Overall = overall,
       Units = unitTasks.Select(o => o.Result).ToList()
     };
   }
@@ -1037,6 +1100,55 @@ public partial class AIService
     return sb.ToString().Trim();
   }
 
+  private async Task<string> BuildAssessmentRecapEvaluationContextAsync(IReadOnlyList<UnitEntity> units)
+  {
+    var sb = new StringBuilder();
+    for (var i = 0; i < units.Count; i++)
+    {
+      var unit = units[i];
+      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
+
+      if (i > 0)
+      {
+        sb.Append(CultureInfo.InvariantCulture, $"# Recap questions in assessment for {unit.Title}\n\n");
+        if (unit.AssessmentStatus < 2)
+        {
+          sb.Append("There is no completed assessment for this unit\n\n");
+        }
+        else
+        {
+          var assessment = await _courseService.GetBlobAsync<Assessment>(unit.RowKey);
+          var recapSection = assessment.Sections.FirstOrDefault(o => string.Equals(o.Title, "Recap", StringComparison.OrdinalIgnoreCase));
+          if (recapSection is null || recapSection.Questions.Count == 0)
+          {
+            sb.Append("There is an assessment without a recap section\n\n");
+          }
+          else
+          {
+            foreach (var question in recapSection.Questions)
+            {
+              AppendAssessmentQuestionEvaluationMarkdown(sb, question, false);
+            }
+
+            sb.Append('\n');
+          }
+        }
+      }
+
+      sb.Append(CultureInfo.InvariantCulture, $"# Declarative knowledge for {unit.Title}\n\n");
+      if (keyKnowledge.DeclarativeKnowledge.Count == 0)
+      {
+        sb.Append("(No declarative knowledge provided.)\n\n");
+      }
+      else
+      {
+        sb.Append(string.Join("\n", keyKnowledge.DeclarativeKnowledge.Select(o => $"- {o}")) + "\n\n");
+      }
+    }
+
+    return sb.ToString().Trim();
+  }
+
   private static void AppendUnitEvaluationHeader(StringBuilder sb, UnitEntity unit)
   {
     var term = string.IsNullOrWhiteSpace(unit.Term) ? string.Empty : $" {unit.Term} Term";
@@ -1088,17 +1200,7 @@ public partial class AIService
         sb.Append(CultureInfo.InvariantCulture, $"### {section.Title}\n\n");
         foreach (var question in section.Questions)
         {
-          var questionPrefix = string.IsNullOrWhiteSpace(question.Image) ? string.Empty : "[Image] ";
-          sb.Append(CultureInfo.InvariantCulture, $"- {questionPrefix}{question.Question}\n");
-          if (question.Answers?.Count > 0)
-          {
-            sb.Append(CultureInfo.InvariantCulture, $"  Options: {string.Join("; ", question.Answers)}.\n");
-          }
-
-          if (!string.IsNullOrWhiteSpace(question.MarkScheme))
-          {
-            sb.Append(CultureInfo.InvariantCulture, $"  Mark scheme: {question.MarkScheme}\n");
-          }
+          AppendAssessmentQuestionEvaluationMarkdown(sb, question, true);
         }
 
         sb.Append('\n');
@@ -1106,7 +1208,28 @@ public partial class AIService
     }
   }
 
+  private static void AppendAssessmentQuestionEvaluationMarkdown(StringBuilder sb, AssessmentQuestion question, bool includeMarkScheme)
+  {
+    var questionPrefix = string.IsNullOrWhiteSpace(question.Image) ? string.Empty : "[Image] ";
+    sb.Append(CultureInfo.InvariantCulture, $"- {questionPrefix}{question.Question}\n");
+    if (question.Answers?.Count > 0)
+    {
+      sb.Append(CultureInfo.InvariantCulture, $"  Options: {string.Join("; ", question.Answers)}.\n");
+    }
+
+    if (includeMarkScheme && !string.IsNullOrWhiteSpace(question.MarkScheme))
+    {
+      sb.Append(CultureInfo.InvariantCulture, $"  Mark scheme: {question.MarkScheme}\n");
+    }
+  }
+
   private sealed record CourseEvaluationUnitContext(UnitEntity Unit, string KeyKnowledgeContext, string AssessmentContext);
+
+  private sealed class AssessmentRecapEvaluationResponse
+  {
+    public int Priority { get; set; }
+    public List<string> Issues { get; set; } = [];
+  }
 }
 
 public class InsufficientTokensException : Exception

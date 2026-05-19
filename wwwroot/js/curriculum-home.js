@@ -336,7 +336,11 @@ function showCourse(courseId, options = {}) {
       editToggleButton.classList.add('hide');
     }
 
-    actions.append(evaluateButton, editToggleButton);
+    if (course.keyStage === 3) {
+      actions.appendChild(evaluateButton);
+    }
+
+    actions.appendChild(editToggleButton);
     container.appendChild(actions);
   }
 
