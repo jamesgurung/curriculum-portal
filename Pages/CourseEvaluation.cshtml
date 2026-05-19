@@ -91,6 +91,13 @@
       <section class="evaluation-overview">
         <div class="evaluation-section-header">
           <h3>Curriculum Overview</h3>
+          @if (Model.IsAdmin)
+          {
+            <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/overview" data-evaluation-label="the curriculum overview">
+              <span class="material-symbols-outlined">refresh</span>
+              <span>Re-evaluate overview</span>
+            </button>
+          }
         </div>
         @if (!string.IsNullOrWhiteSpace(Model.Evaluation.Overall.Overview))
         {
@@ -131,10 +138,23 @@
       </section>
 
       <div class="evaluation-units">
-        @foreach (var unit in Model.Evaluation.Units)
+        @for (var unitIndex = 0; unitIndex < Model.Evaluation.Units.Count; unitIndex++)
         {
+          var unit = Model.Evaluation.Units[unitIndex];
+          var currentUnit = Model.Units.ElementAtOrDefault(unitIndex);
+          var unitId = !string.IsNullOrWhiteSpace(unit.UnitId) ? unit.UnitId : currentUnit?.RowKey;
+
           <section class="evaluation-unit">
-            <h3>@unit.Title</h3>
+            <div class="evaluation-section-header evaluation-unit-header">
+              <h3>@unit.Title</h3>
+              @if (Model.IsAdmin && !string.IsNullOrWhiteSpace(unitId))
+              {
+                <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/units/@Uri.EscapeDataString(unitId)" data-evaluation-label="@unit.Title">
+                  <span class="material-symbols-outlined">refresh</span>
+                  <span>Re-evaluate unit</span>
+                </button>
+              }
+            </div>
             <div class="evaluation-criteria">
               <article class="evaluation-criterion" data-priority="@unit.KeyKnowledge.Priority">
                 <div class="evaluation-criterion-header">
@@ -222,6 +242,8 @@
       modal: document.getElementById('modal'),
       progressTrack: document.querySelector('.evaluation-progress-track'),
       progressBar: document.getElementById('evaluation-progress-bar'),
+      evaluationButtons: [...document.querySelectorAll('#evaluate-course, .evaluation-section-action')],
+      sectionActions: [...document.querySelectorAll('.evaluation-section-action')],
       ratingBoxes: [...document.querySelectorAll('.evaluation-rating-box')],
       overviewSummary: document.querySelector('.evaluation-overview .evaluation-summary'),
       filterItems: [...document.querySelectorAll('.evaluation-panel[data-priority], .evaluation-criterion[data-priority]')],
@@ -230,6 +252,7 @@
     let selectedPriority = '';
 
     elements.evaluate?.addEventListener('click', evaluateCourse);
+    elements.sectionActions.forEach(button => button.addEventListener('click', () => evaluateSection(button)));
     elements.ratingBoxes.forEach(box => box.addEventListener('click', () => filterPriority(box.dataset.priority)));
 
     function filterPriority(priority) {
@@ -259,13 +282,30 @@
       elements.progressTrack.setAttribute('aria-valuenow', String(value));
     }
 
+    function setEvaluationButtonsDisabled(disabled) {
+      elements.evaluationButtons.forEach(button => button.disabled = disabled);
+    }
+
     async function evaluateCourse() {
-      elements.evaluate.disabled = true;
+      if (!window.confirm('Are you sure you want to run the evaluation? This may take several minutes.')) return;
+
+      await runEvaluation(`/courses/${encodeURIComponent(courseId)}/evaluate`);
+    }
+
+    async function evaluateSection(button) {
+      const label = button.dataset.evaluationLabel || 'this section';
+      if (!window.confirm(`Are you sure you want to re-evaluate ${label}? This may take several minutes.`)) return;
+
+      await runEvaluation(button.dataset.evaluationUrl);
+    }
+
+    async function runEvaluation(url) {
+      setEvaluationButtonsDisabled(true);
       setProgress(0);
       elements.modal.classList.add('active');
 
       try {
-        await postSse(`/courses/${encodeURIComponent(courseId)}/evaluate`, progress => {
+        await postSse(url, progress => {
           setProgress(progress.percentage ?? 0);
         });
         setProgress(100);
@@ -274,7 +314,7 @@
         const message = error.message || 'The evaluation failed.';
         elements.modal.classList.remove('active');
         window.alert(message);
-        elements.evaluate.disabled = false;
+        setEvaluationButtonsDisabled(false);
       }
     }
 

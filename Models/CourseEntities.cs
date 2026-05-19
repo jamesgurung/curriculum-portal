@@ -178,7 +178,7 @@ public class CourseEvaluationResult
   public List<CourseEvaluationUnitResult> Units { get; set; } = [];
 }
 
-public record CourseEvaluationUnitResult(string Title, KeyKnowledgeEvaluationResponse KeyKnowledge, AssessmentEvaluationResponse Assessment);
+public record CourseEvaluationUnitResult(string UnitId, string Title, KeyKnowledgeEvaluationResponse KeyKnowledge, AssessmentEvaluationResponse Assessment);
 
 public class CourseOverallEvaluationResponse
 {

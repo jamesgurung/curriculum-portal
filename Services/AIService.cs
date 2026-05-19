@@ -691,6 +691,34 @@ public partial class AIService
     ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(units);
     await AssertTokensRemainingAsync(12000 * ((units.Count * 2) + 1), cancellationToken);
+    return await EvaluateCourseSectionsAsync(course, units, units, true, reportProgress, cancellationToken);
+  }
+
+  public async Task<CourseOverallEvaluationResponse> EvaluateCourseOverviewAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, Action<int, int> reportProgress, CancellationToken cancellationToken = default)
+  {
+    ArgumentNullException.ThrowIfNull(course);
+    ArgumentNullException.ThrowIfNull(units);
+    await AssertTokensRemainingAsync(12000, cancellationToken);
+    var result = await EvaluateCourseSectionsAsync(course, units, [], true, reportProgress, cancellationToken);
+    return result.Overall;
+  }
+
+  public async Task<CourseEvaluationUnitResult> EvaluateCourseUnitAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, UnitEntity unit, Action<int, int> reportProgress, CancellationToken cancellationToken = default)
+  {
+    ArgumentNullException.ThrowIfNull(course);
+    ArgumentNullException.ThrowIfNull(units);
+    ArgumentNullException.ThrowIfNull(unit);
+    await AssertTokensRemainingAsync(24000, cancellationToken);
+    var result = await EvaluateCourseSectionsAsync(course, units, [unit], false, reportProgress, cancellationToken);
+    return result.Units.First();
+  }
+
+  private async Task<CourseEvaluationResult> EvaluateCourseSectionsAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, IReadOnlyList<UnitEntity> unitsToEvaluate, bool includeOverall,
+    Action<int, int> reportProgress, CancellationToken cancellationToken)
+  {
+    ArgumentNullException.ThrowIfNull(course);
+    ArgumentNullException.ThrowIfNull(units);
+    ArgumentNullException.ThrowIfNull(unitsToEvaluate);
 
     var overviewPrompt = """
       You are an experienced secondary school teacher and expert curriculum designer.
@@ -737,6 +765,7 @@ public partial class AIService
 
       - Is the coverage comprehensive and ambitious, prioritising the most important knowledge that students need to know and remember?
       - Does the list comprise powerful knowledge and threshold concepts that underpin deep understanding, rather than trivial or low-value facts?
+      - Are the statements valuable to include in a knowledge-rich curriculum?
       - Are all the statements factually accurate?
       - Are they specific enough to be assessed in a knowledge quiz?
       - Are they stated as facts, rather than signposts? For example, instead of "Know the houses of Hogwarts.", a well-written statement would say "The houses of Hogwarts are Gryffindor, Hufflepuff, Ravenclaw, and Slytherin."
@@ -751,7 +780,7 @@ public partial class AIService
 
       # Guidance
 
-      - Award Priority 4 (low urgency for improvement) if the statements generally capture relevant declarative and procedural knowledge, including some powerful threshold concepts (this can be awarded even if refinements are suggested). Award Priority 3 if the statements are mostly suitable but have some weaknesses such as vagueness or a higher proportion of trivia among the powerful knowledge. Award Priority 2 if the statements require attention because they do not focus enough on powerful knowledge or are too vague or inaccurate. Award Priority 1 (most urgent) if the statements are not sufficiently fit for purpose and should be prioritised for improvement, for example if there are significant inaccuracies or if hardly any of the statements include powerful threshold concepts that will support further study of the course. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
+      - Award Priority 4 (low urgency for improvement) if the statements generally capture relevant declarative and procedural knowledge, including powerful threshold concepts (this can be awarded even if refinements are suggested). Award Priority 3 if the statements are mostly suitable but have some weaknesses such as vagueness or trivia among the powerful knowledge. Award Priority 2 if the statements require attention because they do not focus enough on powerful knowledge or are too vague, inaccurate, or trivial. Award Priority 1 (most urgent) if the statements are not sufficiently fit for purpose to achieve rich study of this unit and they should be prioritised for improvement, for example if there are notable inaccuracies or if most of the statements are not powerful threshold concepts. Use a best fit approach and do not hesitate to award the highest or lowest priority if you feel it is justified.
       - Be mindful that the scheme fits within a wider curriculum, and prior and subsequent knowledge should not be listed. Focus on this specific scheme and its level of challenge.
       - Provide one short overview paragraph, then prioritise the highest-impact feedback in a structured array of concise, plain-English strings (up to 5 statements).
       - Use empty issue arrays only when there is no relevant feedback.
@@ -837,26 +866,30 @@ public partial class AIService
       }
       """u8.ToArray());
 
-    var total = 1 + (units.Count * 2);
+    var total = (includeOverall ? 1 : 0) + (unitsToEvaluate.Count * 2);
     var completed = 0;
     var contexts = new List<CourseEvaluationUnitContext>();
-    foreach (var unit in units)
+    foreach (var unit in unitsToEvaluate)
     {
       var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
       var assessment = await _courseService.GetBlobAsync<Assessment>(unit.RowKey);
       contexts.Add(new CourseEvaluationUnitContext(unit, BuildKeyKnowledgeEvaluationContext(unit, keyKnowledge, units), BuildAssessmentEvaluationContext(unit, keyKnowledge, assessment)));
     }
 
-    var courseSummary = await SummariseCourseAsync(course, units);
     var semaphore = new SemaphoreSlim(5);
-    var overallTask = RunEvaluationRequestAsync<CourseOverallEvaluationResponse>(
-      semaphore,
-      overviewPrompt,
-      overviewSchema,
-      "courseOverallEvaluation",
-      courseSummary,
-      () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
-      cancellationToken);
+    Task<CourseOverallEvaluationResponse> overallTask = null;
+    if (includeOverall)
+    {
+      var courseSummary = await SummariseCourseAsync(course, units);
+      overallTask = RunEvaluationRequestAsync<CourseOverallEvaluationResponse>(
+        semaphore,
+        overviewPrompt,
+        overviewSchema,
+        "courseOverallEvaluation",
+        courseSummary,
+        () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
+        cancellationToken);
+    }
 
     var unitTasks = contexts.Select(async context =>
     {
@@ -901,14 +934,20 @@ public partial class AIService
       }
 
       await Task.WhenAll(keyKnowledgeTask, assessmentTask);
-      return new CourseEvaluationUnitResult(context.Unit.Title, await keyKnowledgeTask, await assessmentTask);
+      return new CourseEvaluationUnitResult(context.Unit.RowKey, context.Unit.Title, await keyKnowledgeTask, await assessmentTask);
     }).ToList();
 
-    await Task.WhenAll(unitTasks.Cast<Task>().Prepend(overallTask));
+    var tasks = unitTasks.Cast<Task>().ToList();
+    if (overallTask is not null)
+    {
+      tasks.Add(overallTask);
+    }
+
+    await Task.WhenAll(tasks);
 
     return new CourseEvaluationResult
     {
-      Overall = await overallTask,
+      Overall = overallTask is null ? new CourseOverallEvaluationResponse() : await overallTask,
       Units = unitTasks.Select(o => o.Result).ToList()
     };
   }

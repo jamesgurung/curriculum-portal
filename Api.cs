@@ -726,6 +726,97 @@ public static class Api
       }, context.RequestAborted);
     });
 
+    app.MapPost("/courses/{courseId}/evaluate/overview", [Authorize(Roles = Roles.Admin)] async (HttpContext context, IAntiforgery antiforgery, string courseId, CourseService storage, AIService ai) =>
+    {
+      var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
+      if (csrfError is not null)
+      {
+        return csrfError;
+      }
+
+      var course = await storage.TryGetCourseAsync(courseId);
+      if (course is null)
+      {
+        return Results.NotFound("Course not found.");
+      }
+
+      if (!context.User.CanEditCourse(course))
+      {
+        return Results.Forbid();
+      }
+
+      var evaluation = await storage.TryGetCourseEvaluationAsync(courseId);
+      if (evaluation is null)
+      {
+        return Results.NotFound("Evaluation not found.");
+      }
+
+      var units = await storage.ListUnitsAsync(courseId);
+      return CreateProgressStream(async (reportProgress, ct) =>
+      {
+        evaluation.Overall = await ai.EvaluateCourseOverviewAsync(course, units, reportProgress, ct);
+        evaluation.GeneratedAt = DateTimeOffset.UtcNow;
+        await storage.UploadCourseEvaluationAsync(courseId, evaluation);
+
+        return new { message = "The evaluation has been saved.", generatedAt = evaluation.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
+      }, context.RequestAborted);
+    });
+
+    app.MapPost("/courses/{courseId}/evaluate/units/{unitId}", [Authorize(Roles = Roles.Admin)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, AIService ai) =>
+    {
+      var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
+      if (csrfError is not null)
+      {
+        return csrfError;
+      }
+
+      var course = await storage.TryGetCourseAsync(courseId);
+      if (course is null)
+      {
+        return Results.NotFound("Course not found.");
+      }
+
+      if (!context.User.CanEditCourse(course))
+      {
+        return Results.Forbid();
+      }
+
+      var evaluation = await storage.TryGetCourseEvaluationAsync(courseId);
+      if (evaluation is null)
+      {
+        return Results.NotFound("Evaluation not found.");
+      }
+
+      var units = await storage.ListUnitsAsync(courseId);
+      var unit = units.FirstOrDefault(o => o.RowKey == unitId);
+      if (unit is null)
+      {
+        return Results.NotFound("Unit not found.");
+      }
+
+      evaluation.Units ??= [];
+      var unitIndex = units.FindIndex(o => o.RowKey == unitId);
+      var evaluationUnitIndex = evaluation.Units.FindIndex(o => string.Equals(o.UnitId, unitId, StringComparison.Ordinal));
+      if (evaluationUnitIndex < 0 && unitIndex >= 0 && unitIndex < evaluation.Units.Count)
+      {
+        evaluationUnitIndex = unitIndex;
+      }
+
+      if (evaluationUnitIndex < 0)
+      {
+        return Results.NotFound("Unit evaluation not found.");
+      }
+
+      return CreateProgressStream(async (reportProgress, ct) =>
+      {
+        evaluation.Units[evaluationUnitIndex] = await ai.EvaluateCourseUnitAsync(course, units, unit, reportProgress, ct);
+        evaluation.GeneratedAt = DateTimeOffset.UtcNow;
+        await storage.UploadCourseEvaluationAsync(courseId, evaluation);
+
+        return new { message = "The evaluation has been saved.", generatedAt = evaluation.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
+      }, context.RequestAborted);
+    });
+
     app.MapGet("/assignments/set", [Authorize(Roles = Roles.Admin)] async (AssignmentService assignmentService) =>
     {
       var now = DateOnly.FromDateTime(DateTime.UtcNow);

@@ -12,6 +12,7 @@ public class CourseEvaluationModel(CourseService storage, IAntiforgery antiforge
   public string CourseId { get; private set; } = string.Empty;
   public CourseEntity Course { get; private set; }
   public CourseEvaluation Evaluation { get; private set; }
+  public IReadOnlyList<UnitEntity> Units { get; private set; } = [];
   public string CsrfToken { get; private set; } = string.Empty;
   public bool IsAdmin { get; private set; }
 
@@ -40,6 +41,7 @@ public class CourseEvaluationModel(CourseService storage, IAntiforgery antiforge
     CourseId = courseId;
     Course = course;
     Evaluation = await storage.TryGetCourseEvaluationAsync(courseId);
+    Units = Evaluation is null ? [] : await storage.ListUnitsAsync(courseId);
     CsrfToken = antiforgery.GetAndStoreTokens(HttpContext).RequestToken ?? string.Empty;
     IsAdmin = User.IsInRole(Roles.Admin);
 
