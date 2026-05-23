@@ -65,7 +65,7 @@ function renderAssignments() {
 function renderStudentAssignments() {
   const container = document.createDocumentFragment();
   container.appendChild(buildStudentSection('To Do', assignmentsData.student?.toDo ?? [], 'Nothing due right now.', false));
-  container.appendChild(buildStudentSection('Past', assignmentsData.student?.past ?? [], 'Past assignments will appear here.', true));
+  container.appendChild(buildStudentSection('Recent', assignmentsData.student?.past ?? [], 'Past assignments will appear here.', true));
   assignmentsRoot.replaceChildren(container);
 }
 

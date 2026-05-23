@@ -14,9 +14,8 @@ public class AssignmentEntity : ITableEntity
     set
     {
       field = value;
-      if (value is null || value.Length != 4) return;
-      YearGroup = int.Parse(value[..2], CultureInfo.InvariantCulture);
-      SubjectCode = value[2..4];
+      if (value is null) return;
+      DueDate = DateOnly.TryParseExact(value, "yyyy-MM-dd", out var date) ? date : default;
     }
   }
   public string RowKey
@@ -25,8 +24,10 @@ public class AssignmentEntity : ITableEntity
     set
     {
       field = value;
-      if (value is null) return;
-      DueDate = DateOnly.TryParseExact(value, "yyyy-MM-dd", out var date) ? date : default;
+      var parts = value?.Split('_', 2);
+      if (parts is null || parts.Length < 2) return;
+      YearGroup = int.Parse(parts[0], CultureInfo.InvariantCulture);
+      CourseId = parts[1];
     }
   }
   [JsonIgnore]
@@ -39,7 +40,7 @@ public class AssignmentEntity : ITableEntity
   [IgnoreDataMember]
   public int YearGroup { get; private set; }
   [IgnoreDataMember]
-  public string SubjectCode { get; private set; }
+  public string CourseId { get; private set; }
   [IgnoreDataMember]
   public DateOnly DueDate { get; private set; }
 }
@@ -52,9 +53,8 @@ public class AssignmentQuestionEntity : ITableEntity
     set
     {
       field = value;
-      if (value is null || value.Length != 4) return;
-      YearGroup = int.Parse(value[..2], CultureInfo.InvariantCulture);
-      SubjectCode = value[2..4];
+      if (value is null) return;
+      DueDate = DateOnly.TryParseExact(value, "yyyy-MM-dd", out var date) ? date : default;
     }
   }
   public string RowKey
@@ -63,10 +63,11 @@ public class AssignmentQuestionEntity : ITableEntity
     set
     {
       field = value;
-      var parts = value?.Split('_', 2);
-      if (parts is null || parts.Length < 2) return;
-      DueDate = DateOnly.TryParseExact(parts[0], "yyyy-MM-dd", out var date) ? date : default;
-      QuestionNumber = int.Parse(parts[1], CultureInfo.InvariantCulture);
+      var parts = value?.Split('_', 3);
+      if (parts is null || parts.Length < 3) return;
+      YearGroup = int.Parse(parts[0], CultureInfo.InvariantCulture);
+      CourseId = parts[1];
+      QuestionNumber = int.Parse(parts[2], CultureInfo.InvariantCulture);
     }
   }
   [JsonIgnore]
@@ -77,7 +78,7 @@ public class AssignmentQuestionEntity : ITableEntity
   [IgnoreDataMember]
   public int YearGroup { get; private set; }
   [IgnoreDataMember]
-  public string SubjectCode { get; private set; }
+  public string CourseId { get; private set; }
   [IgnoreDataMember]
   public DateOnly DueDate { get; private set; }
   [IgnoreDataMember]
@@ -100,9 +101,8 @@ public class AssignmentSubmissionEntity : ITableEntity
     set
     {
       field = value;
-      if (value is null || value.Length != 4) return;
-      YearGroup = int.Parse(value[..2], CultureInfo.InvariantCulture);
-      SubjectCode = value[2..4];
+      if (value is null) return;
+      DueDate = DateOnly.TryParseExact(value, "yyyy-MM-dd", out var date) ? date : default;
     }
   }
   public string RowKey
@@ -111,10 +111,11 @@ public class AssignmentSubmissionEntity : ITableEntity
     set
     {
       field = value;
-      var parts = value?.Split('_', 2);
-      if (parts is null || parts.Length < 2) return;
-      DueDate = DateOnly.TryParseExact(parts[0], "yyyy-MM-dd", out var date) ? date : default;
-      StudentId = int.Parse(parts[1], CultureInfo.InvariantCulture);
+      var parts = value?.Split('_', 3);
+      if (parts is null || parts.Length < 3) return;
+      StudentId = int.Parse(parts[0], CultureInfo.InvariantCulture);
+      YearGroup = int.Parse(parts[1], CultureInfo.InvariantCulture);
+      CourseId = parts[2];
     }
   }
   [JsonIgnore]
@@ -125,7 +126,7 @@ public class AssignmentSubmissionEntity : ITableEntity
   [IgnoreDataMember]
   public int YearGroup { get; private set; }
   [IgnoreDataMember]
-  public string SubjectCode { get; private set; }
+  public string CourseId { get; private set; }
   [IgnoreDataMember]
   public DateOnly DueDate { get; private set; }
   [IgnoreDataMember]
