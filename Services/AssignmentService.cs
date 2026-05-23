@@ -1,6 +1,8 @@
 using Azure;
 using Azure.Data.Tables;
+using Azure.Storage.Blobs;
 using System.Globalization;
+using System.Text.Json;
 
 namespace CurriculumPortal;
 
@@ -8,8 +10,10 @@ public class AssignmentService
 {
   private static readonly TimeSpan CorrectAnswerDelay = TimeSpan.FromSeconds(1 + 4);
   private static readonly TimeSpan IncorrectAnswerDelay = TimeSpan.FromSeconds(5 + 4);
+  private static readonly TimeSpan StaffAssignmentCacheLifetime = TimeSpan.FromDays(7);
   private readonly ConfigService _config;
   private readonly CourseService _courseService;
+  private readonly BlobContainerClient _cacheClient;
   private readonly TableClient _assignmentsClient;
   private readonly TableClient _questionsClient;
   private readonly TableClient _submissionsClient;
@@ -17,6 +21,7 @@ public class AssignmentService
   public AssignmentService(AppOptions options, ConfigService config, CourseService courseService)
   {
     ArgumentNullException.ThrowIfNull(options);
+    _cacheClient = new BlobServiceClient(options.StorageAccountConnectionString).GetBlobContainerClient("cache");
     var tableServiceClient = new TableServiceClient(options.StorageAccountConnectionString);
     _assignmentsClient = tableServiceClient.GetTableClient("assignments");
     _questionsClient = tableServiceClient.GetTableClient("questions");
@@ -187,8 +192,11 @@ public class AssignmentService
       .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
     var visibleDueDates = GetVisibleDueDates(today);
     var assignmentKeys = NormalizeKeys(classes.Select(cls => GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode)).Where(o => o is not null));
-    var assignmentsByPartition = await LoadAssignmentsByDueDatesAsync(assignmentKeys, visibleDueDates);
-    var submissionsByPartition = await LoadStudentSubmissionsAsync(assignmentKeys, visibleDueDates, student.Id);
+    var assignmentsByPartitionTask = LoadAssignmentsByDueDatesAsync(assignmentKeys, visibleDueDates);
+    var submissionsByPartitionTask = LoadStudentSubmissionsAsync(assignmentKeys, visibleDueDates, student.Id);
+    await Task.WhenAll(assignmentsByPartitionTask, submissionsByPartitionTask);
+    var assignmentsByPartition = await assignmentsByPartitionTask;
+    var submissionsByPartition = await submissionsByPartitionTask;
     var partitionData = BuildPartitionData(assignmentKeys, assignmentsByPartition, submissionsByPartition);
     var cards = classes
       .SelectMany(cls =>
@@ -297,7 +305,10 @@ public class AssignmentService
   {
     ArgumentNullException.ThrowIfNull(teacher);
 
-    var courses = await _courseService.ListCoursesAsync();
+    var coursesTask = _courseService.ListCoursesAsync();
+    var unitsTask = _courseService.ListUnitsAsync();
+    await Task.WhenAll(coursesTask, unitsTask);
+    var courses = await coursesTask;
     var assignmentCourses = courses
       .Where(o => o.AssignmentLength > 0)
       .OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
@@ -306,7 +317,7 @@ public class AssignmentService
     var assignmentCourseIds = assignmentCourses
       .Select(o => o.RowKey)
       .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    var assignmentCourseYearGroups = (await _courseService.ListUnitsAsync())
+    var assignmentCourseYearGroups = (await unitsTask)
       .Where(o => assignmentCourseIds.Contains(o.PartitionKey))
       .GroupBy(o => o.PartitionKey, StringComparer.OrdinalIgnoreCase)
       .ToDictionary(
@@ -350,6 +361,7 @@ public class AssignmentService
     var partitionKeys = NormalizeKeys(relevantPartitions);
     var today = DateOnly.FromDateTime(DateTime.UtcNow);
     var visibleDueDates = GetVisibleDueDates(today);
+    var upcomingDueDate = visibleDueDates.First();
     var questionDueDate = visibleDueDates.Where(o => o <= today).DefaultIfEmpty(visibleDueDates.Last()).Max();
     var questionsTitle = $"Questions ({FormatShortDate(questionDueDate)})";
     var staffDateColumns = visibleDueDates
@@ -364,12 +376,19 @@ public class AssignmentService
         });
       }).ToList();
     var dateColumns = staffDateColumns.Select(o => o.Column).ToList();
-    var assignmentsByPartition = await LoadAssignmentsByDueDatesAsync(partitionKeys, visibleDueDates);
-    var submissionsByPartition = await LoadSubmissionsByDueDatesAsync(partitionKeys, visibleDueDates, true);
-    var questionsByPartition = await LoadQuestionsByDueDateAsync(partitionKeys, questionDueDate);
-    var partitionData = BuildPartitionData(partitionKeys, assignmentsByPartition, submissionsByPartition, questionsByPartition);
+    var completionData = await LoadStaffCompletionDataAsync(partitionKeys, visibleDueDates, upcomingDueDate);
+    var partitionData = BuildPartitionData(partitionKeys, completionData.Assignments, completionData.Submissions);
+    var questionSummariesByContext = await LoadStaffQuestionSummariesAsync(
+      partitionKeys,
+      questionDueDate,
+      upcomingDueDate,
+      schoolClasses,
+      classRosters,
+      assignmentCourses,
+      assignmentCourseYearGroups,
+      coursesByKeyStageAndSubjectCode,
+      partitionData);
     var progressCache = new Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), AssignmentProgressTotals>();
-    var questionProgressCache = new Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), List<AssignmentProgressEntry>>();
 
     var details = new List<AssignmentsStaffDetail>();
     var classRowsByName = new Dictionary<string, AssignmentsStaffRow>(StringComparer.OrdinalIgnoreCase);
@@ -402,7 +421,7 @@ public class AssignmentService
         FirstColumnTitle = "Student",
         Rows = BuildClassStudentRows(roster, data, staffDateColumns, progressCache),
         QuestionsTitle = questionsTitle,
-        Questions = BuildQuestionSummaries(data, studentIds, questionDueDate, questionProgressCache)
+        Questions = GetQuestionSummaries(questionSummariesByContext, BuildClassQuestionCacheKey(cls.Name))
       });
     }
 
@@ -521,7 +540,7 @@ public class AssignmentService
           ClickableRows = true,
           Rows = courseClasses.Select(o => classRowsByName[o.Name]).ToList(),
           QuestionsTitle = questionsTitle,
-          Questions = BuildQuestionSummaries(data, studentIds, questionDueDate, questionProgressCache)
+          Questions = GetQuestionSummaries(questionSummariesByContext, BuildCourseQuestionCacheKey(partitionKey))
         });
       }
     }
@@ -718,6 +737,296 @@ public class AssignmentService
     var daysUntilMonday = ((int)DayOfWeek.Monday - (int)date.DayOfWeek + 7) % 7;
     if (daysUntilMonday == 0) daysUntilMonday = 7;
     return date.AddDays(daysUntilMonday);
+  }
+
+  private async Task<(Dictionary<string, List<AssignmentEntity>> Assignments, Dictionary<string, List<AssignmentSubmissionEntity>> Submissions)> LoadStaffCompletionDataAsync(
+    List<string> assignmentKeys,
+    IEnumerable<DateOnly> dueDates,
+    DateOnly upcomingDueDate)
+  {
+    var assignments = CreateBuckets<AssignmentEntity>(assignmentKeys);
+    var submissions = CreateBuckets<AssignmentSubmissionEntity>(assignmentKeys);
+    var results = await Task.WhenAll(dueDates.Distinct().Select(dueDate => LoadStaffCompletionDateDataAsync(assignmentKeys, dueDate, upcomingDueDate)));
+
+    foreach (var result in results.OrderBy(o => o.DueDate))
+    {
+      AddBuckets(assignments, result.Assignments);
+      AddBuckets(submissions, result.Submissions);
+    }
+
+    return (assignments, submissions);
+  }
+
+  private async Task<(DateOnly DueDate, Dictionary<string, List<AssignmentEntity>> Assignments, Dictionary<string, List<AssignmentSubmissionEntity>> Submissions)> LoadStaffCompletionDateDataAsync(
+    List<string> assignmentKeys,
+    DateOnly dueDate,
+    DateOnly upcomingDueDate)
+  {
+    var cached = dueDate == upcomingDueDate ? null : await TryDownloadAssignmentCacheAsync<AssignmentCompletionCache>(BuildCompletionCacheBlobName(dueDate));
+    if (cached is not null)
+    {
+      var assignments = CreateBuckets<AssignmentEntity>(assignmentKeys);
+      var submissions = CreateBuckets<AssignmentSubmissionEntity>(assignmentKeys);
+      AddCompletionCacheToBuckets(cached, assignmentKeys, assignments, submissions);
+      return (dueDate, assignments, submissions);
+    }
+
+    var assignmentsTask = LoadAssignmentsByDueDateAsync(assignmentKeys, dueDate);
+    var submissionsTask = LoadSubmissionsByDueDateAsync(assignmentKeys, dueDate);
+    await Task.WhenAll(assignmentsTask, submissionsTask);
+    var dateAssignments = await assignmentsTask;
+    var dateSubmissions = await submissionsTask;
+    if (dueDate != upcomingDueDate)
+    {
+      await UploadAssignmentCacheAsync(BuildCompletionCacheBlobName(dueDate), BuildCompletionCache(dueDate, dateAssignments, dateSubmissions));
+    }
+
+    return (dueDate, dateAssignments, dateSubmissions);
+  }
+
+  private async Task<Dictionary<string, List<AssignmentsStaffQuestion>>> LoadStaffQuestionSummariesAsync(
+    List<string> partitionKeys,
+    DateOnly dueDate,
+    DateOnly upcomingDueDate,
+    IReadOnlyList<ParsedClass> schoolClasses,
+    IReadOnlyDictionary<string, List<User>> classRosters,
+    IReadOnlyList<CourseEntity> assignmentCourses,
+    IReadOnlyDictionary<string, HashSet<int>> assignmentCourseYearGroups,
+    IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
+    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData)
+  {
+    var cached = dueDate == upcomingDueDate ? null : await TryDownloadAssignmentCacheAsync<AssignmentQuestionsCache>(BuildQuestionsCacheBlobName(dueDate));
+    if (cached is not null)
+    {
+      return new Dictionary<string, List<AssignmentsStaffQuestion>>(cached.Contexts, StringComparer.OrdinalIgnoreCase);
+    }
+
+    var liveCache = await BuildQuestionsCacheAsync(
+      partitionKeys,
+      dueDate,
+      schoolClasses,
+      classRosters,
+      assignmentCourses,
+      assignmentCourseYearGroups,
+      coursesByKeyStageAndSubjectCode,
+      partitionData);
+
+    if (dueDate != upcomingDueDate)
+    {
+      await UploadAssignmentCacheAsync(BuildQuestionsCacheBlobName(dueDate), liveCache);
+    }
+
+    return new Dictionary<string, List<AssignmentsStaffQuestion>>(liveCache.Contexts, StringComparer.OrdinalIgnoreCase);
+  }
+
+  private async Task<AssignmentQuestionsCache> BuildQuestionsCacheAsync(
+    List<string> partitionKeys,
+    DateOnly dueDate,
+    IReadOnlyList<ParsedClass> schoolClasses,
+    IReadOnlyDictionary<string, List<User>> classRosters,
+    IReadOnlyList<CourseEntity> assignmentCourses,
+    IReadOnlyDictionary<string, HashSet<int>> assignmentCourseYearGroups,
+    IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
+    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData)
+  {
+    var questionsByPartitionTask = LoadQuestionsByDueDateAsync(partitionKeys, dueDate);
+    var submissionsByPartitionTask = LoadSubmissionsByDueDatesAsync(partitionKeys, [dueDate], true);
+    await Task.WhenAll(questionsByPartitionTask, submissionsByPartitionTask);
+    var questionsByPartition = await questionsByPartitionTask;
+    var submissionsByPartition = await submissionsByPartitionTask;
+    var assignmentsByPartition = CreateBuckets<AssignmentEntity>(partitionKeys);
+
+    foreach (var partitionKey in partitionKeys)
+    {
+      if (partitionData.TryGetValue(partitionKey, out var data) && data.AssignmentsByDate.TryGetValue(dueDate, out var assignment))
+      {
+        assignmentsByPartition[partitionKey].Add(assignment);
+      }
+    }
+
+    var questionData = BuildPartitionData(partitionKeys, assignmentsByPartition, submissionsByPartition, questionsByPartition);
+    var contexts = BuildQuestionContexts(schoolClasses, classRosters, assignmentCourses, assignmentCourseYearGroups, coursesByKeyStageAndSubjectCode, partitionData, dueDate);
+    var progressCache = new Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), List<AssignmentProgressEntry>>();
+    var generatedAt = RoundedNow();
+    var cache = new AssignmentQuestionsCache
+    {
+      DueDate = FormatDate(dueDate),
+      GeneratedAtUtc = generatedAt,
+      ExpiresAtUtc = generatedAt.Add(StaffAssignmentCacheLifetime)
+    };
+
+    foreach (var context in contexts)
+    {
+      cache.Contexts[context.Key] = questionData.TryGetValue(context.AssignmentKey, out var data)
+        ? BuildQuestionSummaries(data, context.StudentIds, dueDate, progressCache)
+        : [];
+    }
+
+    return cache;
+  }
+
+  private static List<AssignmentQuestionContext> BuildQuestionContexts(
+    IReadOnlyList<ParsedClass> schoolClasses,
+    IReadOnlyDictionary<string, List<User>> classRosters,
+    IReadOnlyList<CourseEntity> assignmentCourses,
+    IReadOnlyDictionary<string, HashSet<int>> assignmentCourseYearGroups,
+    IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
+    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
+    DateOnly dueDate)
+  {
+    var contexts = new List<AssignmentQuestionContext>();
+
+    foreach (var cls in schoolClasses)
+    {
+      var assignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode);
+      if (assignmentKey is null
+        || !partitionData.TryGetValue(assignmentKey, out var data)
+        || !data.AssignmentsByDate.ContainsKey(dueDate)) continue;
+
+      classRosters.TryGetValue(cls.Name, out var roster);
+      roster ??= [];
+      contexts.Add(new AssignmentQuestionContext(BuildClassQuestionCacheKey(cls.Name), assignmentKey, roster.Select(o => o.Id).ToList()));
+    }
+
+    foreach (var course in assignmentCourses)
+    {
+      if (!assignmentCourseYearGroups.TryGetValue(course.RowKey, out var courseYearGroups) || courseYearGroups.Count == 0) continue;
+
+      foreach (var yearGroup in courseYearGroups.Order())
+      {
+        var partitionKey = BuildAssignmentRowKey(yearGroup, course.RowKey);
+        if (!partitionData.TryGetValue(partitionKey, out var data) || !data.AssignmentsByDate.ContainsKey(dueDate)) continue;
+
+        var studentIds = schoolClasses
+          .Where(o => o.YearGroup == yearGroup && o.SubjectCode.Equals(course.SubjectCode, StringComparison.OrdinalIgnoreCase))
+          .SelectMany(cls => classRosters.TryGetValue(cls.Name, out var roster) ? roster : [])
+          .Select(o => o.Id)
+          .Distinct()
+          .ToList();
+        contexts.Add(new AssignmentQuestionContext(BuildCourseQuestionCacheKey(partitionKey), partitionKey, studentIds));
+      }
+    }
+
+    return contexts
+      .GroupBy(o => o.Key, StringComparer.OrdinalIgnoreCase)
+      .Select(o => o.First())
+      .ToList();
+  }
+
+  private static AssignmentCompletionCache BuildCompletionCache(
+    DateOnly dueDate,
+    Dictionary<string, List<AssignmentEntity>> assignmentsByPartition,
+    Dictionary<string, List<AssignmentSubmissionEntity>> submissionsByPartition)
+  {
+    var generatedAt = RoundedNow();
+    var cache = new AssignmentCompletionCache
+    {
+      DueDate = FormatDate(dueDate),
+      GeneratedAtUtc = generatedAt,
+      ExpiresAtUtc = generatedAt.Add(StaffAssignmentCacheLifetime)
+    };
+
+    foreach (var assignment in assignmentsByPartition.Values.SelectMany(o => o).OrderBy(o => o.RowKey, StringComparer.OrdinalIgnoreCase))
+    {
+      submissionsByPartition.TryGetValue(assignment.RowKey, out var submissions);
+      cache.Assignments.Add(new AssignmentCompletionCacheItem
+      {
+        AssignmentKey = assignment.RowKey,
+        Length = assignment.Length,
+        Students = (submissions ?? [])
+          .OrderBy(o => o.StudentId)
+          .Select(o => new AssignmentCompletionStudentCacheItem
+          {
+            StudentId = o.StudentId,
+            Completed = o.Completed
+          })
+          .ToList()
+      });
+    }
+
+    return cache;
+  }
+
+  private static void AddCompletionCacheToBuckets(
+    AssignmentCompletionCache cache,
+    List<string> assignmentKeys,
+    Dictionary<string, List<AssignmentEntity>> assignments,
+    Dictionary<string, List<AssignmentSubmissionEntity>> submissions)
+  {
+    var allowedKeys = assignmentKeys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    foreach (var item in cache.Assignments.Where(o => allowedKeys.Contains(o.AssignmentKey)))
+    {
+      var assignment = new AssignmentEntity
+      {
+        PartitionKey = cache.DueDate,
+        RowKey = item.AssignmentKey,
+        Length = item.Length
+      };
+      assignments[item.AssignmentKey].Add(assignment);
+
+      foreach (var student in item.Students)
+      {
+        submissions[item.AssignmentKey].Add(new AssignmentSubmissionEntity
+        {
+          PartitionKey = cache.DueDate,
+          RowKey = BuildSubmissionRowKey(student.StudentId, assignment.YearGroup, assignment.CourseId),
+          Completed = student.Completed
+        });
+      }
+    }
+  }
+
+  private async Task<T> TryDownloadAssignmentCacheAsync<T>(string blobName) where T : AssignmentCacheFile
+  {
+    try
+    {
+      var response = await _cacheClient.GetBlobClient(blobName).DownloadContentAsync();
+      var cache = JsonSerializer.Deserialize<T>(response.Value.Content.ToString(), JsonDefaults.CamelCase);
+      return cache is not null && cache.ExpiresAtUtc > DateTimeOffset.UtcNow ? cache : null;
+    }
+    catch (RequestFailedException ex) when (ex.Status == 404)
+    {
+      return null;
+    }
+    catch (JsonException)
+    {
+      return null;
+    }
+  }
+
+  private async Task UploadAssignmentCacheAsync<T>(string blobName, T cache) where T : AssignmentCacheFile
+  {
+    var blobClient = _cacheClient.GetBlobClient(blobName);
+    var binaryData = new BinaryData(JsonSerializer.Serialize(cache, JsonDefaults.CamelCase));
+    await blobClient.UploadAsync(binaryData, overwrite: true);
+  }
+
+  private static void AddBuckets<T>(Dictionary<string, List<T>> target, Dictionary<string, List<T>> source)
+  {
+    foreach (var item in source)
+    {
+      if (target.TryGetValue(item.Key, out var bucket))
+      {
+        bucket.AddRange(item.Value);
+      }
+    }
+  }
+
+  private static List<AssignmentsStaffQuestion> GetQuestionSummaries(Dictionary<string, List<AssignmentsStaffQuestion>> summariesByContext, string key)
+    => summariesByContext.TryGetValue(key, out var summaries) ? summaries : [];
+
+  private static string BuildCompletionCacheBlobName(DateOnly dueDate) => $"{FormatDate(dueDate)}-completion.json";
+
+  private static string BuildQuestionsCacheBlobName(DateOnly dueDate) => $"{FormatDate(dueDate)}-questions.json";
+
+  private static string BuildClassQuestionCacheKey(string className) => $"class:{className}";
+
+  private static string BuildCourseQuestionCacheKey(string assignmentKey) => $"course:{assignmentKey}";
+
+  private static DateTimeOffset RoundedNow()
+  {
+    var now = DateTimeOffset.UtcNow;
+    return now.AddTicks(-now.Ticks % TimeSpan.TicksPerSecond);
   }
 
   private async Task<Dictionary<string, List<AssignmentEntity>>> LoadAssignmentsByDueDateAsync(List<string> assignmentKeys, DateOnly dueDate)
@@ -1658,6 +1967,38 @@ public class AssignmentService
   private static string FormatLongDate(DateOnly date) => date.ToString("dddd d MMMM", CultureInfo.InvariantCulture);
 
   private static string FormatShortDate(DateOnly date) => date.ToString("d MMM", CultureInfo.InvariantCulture);
+
+  private abstract class AssignmentCacheFile
+  {
+    public string DueDate { get; set; } = string.Empty;
+    public DateTimeOffset GeneratedAtUtc { get; set; }
+    public DateTimeOffset ExpiresAtUtc { get; set; }
+  }
+
+  private sealed class AssignmentCompletionCache : AssignmentCacheFile
+  {
+    public List<AssignmentCompletionCacheItem> Assignments { get; set; } = [];
+  }
+
+  private sealed class AssignmentCompletionCacheItem
+  {
+    public string AssignmentKey { get; set; } = string.Empty;
+    public int Length { get; set; }
+    public List<AssignmentCompletionStudentCacheItem> Students { get; set; } = [];
+  }
+
+  private sealed class AssignmentCompletionStudentCacheItem
+  {
+    public int StudentId { get; set; }
+    public int Completed { get; set; }
+  }
+
+  private sealed class AssignmentQuestionsCache : AssignmentCacheFile
+  {
+    public Dictionary<string, List<AssignmentsStaffQuestion>> Contexts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+  }
+
+  private sealed record AssignmentQuestionContext(string Key, string AssignmentKey, List<int> StudentIds);
 
   private sealed record ParsedClass(string Name, int YearGroup, string SubjectCode)
   {
