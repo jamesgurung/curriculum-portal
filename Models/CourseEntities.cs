@@ -180,28 +180,31 @@ public class CourseEvaluationResult
 
 public record CourseEvaluationUnitResult(string UnitId, string Title, KeyKnowledgeEvaluationResponse KeyKnowledge, AssessmentEvaluationResponse Assessment);
 
+public class CourseEvaluationRecommendedAction
+{
+  public string Action { get; set; } = string.Empty;
+  public int Priority { get; set; }
+}
+
 public class CourseOverallEvaluationResponse
 {
-  public string Overview { get; set; } = string.Empty;
-  public int SequencingPriority { get; set; }
-  public int CoverageBalancePriority { get; set; }
-  public int AssessmentRecapPriority { get; set; } = 1;
-  public List<string> SequencingIssues { get; set; } = [];
-  public List<string> CoverageBalanceIssues { get; set; } = [];
-  public List<string> AssessmentRecapIssues { get; set; } = [];
+  public string SequencingOverview { get; set; } = string.Empty;
+  public string CoverageBalanceOverview { get; set; } = string.Empty;
+  public string AssessmentRecapOverview { get; set; } = string.Empty;
+  public List<CourseEvaluationRecommendedAction> SequencingRecommendedActions { get; set; } = [];
+  public List<CourseEvaluationRecommendedAction> CoverageBalanceRecommendedActions { get; set; } = [];
+  public List<CourseEvaluationRecommendedAction> AssessmentRecapRecommendedActions { get; set; } = [];
 }
 
 public class KeyKnowledgeEvaluationResponse
 {
-  public int Priority { get; set; }
   public string Overview { get; set; } = string.Empty;
-  public List<string> Issues { get; set; } = [];
+  public List<CourseEvaluationRecommendedAction> RecommendedActions { get; set; } = [];
 }
 
 public class AssessmentEvaluationResponse
 {
   public string Overview { get; set; } = string.Empty;
-  public int Priority { get; set; }
-  public List<string> AlignmentIssues { get; set; } = [];
-  public List<string> DesignIssues { get; set; } = [];
+  public List<CourseEvaluationRecommendedAction> AlignmentRecommendedActions { get; set; } = [];
+  public List<CourseEvaluationRecommendedAction> DesignRecommendedActions { get; set; } = [];
 }

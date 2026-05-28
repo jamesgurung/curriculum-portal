@@ -1,5 +1,6 @@
 @page "/courses/{courseId}/evaluation"
 @model CurriculumPortal.CourseEvaluationModel
+@using CurriculumPortal
 @using System.Collections.Generic
 @using System.Linq
 @using System.Text.Json
@@ -8,10 +9,10 @@
 }
 
 @functions {
-  static IEnumerable<string> Clean(IEnumerable<string> items) =>
-    (items ?? Enumerable.Empty<string>()).Where(o => !string.IsNullOrWhiteSpace(o));
+  static IEnumerable<CourseEvaluationRecommendedAction> Clean(IEnumerable<CourseEvaluationRecommendedAction> items) =>
+    (items ?? Enumerable.Empty<CourseEvaluationRecommendedAction>()).Where(o => !string.IsNullOrWhiteSpace(o.Action));
 
-  static bool HasItems(IEnumerable<string> items) => Clean(items).Any();
+  static bool HasItems(IEnumerable<CourseEvaluationRecommendedAction> items) => Clean(items).Any();
 
   static string PriorityText(int priority) => $"Priority {priority}";
 }
@@ -55,18 +56,15 @@
     {
       var priorities = new[] { 1, 2, 3, 4 };
       var priorityCounts = priorities.ToDictionary(p => p, _ => 0);
-      var evaluationPriorities = new[]
-      {
-        Model.Evaluation.Overall.SequencingPriority,
-        Model.Evaluation.Overall.CoverageBalancePriority,
-        Model.Evaluation.Overall.AssessmentRecapPriority
-      }.Concat(Model.Evaluation.Units.SelectMany(unit => new[]
-      {
-        unit.KeyKnowledge.Priority,
-        unit.Assessment.Priority
-      }));
+      var evaluationActions = Clean(Model.Evaluation.Overall.SequencingRecommendedActions)
+        .Concat(Clean(Model.Evaluation.Overall.CoverageBalanceRecommendedActions))
+        .Concat(Clean(Model.Evaluation.Overall.AssessmentRecapRecommendedActions))
+        .Concat(Model.Evaluation.Units.SelectMany(unit =>
+          Clean(unit.KeyKnowledge.RecommendedActions)
+            .Concat(Clean(unit.Assessment.AlignmentRecommendedActions))
+            .Concat(Clean(unit.Assessment.DesignRecommendedActions))));
 
-      foreach (var priority in evaluationPriorities.Where(priority => priorityCounts.ContainsKey(priority)))
+      foreach (var priority in evaluationActions.Select(o => o.Priority).Where(priority => priorityCounts.ContainsKey(priority)))
       {
         priorityCounts[priority]++;
       }
@@ -97,52 +95,63 @@
             <span>Re-evaluate overview</span>
           </button>
         </div>
-        @if (!string.IsNullOrWhiteSpace(Model.Evaluation.Overall.Overview))
-        {
-          <p class="evaluation-summary">@Model.Evaluation.Overall.Overview</p>
-        }
         <div class="evaluation-grid">
-          <article class="evaluation-panel" data-priority="@Model.Evaluation.Overall.CoverageBalancePriority">
+          <article class="evaluation-panel">
             <div class="evaluation-title-row">
-              <span class="evaluation-rating priority-@Model.Evaluation.Overall.CoverageBalancePriority" role="img" aria-label="@PriorityText(Model.Evaluation.Overall.CoverageBalancePriority)"></span>
               <h4>Coverage and balance</h4>
             </div>
-            @if (HasItems(Model.Evaluation.Overall.CoverageBalanceIssues))
+            @if (!string.IsNullOrWhiteSpace(Model.Evaluation.Overall.CoverageBalanceOverview))
             {
+              <h5>Overview</h5>
+              <p>@Model.Evaluation.Overall.CoverageBalanceOverview</p>
+            }
+            @if (HasItems(Model.Evaluation.Overall.CoverageBalanceRecommendedActions))
+            {
+              <h5>Next steps</h5>
               <ul>
-                @foreach (var item in Clean(Model.Evaluation.Overall.CoverageBalanceIssues))
+                @foreach (var item in Clean(Model.Evaluation.Overall.CoverageBalanceRecommendedActions))
                 {
-                  <li>@item</li>
+                  <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
                 }
               </ul>
             }
           </article>
-          <article class="evaluation-panel" data-priority="@Model.Evaluation.Overall.SequencingPriority">
+          <article class="evaluation-panel">
             <div class="evaluation-title-row">
-              <span class="evaluation-rating priority-@Model.Evaluation.Overall.SequencingPriority" role="img" aria-label="@PriorityText(Model.Evaluation.Overall.SequencingPriority)"></span>
               <h4>Sequencing</h4>
             </div>
-            @if (HasItems(Model.Evaluation.Overall.SequencingIssues))
+            @if (!string.IsNullOrWhiteSpace(Model.Evaluation.Overall.SequencingOverview))
             {
+              <h5>Overview</h5>
+              <p>@Model.Evaluation.Overall.SequencingOverview</p>
+            }
+            @if (HasItems(Model.Evaluation.Overall.SequencingRecommendedActions))
+            {
+              <h5>Next steps</h5>
               <ul>
-                @foreach (var item in Clean(Model.Evaluation.Overall.SequencingIssues))
+                @foreach (var item in Clean(Model.Evaluation.Overall.SequencingRecommendedActions))
                 {
-                  <li>@item</li>
+                  <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
                 }
               </ul>
             }
           </article>
-          <article class="evaluation-panel" data-priority="@Model.Evaluation.Overall.AssessmentRecapPriority">
+          <article class="evaluation-panel">
             <div class="evaluation-title-row">
-              <span class="evaluation-rating priority-@Model.Evaluation.Overall.AssessmentRecapPriority" role="img" aria-label="@PriorityText(Model.Evaluation.Overall.AssessmentRecapPriority)"></span>
               <h4>Assessment recap questions</h4>
             </div>
-            @if (HasItems(Model.Evaluation.Overall.AssessmentRecapIssues))
+            @if (!string.IsNullOrWhiteSpace(Model.Evaluation.Overall.AssessmentRecapOverview))
             {
+              <h5>Overview</h5>
+              <p>@Model.Evaluation.Overall.AssessmentRecapOverview</p>
+            }
+            @if (HasItems(Model.Evaluation.Overall.AssessmentRecapRecommendedActions))
+            {
+              <h5>Next steps</h5>
               <ul>
-                @foreach (var item in Clean(Model.Evaluation.Overall.AssessmentRecapIssues))
+                @foreach (var item in Clean(Model.Evaluation.Overall.AssessmentRecapRecommendedActions))
                 {
-                  <li>@item</li>
+                  <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
                 }
               </ul>
             }
@@ -169,10 +178,9 @@
               }
             </div>
             <div class="evaluation-criteria">
-              <article class="evaluation-criterion" data-priority="@unit.KeyKnowledge.Priority">
+              <article class="evaluation-criterion">
                 <div class="evaluation-criterion-header">
                   <div class="evaluation-title-row">
-                    <span class="evaluation-rating priority-@unit.KeyKnowledge.Priority" role="img" aria-label="@PriorityText(unit.KeyKnowledge.Priority)"></span>
                     <h4>Key knowledge</h4>
                   </div>
                 </div>
@@ -181,22 +189,21 @@
                   <h5>Overview</h5>
                   <p>@unit.KeyKnowledge.Overview</p>
                 }
-                @if (HasItems(unit.KeyKnowledge.Issues))
+                @if (HasItems(unit.KeyKnowledge.RecommendedActions))
                 {
-                  <h5>Issues</h5>
+                  <h5>Next steps</h5>
                   <ul>
-                    @foreach (var item in Clean(unit.KeyKnowledge.Issues))
+                    @foreach (var item in Clean(unit.KeyKnowledge.RecommendedActions))
                     {
-                      <li>@item</li>
+                      <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
                     }
                   </ul>
                 }
               </article>
 
-              <article class="evaluation-criterion" data-priority="@unit.Assessment.Priority">
+              <article class="evaluation-criterion">
                 <div class="evaluation-criterion-header">
                   <div class="evaluation-title-row">
-                    <span class="evaluation-rating priority-@unit.Assessment.Priority" role="img" aria-label="@PriorityText(unit.Assessment.Priority)"></span>
                     <h4>Assessment</h4>
                   </div>
                 </div>
@@ -205,23 +212,23 @@
                   <h5>Overview</h5>
                   <p>@unit.Assessment.Overview</p>
                 }
-                @if (HasItems(unit.Assessment.AlignmentIssues))
+                @if (HasItems(unit.Assessment.AlignmentRecommendedActions))
                 {
-                  <h5>Alignment issues</h5>
+                  <h5>Next steps for alignment</h5>
                   <ul>
-                    @foreach (var item in Clean(unit.Assessment.AlignmentIssues))
+                    @foreach (var item in Clean(unit.Assessment.AlignmentRecommendedActions))
                     {
-                      <li>@item</li>
+                      <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
                     }
                   </ul>
                 }
-                @if (HasItems(unit.Assessment.DesignIssues))
+                @if (HasItems(unit.Assessment.DesignRecommendedActions))
                 {
-                  <h5>Design issues</h5>
+                  <h5>Next steps for design</h5>
                   <ul>
-                    @foreach (var item in Clean(unit.Assessment.DesignIssues))
+                    @foreach (var item in Clean(unit.Assessment.DesignRecommendedActions))
                     {
-                      <li>@item</li>
+                      <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
                     }
                   </ul>
                 }
@@ -259,8 +266,8 @@
       evaluationButtons: [...document.querySelectorAll('#evaluate-course, .evaluation-section-action')],
       sectionActions: [...document.querySelectorAll('.evaluation-section-action')],
       ratingBoxes: [...document.querySelectorAll('.evaluation-rating-box')],
-      overviewSummary: document.querySelector('.evaluation-overview .evaluation-summary'),
-      filterItems: [...document.querySelectorAll('.evaluation-panel[data-priority], .evaluation-criterion[data-priority]')],
+      filterActions: [...document.querySelectorAll('li[data-priority]')],
+      filterItems: [...document.querySelectorAll('.evaluation-panel, .evaluation-criterion')],
       filterParents: [...document.querySelectorAll('.evaluation-overview, .evaluation-unit')]
     };
     let selectedPriority = '';
@@ -278,11 +285,14 @@
         box.setAttribute('aria-pressed', String(selected));
       });
 
-      elements.filterItems.forEach(item => {
+      elements.filterActions.forEach(item => {
         item.classList.toggle('evaluation-filter-hidden', selectedPriority !== '' && item.dataset.priority !== selectedPriority);
       });
 
-      elements.overviewSummary?.classList.toggle('evaluation-filter-hidden', selectedPriority !== '');
+      elements.filterItems.forEach(item => {
+        const visibleAction = item.querySelector('li[data-priority]:not(.evaluation-filter-hidden)');
+        item.classList.toggle('evaluation-filter-hidden', selectedPriority !== '' && !visibleAction);
+      });
 
       elements.filterParents.forEach(parent => {
         const visibleItem = parent.querySelector('.evaluation-panel:not(.evaluation-filter-hidden), .evaluation-criterion:not(.evaluation-filter-hidden)');

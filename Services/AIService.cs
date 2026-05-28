@@ -729,99 +729,32 @@ public partial class AIService
       # Coverage and Balance
 
       - Is the scheme ambitious and knowledge-rich?
-      - Does it meet the requirements of the National Curriculum or exam board specification, where applicable?
-      - Is it the right level of challenge?
+      - Does it meet the requirements of the National Curriculum, where applicable? (A clear gap would be a Priority 1 issue.)
+      - Is it the right level of challenge for Key Stage 3?
       - Is it broad and balanced?
-      - Has the most powerful knowledge been included? What is missing?
-      - Is there any unnecessary or low-value content that could be removed to make space for more important knowledge?
-      - Award Priority 4 if the curriculum is generally ambitious, broad, balanced, well matched to requirements, and includes powerful threshold concepts (this can be awarded even if refinements are suggested). Award Priority 3 if the curriculum is somewhat effective but has several omissions, imbalances, or low-value areas. Award Priority 2 if important gaps, imbalance, or level-of-challenge problems limit effectiveness and therefore require attention. Award Priority 1 if the selected knowledge is not sufficiently fit for purpose and should be prioritised for improvement, or if the requirements of the National Curriculum or exam board specification are not met.
+      - Has the most powerful knowledge been included, being mindful of constraints on curriculum time? Is anything substantial missing?
+      - Is there any unnecessary or low-value content that could be removed to make space for more important knowledge or threshold concepts?
 
       # Sequencing
 
       - Does the order in which units are taught make sense?
       - Is there a logical progression of knowledge and increasing level of challenge over time?
       - Are there any significant sequencing issues, such as important knowledge being taught too late?
+      - In the case of hierarchical knowledge, are foundational concepts taught before more complex ones that depend on them?
       - Are there any units that seem out of place or disconnected from the overall curriculum?
-      - Award Priority 4 if units are generally sequenced coherently so knowledge builds logically over time (this can be awarded even if refinements are suggested). Award Priority 3 if the sequence somewhat works but has some ordering issues or weak links. Award Priority 2 if sequencing problems may disrupt how students accumulate knowledge and they therefore require attention. Award Priority 1 if the sequence is not sufficiently fit for purpose and should be prioritised for improvement.
+      - In cases where sequencing is mostly arbitrary, for example between disconnected topics with a similar level of challenge, do not feel the need to express an opinion.
 
       # Guidance
 
-      - Give separate priorities for coverage/balance and sequencing. Do not let strengths or weaknesses in one area influence the priority for the other area.
-      - Use a best fit approach. Have courage to use the full 1-4 scale and do not default to Priority 2 or 3.
-      - Provide one short overview paragraph, then prioritise the highest-impact feedback in structured arrays of concise, plain-English strings (up to 5 statements in each array).
+      - Provide separate short overview paragraphs for coverage/balance and sequencing. These should evaluate the quality of the curriculum in these areas.
+      - Provide recommended actions in priority order, with the most important first, in structured arrays of concise, plain-English strings (up to 10 actions in each array but typically fewer).
+      - Write each recommended action in the imperative mood.
+      - Actions must be very specific, avoiding generic guidance like "Audit the sequence" or "Include more powerful knowledge".
+      - Associate each action with a priority. Use Priority 1 sparingly, if at all, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable shortcomings and must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
+      - You do not necessarily need to include actions for every priority level. A well-designed curriculum might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
       - Do not include Markdown bullet syntax, headings, or formatting.
       - The provided curriculum information is not intended to include assessments, rubrics, knowledge organisers, lesson plans, or other artefacts, so do not comment on these.
-      - Keep a high-level view and do not address minor unit-level details.
-      - Use British English spelling and terminology.
-      - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
-      """;
-
-    var keyKnowledgePrompt = """
-      You are an experienced secondary school teacher with exceptional pedagogical subject knowledge.
-      The user will provide one unit of a course and show how the unit fits into our broader curriculum.
-      Evaluate the quality of the key knowledge statements. Focus on how effectively they capture the most powerful knowledge students need to know.
-      You do not need to answer every question below, but consider them when formulating your overall evaluation.
-
-      # Declarative knowledge statements
-
-      - Is the coverage comprehensive and ambitious, prioritising the most important knowledge that students need to know and remember?
-      - Does the list comprise powerful knowledge and threshold concepts that underpin deep understanding, rather than trivial or low-value facts?
-      - Are all the statements factually accurate?
-      - Are they specific enough to be assessed in a knowledge quiz?
-      - Are they stated as facts, rather than signposts? For example, instead of "Know the houses of Hogwarts.", a well-written statement would say "The houses of Hogwarts are Gryffindor, Hufflepuff, Ravenclaw, and Slytherin."
-      - Is any important knowledge missing?
-
-      # Procedural knowledge statements
-
-      - Does the list comprise specific, knowledge-rich skills and techniques that students need to develop?
-      - Are the highest-priority skills included, within the scope of the unit?
-      - Are the skills precise enough to be assessed through performance, demonstration, or worked responses? Note that detailed success criteria are intentionally omitted.
-      - Does the list correctly avoid generic study skills and vague verbs like "know" and "understand".
-
-      # Guidance
-
-      - Award Priority 4 if the statements generally capture relevant declarative and procedural knowledge, including powerful threshold concepts (this can be awarded even if refinements are suggested). Award Priority 3 if the statements are mostly suitable but have some weaknesses such as vagueness or trivia among the powerful knowledge. Award Priority 2 if the statements require attention because they do not focus enough on powerful knowledge or are too vague, inaccurate, or trivial. Award Priority 1 if the statements are not sufficiently fit for purpose to achieve rich study of this unit and they should be prioritised for improvement, for example if there are notable inaccuracies or if many of the statements are not powerful threshold concepts.
-      - Use a best fit approach. Have courage to use the full 1-4 scale and do not default to Priority 2 or 3.
-      - Be mindful that the scheme fits within a wider curriculum, and prior and subsequent knowledge should not be listed. Focus on this specific scheme and its level of challenge.
-      - Provide one short overview paragraph, then prioritise the highest-impact feedback in a structured array of concise, plain-English strings (up to 5 statements).
-      - Use empty issue arrays only when there is no relevant feedback.
-      - Do not include Markdown bullet syntax, headings, or formatting.
-      - Use British English spelling and terminology.
-      - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
-      """;
-
-    var assessmentPrompt = """
-      You are an experienced secondary school teacher with strong assessment expertise.
-      The user will provide one unit from a curriculum portal, including its key knowledge statements and end-of-unit assessment.
-      Evaluate how closely the assessment tests students' understanding of the key knowledge, and evaluate the quality of question design.
-
-      # Alignment
-
-      - Is there close alignment between the key knowledge and assessment?
-      - Does the assessment broadly cover the key knowledge statements? It's fine for the assessment to sample from the key knowledge, as long as it covers the most important knowledge.
-      - Is all the most important knowledge required for the assessment included among the key knowledge statements?
-      - Are both declarative and procedural knowledge statements assessed?
-      - Is the assessment faithful to the spirit of the unit, as defined in the unit information and key knowledge?
-      - Is there a balance of emphasis in the assessment that reflects the relative importance of different knowledge statements?
-      - Does the rigour of the mark scheme reflect the expectations of the key knowledge statements?
-
-      # Design
-
-      - Are the questions clearly and unambiguously worded?
-      - Is there an appropriate level of difficulty, including some questions that are more accessible and others that provide stretch and challenge?
-      - Are the questions resistant to guessing? For multiple choice questions, are the incorrect options plausible and not easily dismissible, yet unambiguously wrong?
-      - Is the mark scheme accurate and specific, and for multiple-mark questions, does it specify what is required for each mark?
-
-      # Guidance
-
-      - Award Priority 4 if the assessment gives a valid picture of whether students understand the most important key knowledge, with mostly reasonable question design and mark schemes (this can be awarded even if refinements are suggested). Award Priority 3 if the assessment is somewhat aligned and well designed but has several gaps, overemphases, wording issues, weak distractors, or mark-scheme limitations. Award Priority 2 if misalignment or design flaws may limit the assessment's validity or usefulness and they therefore require attention. Award Priority 1 if the assessment is not sufficiently fit for purpose and should be prioritised for improvement, for example if it does not adequately assess the key knowledge or has significant design issues.
-      - Use a best fit approach. Have courage to use the full 1-4 scale and do not default to Priority 2 or 3.
-      - Assessments typically take the format of Recap (retrieval practice from previous units), Knowledge, and Application. When considering alignment, focus on the Knowledge and Application sections only.
-      - Give a combined priority that considers both alignment and question design.
-      - Provide one short overview paragraph, then prioritise the highest-impact feedback in a structured array of concise, plain-English strings (up to 5 statements).
-      - Use empty issue arrays only when there is no relevant feedback.
-      - If the user input includes an [Image] placeholder, assume a real image is part of the key knowledge or assessment at that point. Do not ask for the image.
-      - Do not include Markdown bullet syntax, headings, or formatting.
+      - Keep a high-level view and do not address minor unit-level details as these will be covered in the individual unit evaluations.
       - Use British English spelling and terminology.
       - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
       """;
@@ -843,12 +776,90 @@ public partial class AIService
 
       - Recap sections are intended to be very short, so only a small sample of prior knowledge can be revisited each time. Do not penalise the curriculum simply because every prior topic is not included in every recap.
       - Reward thoughtful sampling: the most powerful knowledge should recur when useful, but the recap pattern should also help students retrieve a range of important topics over time.
-      - Award Priority 4 if the Recap questions are well aligned with knowledge taught to date, prioritise powerful threshold concepts, provide effective cumulative retrieval, and revisit a useful range of topics over time (this can be awarded even if refinements are suggested). Award Priority 3 if the Recap questions are well aligned but have some imbalance or over-reliance on recent units. Award Priority 2 if there is some misalignment, narrow sampling, missing recap sections, or poor choices of the most important topics to revisit. Award Priority 1 if retrieval practice through assessment recaps is poorly aligned, chooses trivial over important topics, or is for any other reason not fit for purpose.
-      - Use a best fit approach. Have courage to use the full 1-4 scale and do not default to Priority 2 or 3.
-      - Provide the highest-impact feedback in a structured array of concise, plain-English strings (up to 5 statements).
-      - Use empty issue arrays only when there is no relevant feedback.
+      - Provide one short overview paragraph which evaluates the overall quality of retrieval practice.
+      - Provide recommended actions in priority order, with the most important first, in a structured array of concise, plain-English strings (up to 10 actions but typically fewer).
+      - Write each recommended action in the imperative mood.
+      - Actions must be very specific, avoiding generic guidance such as "Audit the knowledge selected for recap" or "Sample from a wider range of topics".
+      - Associate each action with a priority. Use Priority 1 sparingly, if at all, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable shortcomings and must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
+      - You do not necessarily need to include actions for every priority level. A well-designed selection of recap questions might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
       - If the user input includes an [Image] placeholder, assume a real image is part of the recap question at that point. Do not ask for the image.
       - Do not feed back on individual question wording. Focus on the overall quality of retrieval practice provided by the recap sections, and highlight specific assessments that are notably strong or require improvement.
+      - Do not include Markdown bullet syntax, headings, or formatting.
+      - Use British English spelling and terminology.
+      - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
+      """;
+
+    var keyKnowledgePrompt = """
+      You are an experienced secondary school teacher with exceptional pedagogical subject knowledge.
+      The user will provide one unit of a course and show how the unit fits into our broader curriculum.
+      Evaluate the quality of the key knowledge statements. Focus on how effectively they capture the most powerful knowledge students need to know.
+      You do not need to answer every question below, but consider them when formulating your overall evaluation.
+
+      # Declarative knowledge statements
+
+      - Is the coverage comprehensive and ambitious, prioritising the most important knowledge that students need to know and remember?
+      - Does the list comprise powerful knowledge and threshold concepts that underpin deep understanding, rather than trivial or low-value facts?
+      - Are all the statements factually accurate? (It is a Priority 1 issue if there is an absolute, incontrovertible factual inaccuracies. Condone simplifications appropriate to Key Stage 3.)
+      - Are they specific enough to be assessed in a knowledge quiz?
+      - Are they stated as facts, rather than signposts? For example, instead of "Know the houses of Hogwarts.", a well-written statement would say "The houses of Hogwarts are Gryffindor, Hufflepuff, Ravenclaw, and Slytherin."
+      - Is any important knowledge missing?
+
+      # Procedural knowledge statements
+
+      - Does the list comprise specific, knowledge-rich skills and techniques that students need to develop?
+      - Are the highest-priority skills included, within the scope of the unit?
+      - Are the skills precise enough to be assessed through performance, demonstration, or worked responses? Note that detailed success criteria are intentionally omitted.
+      - Does the list correctly avoid generic study skills and vague verbs like "know" and "understand".
+
+      # Guidance
+
+      - Be mindful that the scheme fits within a wider curriculum. Focus on this specific unit and its level of challenge. If key knowledge is absent but might reasonably be included in an earlier or later unit, do not penalise the curriculum for this. However, if substantial knowledge is missing and it does not seem reasonable for it to be covered elsewhere in the curriculum, then this should be highlighted.
+      - Avoid substantially expanding the scope of the knowledge content to completely new areas; balance ambition with consideration of constraints on curriculum time.
+      - Provide one short overview paragraph which evaluates the overall quality of the key knowledge.
+      - Provide recommended actions in priority order, with the most important first, in a structured array of concise, plain-English strings (up to 10 actions but typically fewer).
+      - Write each recommended action in the imperative mood.
+      - Actions must be very specific, avoiding generic guidance.
+      - Associate each action with a priority. Use Priority 1 sparingly, if at all, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable shortcomings and must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
+      - You do not necessarily need to include actions for every priority level. A well-designed selection of key knowledge might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
+      - Do not include Markdown bullet syntax, headings, or formatting.
+      - Use British English spelling and terminology.
+      - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
+      """;
+
+    var assessmentPrompt = """
+      You are an experienced secondary school teacher with strong assessment expertise.
+      The user will provide one unit from a curriculum portal, including its key knowledge statements and end-of-unit assessment.
+      Evaluate how closely the assessment tests students' understanding of the key knowledge, and evaluate the quality of question design.
+
+      # Alignment
+
+      - Is there close alignment between the key knowledge and assessment?
+      - Does the assessment broadly cover the key knowledge statements? It's fine for the assessment to sample from the key knowledge, as long as it covers a selection of the most important knowledge.
+      - Is all the most substantial knowledge required for the assessment included among the key knowledge statements?
+      - Are both declarative and procedural knowledge statements assessed?
+      - Is the assessment faithful to the spirit of the unit, as defined in the unit information and key knowledge?
+      - Is there a balance of emphasis in the assessment that reflects the relative importance of different knowledge statements?
+      - Does the rigour of the mark scheme reflect the expectations of the key knowledge statements?
+
+      # Design
+
+      - Are the questions clearly and unambiguously worded?
+      - Is there an appropriate level of difficulty, including some questions that are more accessible and others that provide stretch and challenge?
+      - Are the questions resistant to guessing? For multiple choice questions, are the incorrect options plausible and not easily dismissible, yet unambiguously wrong?
+      - Is the mark scheme accurate and specific, and for multiple-mark questions, does it specify what is required for each mark?
+
+      # Guidance
+
+      - Assessments typically take the format of Recap (retrieval practice from previous units), Knowledge, and Application. When considering alignment, focus on the Knowledge and Application sections only.
+      - Provide one short overview paragraph which evaluates the overall quality of the assessment.
+      - Provide recommended actions in priority order, with the most important first, in structured arrays of concise, plain-English strings (up to 10 actions but typically fewer).
+      - Write each recommended action in the imperative mood.
+      - Actions must be very specific, avoiding generic guidance.
+      - Associate each action with a priority. Use Priority 1 sparingly, if at all, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable shortcomings and must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
+      - You do not necessarily need to include actions for every priority level. A well-designed assessment might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
+      - When referring to a specific question, state the question number.
+      - Be cautious about advising the addition of too many new questions, as this may not be feasible given constraints on assessment length. One or two new questions could be added but otherwise consider replacing or refining existing questions.
+      - If the user input includes an [Image] placeholder, assume a real image is part of the key knowledge or assessment at that point. Do not ask for the image.
       - Do not include Markdown bullet syntax, headings, or formatting.
       - Use British English spelling and terminology.
       - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
@@ -858,13 +869,34 @@ public partial class AIService
       {
         "type": "object",
         "properties": {
-          "overview": { "type": "string" },
-          "coverageBalancePriority": { "type": "integer", "minimum": 1, "maximum": 4 },
-          "coverageBalanceIssues": { "type": "array", "items": { "type": "string" } },
-          "sequencingPriority": { "type": "integer", "minimum": 1, "maximum": 4 },
-          "sequencingIssues": { "type": "array", "items": { "type": "string" } }
+          "coverageBalanceOverview": { "type": "string" },
+          "coverageBalanceRecommendedActions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "priority": { "type": "integer", "minimum": 1, "maximum": 4 }
+              },
+              "required": ["action", "priority"],
+              "additionalProperties": false
+            }
+          },
+          "sequencingOverview": { "type": "string" },
+          "sequencingRecommendedActions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "priority": { "type": "integer", "minimum": 1, "maximum": 4 }
+              },
+              "required": ["action", "priority"],
+              "additionalProperties": false
+            }
+          }
         },
-        "required": ["overview", "coverageBalancePriority", "coverageBalanceIssues", "sequencingPriority", "sequencingIssues"],
+        "required": ["coverageBalanceOverview", "coverageBalanceRecommendedActions", "sequencingOverview", "sequencingRecommendedActions"],
         "additionalProperties": false
       }
       """u8.ToArray());
@@ -874,10 +906,20 @@ public partial class AIService
         "type": "object",
         "properties": {
           "overview": { "type": "string" },
-          "priority": { "type": "integer", "minimum": 1, "maximum": 4 },
-          "issues": { "type": "array", "items": { "type": "string" } }
+          "recommendedActions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "priority": { "type": "integer", "minimum": 1, "maximum": 4 }
+              },
+              "required": ["action", "priority"],
+              "additionalProperties": false
+            }
+          }
         },
-        "required": ["overview", "priority", "issues"],
+        "required": ["overview", "recommendedActions"],
         "additionalProperties": false
       }
       """u8.ToArray());
@@ -886,10 +928,21 @@ public partial class AIService
       {
         "type": "object",
         "properties": {
-          "priority": { "type": "integer", "minimum": 1, "maximum": 4 },
-          "issues": { "type": "array", "items": { "type": "string" } }
+          "overview": { "type": "string" },
+          "recommendedActions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "priority": { "type": "integer", "minimum": 1, "maximum": 4 }
+              },
+              "required": ["action", "priority"],
+              "additionalProperties": false
+            }
+          }
         },
-        "required": ["priority", "issues"],
+        "required": ["overview", "recommendedActions"],
         "additionalProperties": false
       }
       """u8.ToArray());
@@ -899,11 +952,32 @@ public partial class AIService
         "type": "object",
         "properties": {
           "overview": { "type": "string" },
-          "priority": { "type": "integer", "minimum": 1, "maximum": 4 },
-          "alignmentIssues": { "type": "array", "items": { "type": "string" } },
-          "designIssues": { "type": "array", "items": { "type": "string" } }
+          "alignmentRecommendedActions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "priority": { "type": "integer", "minimum": 1, "maximum": 4 }
+              },
+              "required": ["action", "priority"],
+              "additionalProperties": false
+            }
+          },
+          "designRecommendedActions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": { "type": "string" },
+                "priority": { "type": "integer", "minimum": 1, "maximum": 4 }
+              },
+              "required": ["action", "priority"],
+              "additionalProperties": false
+            }
+          }
         },
-        "required": ["overview", "priority", "alignmentIssues", "designIssues"],
+        "required": ["overview", "alignmentRecommendedActions", "designRecommendedActions"],
         "additionalProperties": false
       }
       """u8.ToArray());
@@ -950,7 +1024,7 @@ public partial class AIService
         ? Task.FromResult(new KeyKnowledgeEvaluationResponse
         {
           Overview = "There is no key knowledge for this unit.",
-          Priority = 1,
+          RecommendedActions = [new CourseEvaluationRecommendedAction { Action = "Add key knowledge for this unit.", Priority = 1 }]
         })
         : RunEvaluationRequestAsync<KeyKnowledgeEvaluationResponse>(
           semaphore,
@@ -970,7 +1044,7 @@ public partial class AIService
         ? Task.FromResult(new AssessmentEvaluationResponse
         {
           Overview = "There is no assessment for this unit.",
-          Priority = 1,
+          AlignmentRecommendedActions = [new CourseEvaluationRecommendedAction { Action = "Add an assessment for this unit.", Priority = 1 }]
         })
         : RunEvaluationRequestAsync<AssessmentEvaluationResponse>(
           semaphore,
@@ -987,7 +1061,14 @@ public partial class AIService
       }
 
       await Task.WhenAll(keyKnowledgeTask, assessmentTask);
-      return new CourseEvaluationUnitResult(context.Unit.RowKey, context.Unit.Title, await keyKnowledgeTask, await assessmentTask);
+      var keyKnowledge = await keyKnowledgeTask;
+      keyKnowledge.RecommendedActions = SortEvaluationActions(keyKnowledge.RecommendedActions);
+
+      var assessment = await assessmentTask;
+      assessment.AlignmentRecommendedActions = SortEvaluationActions(assessment.AlignmentRecommendedActions);
+      assessment.DesignRecommendedActions = SortEvaluationActions(assessment.DesignRecommendedActions);
+
+      return new CourseEvaluationUnitResult(context.Unit.RowKey, context.Unit.Title, keyKnowledge, assessment);
     }).ToList();
 
     var tasks = unitTasks.Cast<Task>().ToList();
@@ -1003,19 +1084,30 @@ public partial class AIService
 
     await Task.WhenAll(tasks);
     var overall = overallTask is null ? new CourseOverallEvaluationResponse() : await overallTask;
+    overall.CoverageBalanceRecommendedActions = SortEvaluationActions(overall.CoverageBalanceRecommendedActions);
+    overall.SequencingRecommendedActions = SortEvaluationActions(overall.SequencingRecommendedActions);
     if (assessmentRecapTask is not null)
     {
       var assessmentRecap = await assessmentRecapTask;
-      overall.AssessmentRecapPriority = assessmentRecap.Priority;
-      overall.AssessmentRecapIssues = assessmentRecap.Issues;
+      overall.AssessmentRecapOverview = assessmentRecap.Overview;
+      overall.AssessmentRecapRecommendedActions = SortEvaluationActions(assessmentRecap.RecommendedActions);
     }
+    else
+    {
+      overall.AssessmentRecapRecommendedActions = SortEvaluationActions(overall.AssessmentRecapRecommendedActions);
+    }
+
+    var unitResults = unitTasks.Select(o => o.Result).ToList();
 
     return new CourseEvaluationResult
     {
       Overall = overall,
-      Units = unitTasks.Select(o => o.Result).ToList()
+      Units = unitResults
     };
   }
+
+  private static List<CourseEvaluationRecommendedAction> SortEvaluationActions(IEnumerable<CourseEvaluationRecommendedAction> actions) =>
+    actions?.OrderBy(o => o.Priority).ToList() ?? [];
 
   private async Task AssertTokensRemainingAsync(int reservedTokens, CancellationToken cancellationToken = default)
   {
@@ -1195,12 +1287,13 @@ public partial class AIService
     }
     else
     {
+      var questionNumber = 1;
       foreach (var section in assessment.Sections.Where(o => o.Questions.Count > 0))
       {
         sb.Append(CultureInfo.InvariantCulture, $"### {section.Title}\n\n");
         foreach (var question in section.Questions)
         {
-          AppendAssessmentQuestionEvaluationMarkdown(sb, question, true);
+          AppendAssessmentQuestionEvaluationMarkdown(sb, question, true, questionNumber++);
         }
 
         sb.Append('\n');
@@ -1208,10 +1301,12 @@ public partial class AIService
     }
   }
 
-  private static void AppendAssessmentQuestionEvaluationMarkdown(StringBuilder sb, AssessmentQuestion question, bool includeMarkScheme)
+  private static void AppendAssessmentQuestionEvaluationMarkdown(StringBuilder sb, AssessmentQuestion question, bool includeMarkScheme, int? questionNumber = null)
   {
+    if (question.Marks == 0) return;
     var questionPrefix = string.IsNullOrWhiteSpace(question.Image) ? string.Empty : "[Image] ";
-    sb.Append(CultureInfo.InvariantCulture, $"- {questionPrefix}{question.Question}\n");
+    var questionNumberPrefix = questionNumber.HasValue ? $"Q{questionNumber.Value}. " : string.Empty;
+    sb.Append(CultureInfo.InvariantCulture, $"- {questionNumberPrefix}{questionPrefix}{question.Question}\n");
     if (question.Answers?.Count > 0)
     {
       sb.Append(CultureInfo.InvariantCulture, $"  Options: {string.Join("; ", question.Answers)}.\n");
@@ -1227,8 +1322,8 @@ public partial class AIService
 
   private sealed class AssessmentRecapEvaluationResponse
   {
-    public int Priority { get; set; }
-    public List<string> Issues { get; set; } = [];
+    public string Overview { get; set; } = string.Empty;
+    public List<CourseEvaluationRecommendedAction> RecommendedActions { get; set; } = [];
   }
 }
 

@@ -1173,6 +1173,32 @@ h3 {
   background: #eb1717;
 }
 
+.evaluation-action-priority {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.88rem;
+  height: 0.88rem;
+  border-radius: 50%;
+  position: relative;
+  top: 0.35rem;
+}
+
+.action-priority-4 {
+  background: #b9dbfb;
+}
+
+.action-priority-3 {
+  background: #9ee8ad;
+}
+
+.action-priority-2 {
+  background: #fbd38a;
+}
+
+.action-priority-1 {
+  background: #fca5a5;
+}
+
 .evaluation-grid,
 .evaluation-criteria {
   display: block;
@@ -1217,7 +1243,7 @@ h3 {
 }
 
 .evaluation-filter-hidden {
-  display: none;
+  display: none !important;
 }
 
 .evaluation-units {
@@ -1266,13 +1292,17 @@ h3 {
 .evaluation-panel ul,
 .evaluation-criterion ul {
   margin: 0;
-  padding-left: 1.15rem;
+  padding-left: 0;
+  list-style: none;
   color: var(--ink-primary);
   line-height: 1.5;
 }
 
 .evaluation-panel li,
 .evaluation-criterion li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
   margin-bottom: 0.35rem;
 }
 
