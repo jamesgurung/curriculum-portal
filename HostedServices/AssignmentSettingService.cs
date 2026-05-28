@@ -162,15 +162,29 @@ public class AssignmentSettingService(
   private async Task<(int TutorEmails, int TeacherEmails)> SendCompletionEmailsAsync(DateOnly dueDate, string recipientOverride, bool firstOnly, CancellationToken cancellationToken)
   {
     var reports = await assignmentService.GetWeeklyCompletionReportsAsync(dueDate);
-    if (reports.Tutors.Count == 0 && reports.Teachers.Count == 0) return (0, 0);
+    var tutorReports = reports.Tutors
+      .Where(o => !IsExamYearExempt(GetLeadingNumber(o.TutorGroup), dueDate))
+      .Take(firstOnly ? 1 : int.MaxValue)
+      .ToList();
+    var teacherReports = reports.Teachers
+      .Select(o => new TeacherCompletionReport
+      {
+        DueDateLabel = o.DueDateLabel,
+        Teacher = o.Teacher,
+        Classes = o.Classes
+          .Where(cls => !IsExamYearExempt(GetLeadingNumber(cls.ClassName), dueDate))
+          .ToList()
+      })
+      .Where(o => o.Classes.Count > 0)
+      .Take(firstOnly ? 1 : int.MaxValue)
+      .ToList();
+    if (tutorReports.Count == 0 && teacherReports.Count == 0) return (0, 0);
 
     using var scope = serviceScopeFactory.CreateScope();
     var emailTemplateService = scope.ServiceProvider.GetRequiredService<EmailTemplateService>();
     var httpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
     var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
     var emails = new List<Email>();
-    var tutorReports = reports.Tutors.Take(firstOnly ? 1 : int.MaxValue).ToList();
-    var teacherReports = reports.Teachers.Take(firstOnly ? 1 : int.MaxValue).ToList();
 
     foreach (var report in tutorReports)
     {

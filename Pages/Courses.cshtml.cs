@@ -28,9 +28,7 @@ public class CoursesModel(CourseService storage, CacheService cache, ConfigServi
       var courses = await storage.ListCoursesAsync();
       var units = await storage.ListUnitsAsync();
       var isAdmin = User.IsInRole(Roles.Admin);
-      var editableCourseIds = isAdmin
-        ? courses.Select(o => o.RowKey).OrderBy(o => o).ToList()
-        : courses.Where(User.CanEditCourse).Select(o => o.RowKey).OrderBy(o => o).ToList();
+      var editableCourseIds = courses.Where(o => User.CanEditCourse(o, config)).Select(o => o.RowKey).OrderBy(o => o).ToList();
 
       CoursesJson = JsonSerializer.Serialize(courses, JsonDefaults.CamelCase);
       UnitsJson = JsonSerializer.Serialize(units, JsonDefaults.CamelCase);
@@ -43,8 +41,8 @@ public class CoursesModel(CourseService storage, CacheService cache, ConfigServi
       return Page();
     }
 
-    var cachedCourses = await cache.GetCachedDataAsync("courses", storage.ListCoursesAsync);
-    var cachedUnits = await cache.GetCachedDataAsync("units", async () => (await storage.ListUnitsAsync()).Select(o => new PublicFacingUnit(o)).ToList());
+    var cachedCourses = await cache.GetCachedDataAsync<List<CourseEntity>>("courses", async () => await storage.ListCoursesAsync());
+    var cachedUnits = await cache.GetCachedDataAsync<List<PublicFacingUnit>>("units", async () => (await storage.ListUnitsAsync()).Select(o => new PublicFacingUnit(o)).ToList());
 
     CoursesJson = cachedCourses.Data;
     UnitsJson = cachedUnits.Data;

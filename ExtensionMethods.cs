@@ -6,12 +6,16 @@ namespace CurriculumPortal;
 
 public static class ExtensionMethods
 {
-  public static bool CanEditCourse(this ClaimsPrincipal user, CourseEntity course)
+  public static bool CanEditCourse(this ClaimsPrincipal user, CourseEntity course, ConfigService config)
   {
     ArgumentNullException.ThrowIfNull(user);
     ArgumentNullException.ThrowIfNull(course);
+    ArgumentNullException.ThrowIfNull(config);
 
-    return user.IsInRole(Roles.Admin) || course.LeadersList.Contains(user.GetEmail());
+    var email = user.GetEmail();
+    return user.IsInRole(Roles.Admin)
+      || config.SeniorLeaders.Contains(email)
+      || course.LeadersList.Contains(email);
   }
 
   public static string GetEmail(this ClaimsPrincipal user)

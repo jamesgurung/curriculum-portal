@@ -8,7 +8,7 @@
 - Avoid introducing new dependencies unless they are clearly necessary.
 - Reuse existing code and patterns in the codebase where possible.
 - There is no need to maintain backwards compatibility unless explicitly stated in the task.
-- To avoid interfering with active processes, run validation builds with a temporary artifacts directory outside the repo, then delete it afterwards. Example PowerShell flow: `$artifacts = Join-Path $env:TEMP ("dotnet-build-" + [guid]::NewGuid().ToString("N")); dotnet build --artifacts-path $artifacts; Remove-Item -LiteralPath $artifacts -Recurse -Force`
+- To avoid interfering with active processes, run validation builds with a temporary artifacts directory outside the repo, then delete it afterwards. Example PowerShell flow: `$artifacts = Join-Path $env:TEMP ("dotnet-build-" + [guid]::NewGuid().ToString("N")); dotnet build --artifacts-path $artifacts; $exitCode = $LASTEXITCODE; Remove-Item -LiteralPath $artifacts -Recurse -Force; exit $exitCode`
 - Do not introduce any test projects.
 - Do not access files named `appsettings.json`, `secrets.json`, or `local.settings.json` under any circumstances.
 

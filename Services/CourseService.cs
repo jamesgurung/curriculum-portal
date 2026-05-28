@@ -23,9 +23,9 @@ public class CourseService
     _config = config;
   }
 
-  public async Task<List<CourseEntity>> ListCoursesAsync()
+  public async Task<List<CourseEntity>> ListCoursesAsync(CancellationToken cancellationToken = default)
   {
-    var courses = await _coursesClient.QueryAsync<CourseEntity>().ToListAsync();
+    var courses = await _coursesClient.QueryAsync<CourseEntity>(cancellationToken: cancellationToken).ToListAsync(cancellationToken);
     foreach (var course in courses)
     {
       course.LeaderNames = string.Join(", ", course.LeadersList
@@ -35,20 +35,20 @@ public class CourseService
     return courses.OrderBy(o => o.KeyStage).ThenBy(o => o.Name).ToList();
   }
 
-  public async Task<List<UnitEntity>> ListUnitsAsync(string courseId = null)
+  public async Task<List<UnitEntity>> ListUnitsAsync(string courseId = null, CancellationToken cancellationToken = default)
   {
     var units = courseId is null
-      ? await _unitsClient.QueryAsync<UnitEntity>().ToListAsync()
-      : await _unitsClient.QueryAsync<UnitEntity>(u => u.PartitionKey == courseId).ToListAsync();
+      ? await _unitsClient.QueryAsync<UnitEntity>(cancellationToken: cancellationToken).ToListAsync(cancellationToken)
+      : await _unitsClient.QueryAsync<UnitEntity>(u => u.PartitionKey == courseId, cancellationToken: cancellationToken).ToListAsync(cancellationToken);
 
     return units.OrderBy(o => o.PartitionKey).ThenBy(o => o.YearGroup).ThenBy(o => o.Term).ThenBy(o => o.Order).ThenBy(o => o.Title).ToList();
   }
 
-  public async Task<CourseEntity> TryGetCourseAsync(string courseId)
+  public async Task<CourseEntity> TryGetCourseAsync(string courseId, CancellationToken cancellationToken = default)
   {
     try
     {
-      var response = await _coursesClient.GetEntityAsync<CourseEntity>("course", courseId);
+      var response = await _coursesClient.GetEntityAsync<CourseEntity>("course", courseId, cancellationToken: cancellationToken);
       response.Value.LeaderNames = string.Join(", ", response.Value.LeadersList
         .Select(o => _config.UsersByEmail.TryGetValue(o, out var t) ? t.DisplayName : null)
         .Where(o => o is not null));
@@ -60,11 +60,11 @@ public class CourseService
     }
   }
 
-  public async Task<UnitEntity> TryGetUnitAsync(string courseId, string unitId)
+  public async Task<UnitEntity> TryGetUnitAsync(string courseId, string unitId, CancellationToken cancellationToken = default)
   {
     try
     {
-      var response = await _unitsClient.GetEntityAsync<UnitEntity>(courseId, unitId);
+      var response = await _unitsClient.GetEntityAsync<UnitEntity>(courseId, unitId, cancellationToken: cancellationToken);
       return response.Value;
     }
     catch (RequestFailedException ex) when (ex.Status == 404)
@@ -78,9 +78,9 @@ public class CourseService
     return _coursesClient.UpsertEntityAsync(course, TableUpdateMode.Replace);
   }
 
-  public Task UpdateUnitAsync(UnitEntity unit)
+  public Task UpdateUnitAsync(UnitEntity unit, CancellationToken cancellationToken = default)
   {
-    return _unitsClient.UpsertEntityAsync(unit, TableUpdateMode.Replace);
+    return _unitsClient.UpsertEntityAsync(unit, TableUpdateMode.Replace, cancellationToken);
   }
 
   public async Task DeleteUnitAsync(string courseId, string unitId)
@@ -91,13 +91,13 @@ public class CourseService
     await _blobClient.GetBlobClient(unitId + ".questions.json").DeleteIfExistsAsync();
   }
 
-  public async Task<T> GetBlobAsync<T>(string unitId) where T : ICurriculumBlob, new()
+  public async Task<T> GetBlobAsync<T>(string unitId, CancellationToken cancellationToken = default) where T : ICurriculumBlob, new()
   {
     var suffix = GetSuffix(typeof(T));
     var blobClient = _blobClient.GetBlobClient($"{unitId}.{suffix}.json");
     try
     {
-      var response = await blobClient.DownloadContentAsync();
+      var response = await blobClient.DownloadContentAsync(cancellationToken);
       return JsonSerializer.Deserialize<T>(response.Value.Content.ToString(), JsonOptions) ?? new T();
     }
     catch (RequestFailedException ex) when (ex.Status == 404)
@@ -106,20 +106,20 @@ public class CourseService
     }
   }
 
-  public Task UploadBlobAsync<T>(string unitId, T curriculumBlob) where T : ICurriculumBlob
+  public Task UploadBlobAsync<T>(string unitId, T curriculumBlob, CancellationToken cancellationToken = default) where T : ICurriculumBlob
   {
     var suffix = GetSuffix(typeof(T));
     var blobClient = _blobClient.GetBlobClient($"{unitId}.{suffix}.json");
     var binaryData = new BinaryData(JsonSerializer.Serialize(curriculumBlob, JsonOptions));
-    return blobClient.UploadAsync(binaryData, overwrite: true);
+    return blobClient.UploadAsync(binaryData, overwrite: true, cancellationToken);
   }
 
-  public async Task<CourseEvaluation> TryGetCourseEvaluationAsync(string courseId)
+  public async Task<CourseEvaluation> TryGetCourseEvaluationAsync(string courseId, CancellationToken cancellationToken = default)
   {
     var blobClient = _blobClient.GetBlobClient($"evaluations/{courseId}.json");
     try
     {
-      var response = await blobClient.DownloadContentAsync();
+      var response = await blobClient.DownloadContentAsync(cancellationToken);
       return JsonSerializer.Deserialize<CourseEvaluation>(response.Value.Content.ToString(), JsonOptions);
     }
     catch (RequestFailedException ex) when (ex.Status == 404)
@@ -128,11 +128,11 @@ public class CourseService
     }
   }
 
-  public Task UploadCourseEvaluationAsync(string courseId, CourseEvaluation evaluation)
+  public Task UploadCourseEvaluationAsync(string courseId, CourseEvaluation evaluation, CancellationToken cancellationToken = default)
   {
     var blobClient = _blobClient.GetBlobClient($"evaluations/{courseId}.json");
     var binaryData = new BinaryData(JsonSerializer.Serialize(evaluation, JsonOptions));
-    return blobClient.UploadAsync(binaryData, overwrite: true);
+    return blobClient.UploadAsync(binaryData, overwrite: true, cancellationToken);
   }
 
   private static string GetSuffix(Type type)

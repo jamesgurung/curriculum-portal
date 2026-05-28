@@ -42,7 +42,7 @@ public partial class AIService
 
   public async Task<Assessment> ImportTextAssessmentAsync(string value, CancellationToken cancellationToken = default)
   {
-    await AssertTokensRemainingAsync(20000, cancellationToken);
+    await AssertTokensRemainingAsync(16000, cancellationToken);
     var client = _aiClient.GetResponsesClient();
 
     var systemMessage = """
@@ -309,7 +309,7 @@ public partial class AIService
 
   public async Task<int> CreateQuizQuestionsAsync(CancellationToken cancellationToken = default)
   {
-    var units = await _courseService.ListUnitsAsync();
+    var units = await _courseService.ListUnitsAsync(cancellationToken: cancellationToken);
     var unitsToProcess = units.Where(o => o.YearGroup <= 9 && o.RevisionQuizStatus < 2 && o.KeyKnowledgeStatus == 2).ToList();
     if (unitsToProcess.Count == 0) return 0;
     await AssertTokensRemainingAsync(unitsToProcess.Count * 12000, cancellationToken);
@@ -317,7 +317,7 @@ public partial class AIService
 
     await Parallel.ForEachAsync(unitsToProcess, new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cancellationToken }, async (unit, ct) =>
     {
-      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
+      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey, ct);
       var questions = await GenerateQuizQuestionsAsync(unit, keyKnowledge, ct);
       if (questions.Count == 0)
       {
@@ -325,7 +325,7 @@ public partial class AIService
       }
 
       var questionBank = new QuestionBank { Questions = questions };
-      await _courseService.UploadBlobAsync(unit.RowKey, questionBank);
+      await _courseService.UploadBlobAsync(unit.RowKey, questionBank, CancellationToken.None);
 
       keyKnowledge.RevisionQuiz = questionBank.Questions.Select(o => new KeyKnowledgeRevisionQuestion
       {
@@ -333,11 +333,11 @@ public partial class AIService
         CorrectAnswer = o.CorrectAnswer,
         IncorrectAnswer = o.IncorrectAnswer1
       }).ToList();
-      await _courseService.UploadBlobAsync(unit.RowKey, keyKnowledge);
+      await _courseService.UploadBlobAsync(unit.RowKey, keyKnowledge, CancellationToken.None);
       _cache.Update(unit.RowKey, JsonSerializer.Serialize(keyKnowledge, JsonDefaults.CamelCase));
 
       unit.RevisionQuizStatus = 2;
-      await _courseService.UpdateUnitAsync(unit);
+      await _courseService.UpdateUnitAsync(unit, CancellationToken.None);
       var completed = Interlocked.Increment(ref processed);
 
       Console.WriteLine($"Generated quiz questions for unit {unit.Title} ({completed}/{unitsToProcess.Count})");
@@ -347,11 +347,11 @@ public partial class AIService
     return processed;
   }
 
-  public async Task<string> GenerateMarkSchemeAsync(string courseId, AssessmentQuestion question)
+  public async Task<string> GenerateMarkSchemeAsync(string courseId, AssessmentQuestion question, CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(courseId);
     ArgumentNullException.ThrowIfNull(question);
-    await AssertTokensRemainingAsync(20000);
+    await AssertTokensRemainingAsync(20000, cancellationToken);
     var isMathematics = courseId.Contains("mathematics", StringComparison.OrdinalIgnoreCase);
     var client = _aiClient.GetResponsesClient();
 
@@ -423,7 +423,7 @@ public partial class AIService
     };
 
     options.InputItems.Add(userMessage);
-    var response = await client.CreateResponseAsync(options);
+    var response = await client.CreateResponseAsync(options, cancellationToken);
 
     var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
     return JsonSerializer.Deserialize<MarkSchemeResponse>(json, JsonOptions)?.MarkScheme ?? string.Empty;
@@ -508,7 +508,7 @@ public partial class AIService
   public async Task<List<AssessmentQuestion>> GenerateQuestionsAsync(GenerateQuestionsRequest model, CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(model);
-    await AssertTokensRemainingAsync(20000, cancellationToken);
+    await AssertTokensRemainingAsync(16000, cancellationToken);
     var client = _aiClient.GetResponsesClient();
     var systemMessage = $"""
     You are an experienced secondary school teacher with exceptional pedagogical subject knowledge.
@@ -640,7 +640,7 @@ public partial class AIService
       .ToList();
   }
 
-  public async Task<string> SummariseCourseAsync(CourseEntity course, IReadOnlyList<UnitEntity> units)
+  public async Task<string> SummariseCourseAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(course);
     var sb = new StringBuilder($"# {course.Name}\n\n");
@@ -671,7 +671,7 @@ public partial class AIService
         sb.Append(CultureInfo.InvariantCulture, $"#### Why now?\n\n{unit.WhyNow}\n\n");
       }
 
-      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
+      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey, cancellationToken);
       if (keyKnowledge.DeclarativeKnowledge.Count > 0)
       {
         sb.Append("#### Students must know that:\n\n" + string.Join("\n", keyKnowledge.DeclarativeKnowledge.Select(o => $"- {o}")) + "\n\n");
@@ -690,7 +690,7 @@ public partial class AIService
   {
     ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(units);
-    await AssertTokensRemainingAsync(12000 * ((units.Count * 2) + 2), cancellationToken);
+    await AssertTokensRemainingAsync((6000 * units.Count * 2) + 20000, cancellationToken);
     return await EvaluateCourseSectionsAsync(course, units, units, true, reportProgress, cancellationToken);
   }
 
@@ -698,7 +698,7 @@ public partial class AIService
   {
     ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(units);
-    await AssertTokensRemainingAsync(24000, cancellationToken);
+    await AssertTokensRemainingAsync(20000, cancellationToken);
     var result = await EvaluateCourseSectionsAsync(course, units, [], true, reportProgress, cancellationToken);
     return result.Overall;
   }
@@ -708,7 +708,7 @@ public partial class AIService
     ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(units);
     ArgumentNullException.ThrowIfNull(unit);
-    await AssertTokensRemainingAsync(24000, cancellationToken);
+    await AssertTokensRemainingAsync(6000 * 2, cancellationToken);
     var result = await EvaluateCourseSectionsAsync(course, units, [unit], false, reportProgress, cancellationToken);
     return result.Units.First();
   }
@@ -747,11 +747,12 @@ public partial class AIService
       # Guidance
 
       - Provide separate short overview paragraphs for coverage/balance and sequencing. These should evaluate the quality of the curriculum in these areas.
-      - Provide recommended actions in priority order, with the most important first, in structured arrays of concise, plain-English strings (up to 10 actions in each array but typically fewer).
+      - Provide recommended actions in priority order, with the most important first, in structured arrays of concise, plain-English strings (up to 6 actions in each array but typically fewer).
       - Write each recommended action in the imperative mood.
       - Actions must be very specific, avoiding generic guidance like "Audit the sequence" or "Include more powerful knowledge".
-      - Associate each action with a priority. Use Priority 1 sparingly, if at all, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable shortcomings and must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
+      - Associate each action with a priority. Use Priority 1 sparingly, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable problems which must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
       - You do not necessarily need to include actions for every priority level. A well-designed curriculum might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
+      - Preserve Priorities 1 and 2 for fixing serious problems, if any. Do not assign a high priority to actions that are more subjective or open to debate.
       - Do not include Markdown bullet syntax, headings, or formatting.
       - The provided curriculum information is not intended to include assessments, rubrics, knowledge organisers, lesson plans, or other artefacts, so do not comment on these.
       - Keep a high-level view and do not address minor unit-level details as these will be covered in the individual unit evaluations.
@@ -777,10 +778,10 @@ public partial class AIService
       - Recap sections are intended to be very short, so only a small sample of prior knowledge can be revisited each time. Do not penalise the curriculum simply because every prior topic is not included in every recap.
       - Reward thoughtful sampling: the most powerful knowledge should recur when useful, but the recap pattern should also help students retrieve a range of important topics over time.
       - Provide one short overview paragraph which evaluates the overall quality of retrieval practice.
-      - Provide recommended actions in priority order, with the most important first, in a structured array of concise, plain-English strings (up to 10 actions but typically fewer).
+      - Provide recommended actions in priority order, with the most important first, in a structured array of concise, plain-English strings (up to 6 actions but typically fewer).
       - Write each recommended action in the imperative mood.
       - Actions must be very specific, avoiding generic guidance such as "Audit the knowledge selected for recap" or "Sample from a wider range of topics".
-      - Associate each action with a priority. Use Priority 1 sparingly, if at all, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable shortcomings and must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
+      - Associate each action with a priority. Use Priority 1 sparingly, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable problems which must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
       - You do not necessarily need to include actions for every priority level. A well-designed selection of recap questions might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
       - If the user input includes an [Image] placeholder, assume a real image is part of the recap question at that point. Do not ask for the image.
       - Do not feed back on individual question wording. Focus on the overall quality of retrieval practice provided by the recap sections, and highlight specific assessments that are notably strong or require improvement.
@@ -819,7 +820,7 @@ public partial class AIService
       - Provide recommended actions in priority order, with the most important first, in a structured array of concise, plain-English strings (up to 10 actions but typically fewer).
       - Write each recommended action in the imperative mood.
       - Actions must be very specific, avoiding generic guidance.
-      - Associate each action with a priority. Use Priority 1 sparingly, if at all, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable shortcomings and must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
+      - Associate each action with a priority. Use Priority 1 sparingly, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable problems which must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
       - You do not necessarily need to include actions for every priority level. A well-designed selection of key knowledge might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
       - Do not include Markdown bullet syntax, headings, or formatting.
       - Use British English spelling and terminology.
@@ -855,7 +856,7 @@ public partial class AIService
       - Provide recommended actions in priority order, with the most important first, in structured arrays of concise, plain-English strings (up to 10 actions but typically fewer).
       - Write each recommended action in the imperative mood.
       - Actions must be very specific, avoiding generic guidance.
-      - Associate each action with a priority. Use Priority 1 sparingly, if at all, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable shortcomings and must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
+      - Associate each action with a priority. Use Priority 1 sparingly, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable problems which must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
       - You do not necessarily need to include actions for every priority level. A well-designed assessment might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
       - When referring to a specific question, state the question number.
       - Be cautious about advising the addition of too many new questions, as this may not be feasible given constraints on assessment length. One or two new questions could be added but otherwise consider replacing or refining existing questions.
@@ -987,8 +988,8 @@ public partial class AIService
     var contexts = new List<CourseEvaluationUnitContext>();
     foreach (var unit in unitsToEvaluate)
     {
-      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
-      var assessment = await _courseService.GetBlobAsync<Assessment>(unit.RowKey);
+      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey, cancellationToken);
+      var assessment = await _courseService.GetBlobAsync<Assessment>(unit.RowKey, cancellationToken);
       contexts.Add(new CourseEvaluationUnitContext(unit, BuildKeyKnowledgeEvaluationContext(unit, keyKnowledge, units), BuildAssessmentEvaluationContext(unit, keyKnowledge, assessment)));
     }
 
@@ -997,7 +998,7 @@ public partial class AIService
     Task<AssessmentRecapEvaluationResponse> assessmentRecapTask = null;
     if (includeOverall)
     {
-      var courseSummary = await SummariseCourseAsync(course, units);
+      var courseSummary = await SummariseCourseAsync(course, units, cancellationToken);
       overallTask = RunEvaluationRequestAsync<CourseOverallEvaluationResponse>(
         semaphore,
         overviewPrompt,
@@ -1007,7 +1008,7 @@ public partial class AIService
         () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
         cancellationToken);
 
-      var assessmentRecapContext = await BuildAssessmentRecapEvaluationContextAsync(units);
+      var assessmentRecapContext = await BuildAssessmentRecapEvaluationContextAsync(units, cancellationToken);
       assessmentRecapTask = RunEvaluationRequestAsync<AssessmentRecapEvaluationResponse>(
         semaphore,
         assessmentRecapPrompt,
@@ -1020,40 +1021,54 @@ public partial class AIService
 
     var unitTasks = contexts.Select(async context =>
     {
-      var keyKnowledgeTask = context.Unit.KeyKnowledgeStatus < 2
-        ? Task.FromResult(new KeyKnowledgeEvaluationResponse
+      var keyKnowledgeTask = context.Unit.KeyKnowledgeStatus switch
+      {
+        0 => Task.FromResult(new KeyKnowledgeEvaluationResponse
         {
           Overview = "There is no key knowledge for this unit.",
           RecommendedActions = [new CourseEvaluationRecommendedAction { Action = "Add key knowledge for this unit.", Priority = 1 }]
-        })
-        : RunEvaluationRequestAsync<KeyKnowledgeEvaluationResponse>(
+        }),
+        1 => Task.FromResult(new KeyKnowledgeEvaluationResponse
+        {
+          Overview = "There key knowledge for this unit is incomplete.",
+          RecommendedActions = [new CourseEvaluationRecommendedAction { Action = "Complete the key knowledge for this unit.", Priority = 1 }]
+        }),
+        _ => RunEvaluationRequestAsync<KeyKnowledgeEvaluationResponse>(
           semaphore,
           keyKnowledgePrompt,
           keyKnowledgeSchema,
           "keyKnowledgeEvaluation",
           context.KeyKnowledgeContext,
           () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
-          cancellationToken);
+          cancellationToken)
+      };
 
       if (context.Unit.KeyKnowledgeStatus < 2)
       {
         reportProgress?.Invoke(Interlocked.Increment(ref completed), total);
       }
 
-      var assessmentTask = context.Unit.AssessmentStatus < 2
-        ? Task.FromResult(new AssessmentEvaluationResponse
+      var assessmentTask = context.Unit.AssessmentStatus switch
+      {
+        0 => Task.FromResult(new AssessmentEvaluationResponse
         {
           Overview = "There is no assessment for this unit.",
-          AlignmentRecommendedActions = [new CourseEvaluationRecommendedAction { Action = "Add an assessment for this unit.", Priority = 1 }]
-        })
-        : RunEvaluationRequestAsync<AssessmentEvaluationResponse>(
+          DesignRecommendedActions = [new CourseEvaluationRecommendedAction { Action = "Add an assessment for this unit.", Priority = 1 }]
+        }),
+        1 => Task.FromResult(new AssessmentEvaluationResponse
+        {
+          Overview = "The assessment for this unit is incomplete.",
+          DesignRecommendedActions = [new CourseEvaluationRecommendedAction { Action = "Complete the assessment for this unit.", Priority = 1 }]
+        }),
+        _ => RunEvaluationRequestAsync<AssessmentEvaluationResponse>(
           semaphore,
           assessmentPrompt,
           assessmentSchema,
           "assessmentEvaluation",
           context.AssessmentContext,
           () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
-          cancellationToken);
+          cancellationToken)
+      };
 
       if (context.Unit.AssessmentStatus < 2)
       {
@@ -1192,13 +1207,13 @@ public partial class AIService
     return sb.ToString().Trim();
   }
 
-  private async Task<string> BuildAssessmentRecapEvaluationContextAsync(IReadOnlyList<UnitEntity> units)
+  private async Task<string> BuildAssessmentRecapEvaluationContextAsync(IReadOnlyList<UnitEntity> units, CancellationToken cancellationToken)
   {
     var sb = new StringBuilder();
     for (var i = 0; i < units.Count; i++)
     {
       var unit = units[i];
-      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey);
+      var keyKnowledge = await _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey, cancellationToken);
 
       if (i > 0)
       {
@@ -1209,7 +1224,7 @@ public partial class AIService
         }
         else
         {
-          var assessment = await _courseService.GetBlobAsync<Assessment>(unit.RowKey);
+          var assessment = await _courseService.GetBlobAsync<Assessment>(unit.RowKey, cancellationToken);
           var recapSection = assessment.Sections.FirstOrDefault(o => string.Equals(o.Title, "Recap", StringComparison.OrdinalIgnoreCase));
           if (recapSection is null || recapSection.Questions.Count == 0)
           {

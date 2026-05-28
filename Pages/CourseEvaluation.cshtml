@@ -14,7 +14,14 @@
 
   static bool HasItems(IEnumerable<CourseEvaluationRecommendedAction> items) => Clean(items).Any();
 
-  static string PriorityText(int priority) => $"Priority {priority}";
+  static string PriorityText(int priority) => priority switch
+  {
+    1 => "Critical",
+    2 => "Essential",
+    3 => "Recommended",
+    4 => "Suggested",
+    _ => "None"
+  };
 }
 
 @section Head {
@@ -73,7 +80,7 @@
         <div class="evaluation-section-header">
           <h3>Summary</h3>
         </div>
-        <p class="evaluation-summary">These priorities have been suggested by AI to support ongoing curriculum development work. Use your own judgement when reviewing the feedback.</p>
+        <p class="evaluation-summary">These actions have been suggested by AI to support ongoing curriculum development work. Use your own judgement when reviewing the feedback.</p>
         <div class="evaluation-rating-summary">
           @foreach (var priority in priorities)
           {
@@ -267,36 +274,52 @@
       sectionActions: [...document.querySelectorAll('.evaluation-section-action')],
       ratingBoxes: [...document.querySelectorAll('.evaluation-rating-box')],
       filterActions: [...document.querySelectorAll('li[data-priority]')],
+      filterLists: [...document.querySelectorAll('.evaluation-panel ul, .evaluation-criterion ul')],
       filterItems: [...document.querySelectorAll('.evaluation-panel, .evaluation-criterion')],
       filterParents: [...document.querySelectorAll('.evaluation-overview, .evaluation-unit')]
     };
-    let selectedPriority = '';
+    const selectedPriorities = new Set();
 
     elements.evaluate?.addEventListener('click', evaluateCourse);
     elements.sectionActions.forEach(button => button.addEventListener('click', () => evaluateSection(button)));
     elements.ratingBoxes.forEach(box => box.addEventListener('click', () => filterPriority(box.dataset.priority)));
 
     function filterPriority(priority) {
-      selectedPriority = selectedPriority === priority ? '' : priority;
+      if (selectedPriorities.has(priority)) {
+        selectedPriorities.delete(priority);
+      } else {
+        selectedPriorities.add(priority);
+      }
 
       elements.ratingBoxes.forEach(box => {
-        const selected = box.dataset.priority === selectedPriority;
+        const selected = selectedPriorities.has(box.dataset.priority);
         box.classList.toggle('selected', selected);
         box.setAttribute('aria-pressed', String(selected));
       });
 
+      const filtersActive = selectedPriorities.size > 0;
+
       elements.filterActions.forEach(item => {
-        item.classList.toggle('evaluation-filter-hidden', selectedPriority !== '' && item.dataset.priority !== selectedPriority);
+        item.classList.toggle('evaluation-filter-hidden', filtersActive && !selectedPriorities.has(item.dataset.priority));
+      });
+
+      elements.filterLists.forEach(list => {
+        const visibleAction = list.querySelector('li[data-priority]:not(.evaluation-filter-hidden)');
+        const hidden = filtersActive && !visibleAction;
+        list.classList.toggle('evaluation-filter-hidden', hidden);
+        if (list.previousElementSibling?.tagName === 'H5') {
+          list.previousElementSibling.classList.toggle('evaluation-filter-hidden', hidden);
+        }
       });
 
       elements.filterItems.forEach(item => {
         const visibleAction = item.querySelector('li[data-priority]:not(.evaluation-filter-hidden)');
-        item.classList.toggle('evaluation-filter-hidden', selectedPriority !== '' && !visibleAction);
+        item.classList.toggle('evaluation-filter-hidden', filtersActive && !visibleAction);
       });
 
       elements.filterParents.forEach(parent => {
         const visibleItem = parent.querySelector('.evaluation-panel:not(.evaluation-filter-hidden), .evaluation-criterion:not(.evaluation-filter-hidden)');
-        parent.classList.toggle('evaluation-filter-hidden', selectedPriority !== '' && !visibleItem);
+        parent.classList.toggle('evaluation-filter-hidden', filtersActive && !visibleItem);
       });
     }
 

@@ -7,7 +7,7 @@ using System.Globalization;
 namespace CurriculumPortal;
 
 [Authorize(Roles = Roles.Teacher)]
-public class CourseEvaluationModel(CourseService storage, IAntiforgery antiforgery) : PageModel
+public class CourseEvaluationModel(CourseService storage, ConfigService config, IAntiforgery antiforgery) : PageModel
 {
   public string CourseId { get; private set; } = string.Empty;
   public CourseEntity Course { get; private set; }
@@ -33,7 +33,7 @@ public class CourseEvaluationModel(CourseService storage, IAntiforgery antiforge
       return NotFound("Course not found.");
     }
 
-    if (!User.CanEditCourse(course))
+    if (!User.CanEditCourse(course, config))
     {
       return Forbid();
     }

@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace CurriculumPortal;
 
 [Authorize(Roles = Roles.Teacher)]
-public class BuildModel(CourseService storage, IAntiforgery antiforgery) : PageModel
+public class BuildModel(CourseService storage, ConfigService config, IAntiforgery antiforgery) : PageModel
 {
   public string PageTitle { get; private set; } = string.Empty;
   public string CourseIdJson { get; private set; } = "\"\"";
@@ -45,7 +45,7 @@ public class BuildModel(CourseService storage, IAntiforgery antiforgery) : PageM
     var assessment = await storage.GetBlobAsync<Assessment>(unitId);
     var questionBank = await storage.GetBlobAsync<QuestionBank>(unitId);
 
-    var editable = User.CanEditCourse(course);
+    var editable = User.CanEditCourse(course, config);
 
     CourseId = courseId;
     CourseTitle = BuildCourseTitle(course, unit);

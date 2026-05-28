@@ -26,6 +26,12 @@ Deploy effortlessly to Microsoft Azure.
         Id,Email,FirstName,LastName,Classes
         ```
 
+    * Upload a file `seniorleaders.csv` with the following header and one email address per row. Senior leaders can edit any course.
+
+      ```csv
+      Email
+      ```
+
     * Upload a file `holidays.csv` with the following headers and dates in `yyyy-MM-dd` format. If an assignment due date lands within a holiday range, it will be pushed forward.
 
         ```csv

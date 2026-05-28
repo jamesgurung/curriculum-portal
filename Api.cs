@@ -57,7 +57,7 @@ public static class Api
     app.MapGet("/courses/{courseId}/{unitId}", [AllowAnonymous] (string courseId, string unitId) => Results.Redirect($"/courses#/{Uri.EscapeDataString(courseId)}/{Uri.EscapeDataString(unitId)}"));
     app.MapGet("/courses/{courseId}/{unitId}/quiz", [AllowAnonymous] (string courseId, string unitId) => Results.Redirect($"/courses#/{Uri.EscapeDataString(courseId)}/{Uri.EscapeDataString(unitId)}/quiz"));
 
-    app.MapDelete("/courses/{courseId}/{unitId}/build", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, CacheService cache) =>
+    app.MapDelete("/courses/{courseId}/{unitId}/build", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, ConfigService config, CacheService cache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -77,7 +77,7 @@ public static class Api
         return Results.NotFound("Assessment not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -92,7 +92,7 @@ public static class Api
       return Results.NoContent();
     });
 
-    app.MapPost("/courses/{courseId}/{unitId}/build/key-knowledge", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, KeyKnowledge keyKnowledge, CourseService storage, CacheService cache) =>
+    app.MapPost("/courses/{courseId}/{unitId}/build/key-knowledge", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, KeyKnowledge keyKnowledge, CourseService storage, ConfigService config, CacheService cache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -112,7 +112,7 @@ public static class Api
         return Results.NotFound("Assessment not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -149,7 +149,7 @@ public static class Api
       return Results.NoContent();
     });
 
-    app.MapPost("/courses/{courseId}/{unitId}/build/quiz", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, QuestionBank questionBank, CourseService storage, CacheService cache) =>
+    app.MapPost("/courses/{courseId}/{unitId}/build/quiz", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, QuestionBank questionBank, CourseService storage, ConfigService config, CacheService cache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -169,7 +169,7 @@ public static class Api
         return Results.NotFound("Assessment not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -188,7 +188,7 @@ public static class Api
       return Results.NoContent();
     });
 
-    app.MapPost("/courses/{courseId}/{unitId}/build/assessment", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, Assessment assessment, CourseService storage, CacheService cache) =>
+    app.MapPost("/courses/{courseId}/{unitId}/build/assessment", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, Assessment assessment, CourseService storage, ConfigService config, CacheService cache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -208,7 +208,7 @@ public static class Api
         return Results.NotFound("Assessment not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -225,7 +225,7 @@ public static class Api
       return Results.NoContent();
     });
 
-    app.MapPost("/courses/{courseId}/{unitId}/build/{item}-complete", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, string item, CourseService storage, CacheService cache) =>
+    app.MapPost("/courses/{courseId}/{unitId}/build/{item}-complete", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, string item, CourseService storage, ConfigService config, CacheService cache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -245,7 +245,7 @@ public static class Api
         return Results.NotFound("Assessment not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -304,7 +304,7 @@ public static class Api
       return Results.NoContent();
     });
 
-    app.MapPut("/courses/{courseId}/build/sort-units", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, UnitSortOrder model, CourseService storage, CacheService cache) =>
+    app.MapPut("/courses/{courseId}/build/sort-units", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, UnitSortOrder model, CourseService storage, ConfigService config, CacheService cache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -323,7 +323,7 @@ public static class Api
         return Results.NotFound("Course not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -350,7 +350,7 @@ public static class Api
       return Results.NoContent();
     });
 
-    app.MapPut("/courses/{courseId}/build/{property}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string property, SingleValueModel model, CourseService storage, CacheService cache) =>
+    app.MapPut("/courses/{courseId}/build/{property}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string property, SingleValueModel model, CourseService storage, ConfigService config, CacheService cache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -369,7 +369,7 @@ public static class Api
         return Results.NotFound("Course not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -403,7 +403,7 @@ public static class Api
       return Results.NoContent();
     });
 
-    app.MapPut("/courses/{courseId}/{unitId}/build/{property}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, string property, SingleValueModel model, CourseService storage, CacheService cache) =>
+    app.MapPut("/courses/{courseId}/{unitId}/build/{property}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, string property, SingleValueModel model, CourseService storage, ConfigService config, CacheService cache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -422,7 +422,7 @@ public static class Api
         return Results.NotFound("Course not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -474,7 +474,7 @@ public static class Api
       return Results.NoContent();
     });
 
-    app.MapPost("/courses/{courseId}/build", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, NewUnitModel model, CourseService storage, CacheService cache) =>
+    app.MapPost("/courses/{courseId}/build", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, NewUnitModel model, CourseService storage, ConfigService config, CacheService cache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -493,7 +493,7 @@ public static class Api
         return Results.NotFound("Course not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -516,7 +516,7 @@ public static class Api
       return Results.Json(unit);
     });
 
-    app.MapPost("/courses/build/ai/import", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, SingleValueModel model, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/build/ai/import", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, SingleValueModel model, CourseService storage, ConfigService config, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -529,8 +529,8 @@ public static class Api
         return Results.BadRequest("Text assessment data is required.");
       }
 
-      var courses = await storage.ListCoursesAsync();
-      if (!courses.Any(course => context.User.CanEditCourse(course)))
+      var courses = await storage.ListCoursesAsync(context.RequestAborted);
+      if (!courses.Any(course => context.User.CanEditCourse(course, config)))
       {
         return Results.Forbid();
       }
@@ -538,11 +538,11 @@ public static class Api
       return StreamAiOperation(ct => ai.ImportTextAssessmentAsync(model.Value, ct), context.RequestAborted);
     });
 
-    app.MapGet("/courses/build/ai/createquizzes", [Authorize(Roles = Roles.Admin)] async (AIService ai) =>
+    app.MapGet("/courses/build/ai/createquizzes", [Authorize(Roles = Roles.Admin)] async (AIService ai, CancellationToken cancellationToken) =>
     {
       try
       {
-        var processed = await ai.CreateQuizQuestionsAsync();
+        var processed = await ai.CreateQuizQuestionsAsync(cancellationToken);
         return Results.Text($"{processed} quizzes created", "text/plain");
       }
       catch (InsufficientTokensException ex)
@@ -551,7 +551,7 @@ public static class Api
       }
     });
 
-    app.MapPost("/courses/{courseId}/build/ai/generatemarkscheme", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, AssessmentQuestion question, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/{courseId}/build/ai/generatemarkscheme", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, AssessmentQuestion question, CourseService storage, ConfigService config, AIService ai, CancellationToken cancellationToken) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -569,15 +569,15 @@ public static class Api
         return Results.BadRequest("Mark scheme already exists");
       }
 
-      var courses = await storage.ListCoursesAsync();
-      if (!courses.Any(course => context.User.CanEditCourse(course)))
+      var courses = await storage.ListCoursesAsync(cancellationToken);
+      if (!courses.Any(course => context.User.CanEditCourse(course, config)))
       {
         return Results.Forbid();
       }
 
       try
       {
-        var markScheme = await ai.GenerateMarkSchemeAsync(courseId, question);
+        var markScheme = await ai.GenerateMarkSchemeAsync(courseId, question, cancellationToken);
         return Results.Content(JsonSerializer.Serialize(markScheme, JsonDefaults.CamelCase), "application/json");
       }
       catch (InsufficientTokensException ex)
@@ -586,7 +586,7 @@ public static class Api
       }
     });
 
-    app.MapPost("/courses/build/ai/generatekeyknowledge", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, SingleValueModel model, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/build/ai/generatekeyknowledge", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, SingleValueModel model, CourseService storage, ConfigService config, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -599,8 +599,8 @@ public static class Api
         return Results.BadRequest("Learning outcomes are required.");
       }
 
-      var courses = await storage.ListCoursesAsync();
-      if (!courses.Any(course => context.User.CanEditCourse(course)))
+      var courses = await storage.ListCoursesAsync(context.RequestAborted);
+      if (!courses.Any(course => context.User.CanEditCourse(course, config)))
       {
         return Results.Forbid();
       }
@@ -608,7 +608,7 @@ public static class Api
       return StreamAiOperation(ct => ai.GenerateKeyKnowledgeAsync(model.Value, ct), context.RequestAborted);
     });
 
-    app.MapPost("/courses/build/ai/generatequestions", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, GenerateQuestionsRequest model, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/build/ai/generatequestions", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, GenerateQuestionsRequest model, CourseService storage, ConfigService config, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -621,8 +621,8 @@ public static class Api
         return Results.BadRequest("Invalid request data.");
       }
 
-      var courses = await storage.ListCoursesAsync();
-      if (!courses.Any(course => context.User.CanEditCourse(course)))
+      var courses = await storage.ListCoursesAsync(context.RequestAborted);
+      if (!courses.Any(course => context.User.CanEditCourse(course, config)))
       {
         return Results.Forbid();
       }
@@ -630,7 +630,7 @@ public static class Api
       return StreamAiOperation(ct => ai.GenerateQuestionsAsync(model, ct), context.RequestAborted);
     });
 
-    app.MapPost("/courses/{courseId}/{unitId}/build/ai/generatequiz", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/{courseId}/{unitId}/build/ai/generatequiz", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, ConfigService config, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -643,19 +643,19 @@ public static class Api
         return Results.BadRequest("Data missing.");
       }
 
-      var course = await storage.TryGetCourseAsync(courseId);
-      var unit = await storage.TryGetUnitAsync(courseId, unitId);
+      var course = await storage.TryGetCourseAsync(courseId, context.RequestAborted);
+      var unit = await storage.TryGetUnitAsync(courseId, unitId, context.RequestAborted);
       if (course is null || unit is null)
       {
         return Results.NotFound("Assessment not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
 
-      var keyKnowledge = await storage.GetBlobAsync<KeyKnowledge>(unitId);
+      var keyKnowledge = await storage.GetBlobAsync<KeyKnowledge>(unitId, context.RequestAborted);
       if (keyKnowledge.DeclarativeKnowledge.Count == 0)
       {
         return Results.BadRequest("Key knowledge is required before generating quiz questions.");
@@ -668,30 +668,30 @@ public static class Api
       }, context.RequestAborted);
     });
 
-    app.MapGet("/courses/{courseId}/build/summary", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, string courseId, CourseService storage, AIService ai) =>
+    app.MapGet("/courses/{courseId}/build/summary", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, string courseId, CourseService storage, ConfigService config, AIService ai, CancellationToken cancellationToken) =>
     {
-      var course = await storage.TryGetCourseAsync(courseId);
+      var course = await storage.TryGetCourseAsync(courseId, cancellationToken);
       if (course is null)
       {
         return Results.NotFound("Course not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
 
-      var units = await storage.ListUnitsAsync(courseId);
+      var units = await storage.ListUnitsAsync(courseId, cancellationToken);
       if (units.Count == 0)
       {
         return Results.Text("No units found for this course.", "text/plain", Encoding.UTF8);
       }
 
-      var summary = await ai.SummariseCourseAsync(course, units);
+      var summary = await ai.SummariseCourseAsync(course, units, cancellationToken);
       return Results.Text(summary, "text/plain", Encoding.UTF8);
     });
 
-    app.MapPost("/courses/{courseId}/evaluate", [Authorize(Roles = Roles.Admin)] async (HttpContext context, IAntiforgery antiforgery, string courseId, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/{courseId}/evaluate", [Authorize(Roles = Roles.Admin)] async (HttpContext context, IAntiforgery antiforgery, string courseId, CourseService storage, ConfigService config, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -699,13 +699,13 @@ public static class Api
         return csrfError;
       }
 
-      var course = await storage.TryGetCourseAsync(courseId);
+      var course = await storage.TryGetCourseAsync(courseId, context.RequestAborted);
       if (course is null)
       {
         return Results.NotFound("Course not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -715,7 +715,7 @@ public static class Api
         return Results.BadRequest("Course evaluations are only available for Key Stage 3 courses.");
       }
 
-      var units = await storage.ListUnitsAsync(courseId);
+      var units = await storage.ListUnitsAsync(courseId, context.RequestAborted);
       return CreateProgressStream(async (reportProgress, ct) =>
       {
         var result = await ai.EvaluateCourseAsync(course, units, reportProgress, ct);
@@ -725,13 +725,13 @@ public static class Api
           Overall = result.Overall,
           Units = result.Units
         };
-        await storage.UploadCourseEvaluationAsync(courseId, evaluation);
+        await storage.UploadCourseEvaluationAsync(courseId, evaluation, CancellationToken.None);
 
         return new { message = "The evaluation has been saved.", generatedAt = evaluation.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
       }, context.RequestAborted);
     });
 
-    app.MapPost("/courses/{courseId}/evaluate/overview", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/{courseId}/evaluate/overview", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, CourseService storage, ConfigService config, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -739,13 +739,13 @@ public static class Api
         return csrfError;
       }
 
-      var course = await storage.TryGetCourseAsync(courseId);
+      var course = await storage.TryGetCourseAsync(courseId, context.RequestAborted);
       if (course is null)
       {
         return Results.NotFound("Course not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -755,24 +755,24 @@ public static class Api
         return Results.BadRequest("Course evaluations are only available for Key Stage 3 courses.");
       }
 
-      var evaluation = await storage.TryGetCourseEvaluationAsync(courseId);
+      var evaluation = await storage.TryGetCourseEvaluationAsync(courseId, context.RequestAborted);
       if (evaluation is null)
       {
         return Results.NotFound("Evaluation not found.");
       }
 
-      var units = await storage.ListUnitsAsync(courseId);
+      var units = await storage.ListUnitsAsync(courseId, context.RequestAborted);
       return CreateProgressStream(async (reportProgress, ct) =>
       {
         evaluation.Overall = await ai.EvaluateCourseOverviewAsync(course, units, reportProgress, ct);
         evaluation.GeneratedAt = DateTimeOffset.UtcNow;
-        await storage.UploadCourseEvaluationAsync(courseId, evaluation);
+        await storage.UploadCourseEvaluationAsync(courseId, evaluation, CancellationToken.None);
 
         return new { message = "The evaluation has been saved.", generatedAt = evaluation.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
       }, context.RequestAborted);
     });
 
-    app.MapPost("/courses/{courseId}/evaluate/units/{unitId}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, AIService ai) =>
+    app.MapPost("/courses/{courseId}/evaluate/units/{unitId}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService storage, ConfigService config, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -780,13 +780,13 @@ public static class Api
         return csrfError;
       }
 
-      var course = await storage.TryGetCourseAsync(courseId);
+      var course = await storage.TryGetCourseAsync(courseId, context.RequestAborted);
       if (course is null)
       {
         return Results.NotFound("Course not found.");
       }
 
-      if (!context.User.CanEditCourse(course))
+      if (!context.User.CanEditCourse(course, config))
       {
         return Results.Forbid();
       }
@@ -796,13 +796,13 @@ public static class Api
         return Results.BadRequest("Course evaluations are only available for Key Stage 3 courses.");
       }
 
-      var evaluation = await storage.TryGetCourseEvaluationAsync(courseId);
+      var evaluation = await storage.TryGetCourseEvaluationAsync(courseId, context.RequestAborted);
       if (evaluation is null)
       {
         return Results.NotFound("Evaluation not found.");
       }
 
-      var units = await storage.ListUnitsAsync(courseId);
+      var units = await storage.ListUnitsAsync(courseId, context.RequestAborted);
       var unit = units.FirstOrDefault(o => o.RowKey == unitId);
       if (unit is null)
       {
@@ -826,7 +826,7 @@ public static class Api
       {
         evaluation.Units[evaluationUnitIndex] = await ai.EvaluateCourseUnitAsync(course, units, unit, reportProgress, ct);
         evaluation.GeneratedAt = DateTimeOffset.UtcNow;
-        await storage.UploadCourseEvaluationAsync(courseId, evaluation);
+        await storage.UploadCourseEvaluationAsync(courseId, evaluation, CancellationToken.None);
 
         return new { message = "The evaluation has been saved.", generatedAt = evaluation.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
       }, context.RequestAborted);

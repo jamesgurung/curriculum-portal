@@ -22,6 +22,7 @@ public partial class ConfigService(AppOptions options)
   public IReadOnlyDictionary<string, User> UsersByEmail { get; private set; } = new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase);
   public IReadOnlyList<User> Teachers { get; private set; }
   public IReadOnlyList<User> Students { get; private set; }
+  public IReadOnlySet<string> SeniorLeaders { get; private set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
   public IReadOnlyList<Holiday> Holidays { get; private set; } = [];
   public HashSet<int> Exemptions { get; private set; } = [];
   public IReadOnlyList<ChecklistItemConfig> ChecklistItems { get; private set; } = [];
@@ -44,6 +45,7 @@ public partial class ConfigService(AppOptions options)
     {
       Teachers = ParseUsers(await ReadBlobAsync("teachers.csv"), true);
       Students = ParseUsers(await ReadBlobAsync("students.csv"), false);
+      SeniorLeaders = ParseEmailList(await ReadBlobAsync("seniorleaders.csv"));
       Holidays = ParseHolidays(await ReadBlobAsync("holidays.csv"));
       Exemptions = ParseExemptions(await ReadBlobAsync("exemptions.csv"));
       ChecklistItems = ParseChecklistItems(await ReadBlobAsync("checklist.json"));
@@ -192,6 +194,26 @@ public partial class ConfigService(AppOptions options)
     {
       if (!int.TryParse(csvReader.GetField("UserId"), out var userId)) continue;
       records.Add(userId);
+    }
+
+    return records;
+  }
+
+  private static HashSet<string> ParseEmailList(string csv)
+  {
+    if (string.IsNullOrWhiteSpace(csv)) return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    using var reader = new StringReader(csv.Trim());
+    using var csvReader = new CsvReader(reader, CreateCsvConfiguration());
+    var records = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    if (!csvReader.Read()) return records;
+
+    csvReader.ReadHeader();
+    while (csvReader.Read())
+    {
+      var email = (csvReader.GetField("Email") ?? string.Empty).Trim().ToLowerInvariant();
+      if (email.Length == 0) continue;
+      records.Add(email);
     }
 
     return records;
