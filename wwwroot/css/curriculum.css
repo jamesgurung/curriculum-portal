@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
 
-  --page-bg: #e3ebf5;
+  --page-bg: #edf2f8;
   --page-text: #162031;
 
   --panel-bg: #f4f8fd;
@@ -29,7 +29,7 @@
   --checklist-complete: var(--success);
   --checklist-exempt: var(--ink-faint);
 
-  --shadow-panel: 0 14px 30px rgba(11, 26, 45, 0.14);
+  --shadow-panel: 0 1px 3px rgba(11, 26, 45, 0.06), 0 4px 12px rgba(11, 26, 45, 0.06);
   --radius-card: 12px;
   --radius-control: 8px;
   --page-bg-solid: color-mix(in srgb, var(--page-bg) 88%, #ffffff);
@@ -69,7 +69,7 @@
     --checklist-complete: var(--success);
     --checklist-exempt: var(--ink-faint);
 
-    --shadow-panel: 0 12px 30px rgba(0, 0, 0, 0.46);
+    --shadow-panel: 0 2px 10px rgba(0, 0, 0, 0.28);
     --page-bg-solid: color-mix(in srgb, var(--page-bg) 96%, #000000);
     --main-bg-solid: color-mix(in srgb, var(--panel-elevated) 94%, var(--panel-bg));
     --section-bg-solid: color-mix(in srgb, var(--panel-bg) 92%, #000000);
@@ -115,7 +115,7 @@ body {
 aside,
 main {
   background: var(--panel-elevated);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-standard);
   box-shadow: var(--shadow-panel);
 }
 
@@ -1157,22 +1157,6 @@ h3 {
   top: 0.06rem;
 }
 
-.priority-4 {
-  background: #3a97ed;
-}
-
-.priority-3 {
-  background: #06a824;
-}
-
-.priority-2 {
-  background: #f59e0b;
-}
-
-.priority-1 {
-  background: #eb1717;
-}
-
 .evaluation-action-priority {
   display: inline-block;
   flex: 0 0 auto;
@@ -1185,18 +1169,22 @@ h3 {
 
 .action-priority-4 {
   background: #b9dbfb;
+  border: 2px solid #3a97ed;
 }
 
 .action-priority-3 {
   background: #9ee8ad;
+  border: 2px solid #06a824;
 }
 
 .action-priority-2 {
   background: #fbd38a;
+  border: 2px solid #f59e0b;
 }
 
 .action-priority-1 {
   background: #fca5a5;
+  border: 2px solid #eb1717;
 }
 
 .evaluation-grid,
@@ -1206,7 +1194,7 @@ h3 {
 
 .evaluation-rating-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 0.7rem;
 }
 

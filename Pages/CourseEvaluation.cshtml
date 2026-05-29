@@ -16,7 +16,7 @@
 
   static string PriorityText(int priority) => priority switch
   {
-    1 => "Critical",
+    1 => "Priority",
     2 => "Essential",
     3 => "Recommended",
     4 => "Suggested",
@@ -87,7 +87,7 @@
             <button type="button" class="evaluation-rating-box" data-priority="@priority" aria-pressed="false">
               <span>@priorityCounts[priority]</span>
               <span aria-hidden="true">&times;</span>
-              <span class="evaluation-rating priority-@priority" role="img" aria-label="@PriorityText(priority)"></span>
+              <span class="evaluation-rating action-priority-@priority" role="img" aria-label="@PriorityText(priority)"></span>
               <span>@PriorityText(priority)</span>
             </button>
           }

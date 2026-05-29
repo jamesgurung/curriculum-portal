@@ -1,7 +1,7 @@
 .assignments-page {
-  --assignments-bg: #e3ebf5;
+  --assignments-bg: #edf2f8;
   --assignments-panel: #ffffff;
-  --assignments-panel-soft: #f4f8fd;
+  --assignments-panel-soft: #ffffff;
   --assignments-panel-muted: #f0f4fa;
   --assignments-border: #dbe3ef;
   --assignments-border-standard: #c7d4e4;
@@ -12,12 +12,12 @@
   --assignments-faint: #657284;
   --assignments-accent: #1d4f8a;
   --assignments-accent-strong: #133b68;
-  --assignments-accent-soft: #e3edf8;
+  --assignments-accent-soft: #e9f3ff;
   --assignments-ring-track: #dbe3ef;
   --assignments-ring-active: #0f7a3f;
   --assignments-ring-complete: #0f7a3f;
   --assignments-ring-pp: #d9368b;
-  --assignments-shadow: 0 14px 30px rgba(11, 26, 45, 0.14);
+  --assignments-shadow: 0 1px 3px rgba(11, 26, 45, 0.06), 0 4px 12px rgba(11, 26, 45, 0.06);
   min-height: 100%;
   padding: 0.9rem;
   background: color-mix(in srgb, var(--assignments-bg) 88%, #ffffff);
@@ -26,7 +26,7 @@
 }
 
 body.assignments-layout {
-  --assignments-bg: #e3ebf5;
+  --assignments-bg: #edf2f8;
   --page-bg-solid: color-mix(in srgb, var(--assignments-bg) 88%, #ffffff);
   background: var(--page-bg-solid);
 }
@@ -81,7 +81,7 @@ body.assignments-layout .assignments-page {
 
 .assignment-section,
 .assignment-detail {
-  border: 1px solid var(--assignments-border);
+  border: 1px solid var(--assignments-border-standard);
   border-radius: 12px;
   background: var(--assignments-panel-soft);
   box-shadow: var(--assignments-shadow);
@@ -901,7 +901,7 @@ a.assignment-card.is-overdue:hover {
     --assignments-ring-active: #5eb288;
     --assignments-ring-complete: #5eb288;
     --assignments-ring-pp: #f25aa5;
-    --assignments-shadow: 0 12px 30px rgba(0, 0, 0, 0.46);
+    --assignments-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
     background: color-mix(in srgb, var(--assignments-bg) 96%, #000000);
   }
 

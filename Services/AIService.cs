@@ -785,6 +785,7 @@ public partial class AIService
       - You do not necessarily need to include actions for every priority level. A well-designed selection of recap questions might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
       - If the user input includes an [Image] placeholder, assume a real image is part of the recap question at that point. Do not ask for the image.
       - Do not feed back on individual question wording. Focus on the overall quality of retrieval practice provided by the recap sections, and highlight specific assessments that are notably strong or require improvement.
+      - For each unit's Recap section, judge alignment only against knowledge from earlier units already listed above. Do not treat the current unit's knowledge as prior knowledge for that recap.
       - Do not include Markdown bullet syntax, headings, or formatting.
       - Use British English spelling and terminology.
       - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
@@ -1321,15 +1322,39 @@ public partial class AIService
     if (question.Marks == 0) return;
     var questionPrefix = string.IsNullOrWhiteSpace(question.Image) ? string.Empty : "[Image] ";
     var questionNumberPrefix = questionNumber.HasValue ? $"Q{questionNumber.Value}. " : string.Empty;
-    sb.Append(CultureInfo.InvariantCulture, $"- {questionNumberPrefix}{questionPrefix}{question.Question}\n");
+    var questionText = string.Join(" ", (question.Question ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').Select(o => o.Trim()).Where(o => o.Length > 0));
+    var marksSuffix = question.Marks == 1 ? "mark" : "marks";
+    sb.Append(CultureInfo.InvariantCulture, $"#### {questionNumberPrefix}{questionPrefix}{questionText} ({question.Marks} {marksSuffix})\n\n");
+
     if (question.Answers?.Count > 0)
     {
-      sb.Append(CultureInfo.InvariantCulture, $"  Options: {string.Join("; ", question.Answers)}.\n");
+      sb.Append("Options:\n\n");
+      foreach (var answer in question.Answers)
+      {
+        sb.Append(CultureInfo.InvariantCulture, $"- {(answer ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Trim().Replace("\n", "\n  ", StringComparison.Ordinal)}\n");
+      }
+
+      sb.Append('\n');
+    }
+
+    if (question.SuccessCriteria?.Count > 0)
+    {
+      sb.Append("Success criteria:\n\n");
+      foreach (var criterion in question.SuccessCriteria)
+      {
+        sb.Append(CultureInfo.InvariantCulture, $"- {(criterion ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Trim().Replace("\n", "\n  ", StringComparison.Ordinal)}\n");
+      }
+
+      sb.Append('\n');
     }
 
     if (includeMarkScheme && !string.IsNullOrWhiteSpace(question.MarkScheme))
     {
-      sb.Append(CultureInfo.InvariantCulture, $"  Mark scheme: {question.MarkScheme}\n");
+      var markScheme = question.MarkScheme.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal).Trim();
+      if (markScheme.Contains('\n', StringComparison.Ordinal))
+        sb.Append(CultureInfo.InvariantCulture, $"Mark scheme:\n\n\"\"\"\n{markScheme}\n\"\"\"\n\n");
+      else
+        sb.Append(CultureInfo.InvariantCulture, $"Mark scheme: {markScheme}\n\n");
     }
   }
 
