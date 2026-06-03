@@ -801,7 +801,7 @@ public partial class AIService
 
       - Is the coverage comprehensive and ambitious, prioritising the most important knowledge that students need to know and remember?
       - Does the list comprise powerful knowledge and threshold concepts that underpin deep understanding, rather than trivial or low-value facts?
-      - Are all the statements factually accurate? (It is a Priority 1 issue if there is an absolute, incontrovertible factual inaccuracies. Condone simplifications appropriate to Key Stage 3.)
+      - Are all the statements factually accurate? (It is a Priority 1 issue if there is an absolute, incontrovertible factual inaccuracy. Condone simplifications appropriate to Key Stage 3.)
       - Are they specific enough to be assessed in a knowledge quiz?
       - Are they stated as facts, rather than signposts? For example, instead of "Know the houses of Hogwarts.", a well-written statement would say "The houses of Hogwarts are Gryffindor, Hufflepuff, Ravenclaw, and Slytherin."
       - Is any important knowledge missing?
@@ -817,6 +817,7 @@ public partial class AIService
 
       - Be mindful that the scheme fits within a wider curriculum. Focus on this specific unit and its level of challenge. If key knowledge is absent but might reasonably be included in an earlier or later unit, do not penalise the curriculum for this. However, if substantial knowledge is missing and it does not seem reasonable for it to be covered elsewhere in the curriculum, then this should be highlighted.
       - Avoid substantially expanding the scope of the knowledge content to completely new areas; balance ambition with consideration of constraints on curriculum time.
+      - Key knowledge statements are not intended to be overly technical and it is usually acceptable for them to be simplified for clarity and accessibility.
       - Provide one short overview paragraph which evaluates the overall quality of the key knowledge.
       - Provide recommended actions in priority order, with the most important first, in a structured array of concise, plain-English strings (up to 10 actions but typically fewer).
       - Write each recommended action in the imperative mood.
@@ -1226,7 +1227,7 @@ public partial class AIService
         else
         {
           var assessment = await _courseService.GetBlobAsync<Assessment>(unit.RowKey, cancellationToken);
-          var recapSection = assessment.Sections.FirstOrDefault(o => string.Equals(o.Title, "Recap", StringComparison.OrdinalIgnoreCase));
+          var recapSection = assessment.Sections.FirstOrDefault(o => o.Title?.StartsWith("Recap", StringComparison.OrdinalIgnoreCase) ?? false);
           if (recapSection is null || recapSection.Questions.Count == 0)
           {
             sb.Append("There is an assessment without a recap section\n\n");
