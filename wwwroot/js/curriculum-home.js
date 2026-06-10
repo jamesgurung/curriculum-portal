@@ -1435,7 +1435,7 @@ function validateDocumentUrl(url) {
     return false;
   }
 
-  if (!url.includes('.docx?') && !url.includes('.xlsx?')) {
+  if (!url.includes('.docx?') && !url.includes('.xlsx?') && !url.includes('.pdf?')) {
     alert('Only Microsoft Word or Excel documents are accepted. Please copy the link to a valid .docx or .xlsx file.');
     return false;
   }
