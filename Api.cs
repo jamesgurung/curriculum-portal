@@ -20,7 +20,7 @@ public static class Api
     app.MapGet("/refresh", [Authorize(Roles = Roles.Admin)] async (ConfigService config) =>
     {
       await config.ReloadAsync();
-      return Results.NoContent();
+      return Results.Ok();
     });
 
     app.MapGet("/images/school-logo.png", [AllowAnonymous] (HttpContext context, ConfigService config) =>
