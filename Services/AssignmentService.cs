@@ -310,7 +310,6 @@ public class AssignmentService
     await Task.WhenAll(coursesTask, unitsTask);
     var courses = await coursesTask;
     var assignmentCourses = courses
-      .Where(o => o.AssignmentLength > 0)
       .OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
       .ToList();
     if (assignmentCourses.Count == 0) return new AssignmentsStaffData();
