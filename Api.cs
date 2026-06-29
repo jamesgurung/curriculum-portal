@@ -23,6 +23,12 @@ public static class Api
       return Results.Ok();
     });
 
+    app.MapGet("/backup", [Authorize(Roles = Roles.Admin)] async (HttpContext context, BackupService backup) =>
+    {
+      var file = await backup.CreateBackupAsync(context.RequestAborted);
+      return Results.File(file.Stream, "application/zip", file.FileName);
+    });
+
     app.MapGet("/images/school-logo.png", [AllowAnonymous] (HttpContext context, ConfigService config) =>
     {
       var logo = config.SchoolLogoBytes;

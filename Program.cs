@@ -27,6 +27,7 @@ await configService.LoadAsync();
 
 builder.Services.AddSingleton(configService);
 builder.Services.AddSingleton<CourseService>();
+builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<AIService>();
 builder.Services.AddSingleton<AssignmentService>();
 builder.Services.AddSingleton<CacheService>();
