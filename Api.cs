@@ -847,9 +847,9 @@ public static class Api
       return Results.Text($"Created assignments due {dueDate:yyyy-MM-dd}.");
     });
 
-    app.MapGet("/test-emails", [Authorize(Roles = Roles.Admin)] async (AssignmentSettingService assignmentSettingService, CancellationToken cancellationToken) =>
+    app.MapGet("/test-emails", [Authorize(Roles = Roles.Admin)] async (AssignmentAutomationService assignmentAutomationService, CancellationToken cancellationToken) =>
     {
-      var (tutorEmails, teacherEmails) = await assignmentSettingService.SendTestCompletionEmailsAsync(cancellationToken);
+      var (tutorEmails, teacherEmails) = await assignmentAutomationService.SendTestCompletionEmailsAsync(cancellationToken);
       return Results.Text($"Sent {tutorEmails} tutor and {teacherEmails} teacher completion emails.");
     });
 

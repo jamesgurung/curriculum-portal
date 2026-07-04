@@ -4,15 +4,16 @@ using System.Globalization;
 
 namespace CurriculumPortal;
 
-public class AssignmentSettingService(
+public class AssignmentAutomationService(
   AssignmentService assignmentService,
   TeamsService teamsService,
   ConfigService configService,
   AppOptions options,
   ServiceAccountAuthService serviceAccountAuthService,
   MailService mailService,
+  IBehaviourRecordService behaviourRecordService,
   IServiceScopeFactory serviceScopeFactory,
-  ILogger<AssignmentSettingService> logger) : BackgroundService
+  ILogger<AssignmentAutomationService> logger) : BackgroundService
 {
   private static readonly TimeSpan ReauthenticationReminderWindow = TimeSpan.FromDays(14);
   private static readonly TimeZoneInfo _ukTime = TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time");
@@ -63,27 +64,23 @@ public class AssignmentSettingService(
           logger.LogError(ex, "Failed to send completion emails.");
         }
 
-        if (!string.IsNullOrWhiteSpace(options.ClassChartsEmail) && !string.IsNullOrWhiteSpace(options.ClassChartsPassword))
+        try
         {
-          try
-          {
-            var classChartsService = new ClassChartsService(options, configService);
-            var students = await assignmentService.GetStudentsWithCompletionAsync(today);
-            var positiveStudents = students
-              .Where(o => o.CompletionRate >= options.AssignmentCompletionHighThreshold)
-              .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
-              .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
-            var negativeStudents = students
-              .Where(o => o.CompletionRate < options.AssignmentCompletionLowThreshold && !configService.Exemptions.Contains(o.Student.Id) && !IsExamYearExempt(o.Student, today))
-              .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
-              .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
-            var issued = await classChartsService.IssueBehaviours(positiveStudents, negativeStudents);
-            logger.LogInformation("Issued {PositiveCount} positive and {NegativeCount} negative Class Charts behaviour events.", issued.Positive, issued.Negative);
-          }
-          catch (Exception ex)
-          {
-            logger.LogError(ex, "Failed to issue Class Charts behaviour events.");
-          }
+          var students = await assignmentService.GetStudentsWithCompletionAsync(today);
+          var positiveStudents = students
+            .Where(o => o.CompletionRate >= options.AssignmentCompletionHighThreshold)
+            .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
+          var negativeStudents = students
+            .Where(o => o.CompletionRate < options.AssignmentCompletionLowThreshold && !configService.Exemptions.Contains(o.Student.Id) && !IsExamYearExempt(o.Student, today))
+            .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
+          var issued = await behaviourRecordService.IssueBehaviours(positiveStudents, negativeStudents);
+          logger.LogInformation("Issued {PositiveCount} positive and {NegativeCount} negative behaviour events.", issued.Positive, issued.Negative);
+        }
+        catch (Exception ex)
+        {
+          logger.LogError(ex, "Failed to issue behaviour events.");
         }
 
         var dueDate = assignmentService.ResolveDueDate(today.AddDays(7));

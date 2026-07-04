@@ -1,11 +1,13 @@
+using Azure;
 using System.Globalization;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace CurriculumPortal;
 
-public sealed partial class ClassChartsService
+public sealed partial class ClassChartsService : IBehaviourRecordService
 {
   private const string BaseUrl = "https://www.classcharts.com";
   private readonly string _email;
@@ -30,7 +32,7 @@ public sealed partial class ClassChartsService
     if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
       throw new InvalidOperationException("Class Charts email and password must be configured before issuing behaviours.");
 
-    var behaviours = await _config.GetClassChartsBehavioursAsync();
+    var behaviours = await GetClassChartsBehavioursAsync();
     var positiveStudents = positiveStudentsByBehaviour
       .Where(o => behaviours.ContainsKey(o.Key) && o.Value.Count > 0)
       .ToDictionary(o => o.Key, o => o.Value, StringComparer.OrdinalIgnoreCase);
@@ -72,6 +74,22 @@ public sealed partial class ClassChartsService
     }
 
     return (positiveCount, negativeCount);
+  }
+
+  private async Task<Dictionary<string, ClassChartsBehaviourSet>> GetClassChartsBehavioursAsync()
+  {
+    try
+    {
+      return ParseClassChartsBehaviours(await _config.ReadBlobAsync("classcharts-behaviours.json"));
+    }
+    catch (RequestFailedException ex)
+    {
+      throw new InvalidOperationException("Class Charts behaviour settings are not configured. Upload classcharts-behaviours.json to the config container.", ex);
+    }
+    catch (InvalidOperationException ex)
+    {
+      throw new InvalidOperationException("Class Charts behaviour settings are invalid. Check classcharts-behaviours.json in the config container.", ex);
+    }
   }
 
   private async Task<ClassChartsSession> LoginAsync(HttpClient client)
@@ -284,6 +302,43 @@ public sealed partial class ClassChartsService
     return int.TryParse(digits, out var yearGroup) ? yearGroup : 0;
   }
 
+  private static Dictionary<string, ClassChartsBehaviourSet> ParseClassChartsBehaviours(string json)
+  {
+    try
+    {
+      var blob = JsonSerializer.Deserialize<Dictionary<string, ClassChartsBehaviourSet>>(json, JsonDefaults.CamelCase) ?? throw new InvalidOperationException("classcharts-behaviours.json is invalid.");
+      if (blob.Count == 0) throw new InvalidOperationException("classcharts-behaviours.json is invalid.");
+
+      var behaviours = new Dictionary<string, ClassChartsBehaviourSet>(StringComparer.OrdinalIgnoreCase);
+      foreach (var item in blob)
+      {
+        var key = item.Key?.Trim();
+        if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("classcharts-behaviours.json contains an empty subject code.");
+        if (!behaviours.TryAdd(key, new ClassChartsBehaviourSet
+        {
+          Positive = ValidateBehaviour(item.Value?.Positive, $"{key}.positive"),
+          Negative = ValidateBehaviour(item.Value?.Negative, $"{key}.negative")
+        }))
+        {
+          throw new InvalidOperationException($"classcharts-behaviours.json contains a duplicate subject code '{key}'.");
+        }
+      }
+
+      return behaviours;
+    }
+    catch (JsonException ex)
+    {
+      throw new InvalidOperationException("classcharts-behaviours.json is invalid.", ex);
+    }
+  }
+
+  private static ClassChartsBehaviourConfig ValidateBehaviour(ClassChartsBehaviourConfig behaviour, string name)
+  {
+    if (behaviour is null || behaviour.Id <= 0 || string.IsNullOrWhiteSpace(behaviour.Reason) || string.IsNullOrWhiteSpace(behaviour.Icon)) throw new InvalidOperationException($"classcharts-behaviours.json is missing a valid '{name}' entry.");
+
+    return behaviour;
+  }
+
   private static string BuildBody(IEnumerable<FormField> fields)
   {
     return string.Join("&", fields.Select(field => $"{Encode(field.Name)}={Encode(field.Value)}"));
@@ -311,7 +366,7 @@ public sealed partial class ClassChartsService
   private static partial Regex UnescapedQuoteRegex { get; }
 }
 
-public sealed class ClassChartsBehaviourConfig
+internal sealed class ClassChartsBehaviourConfig
 {
   public int Id { get; set; }
   public string Reason { get; set; } = string.Empty;
@@ -319,7 +374,7 @@ public sealed class ClassChartsBehaviourConfig
   public string Icon { get; set; } = string.Empty;
 }
 
-public sealed class ClassChartsBehaviourSet
+internal sealed class ClassChartsBehaviourSet
 {
   public ClassChartsBehaviourConfig Positive { get; set; } = new();
   public ClassChartsBehaviourConfig Negative { get; set; } = new();

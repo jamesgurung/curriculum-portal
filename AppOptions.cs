@@ -5,6 +5,9 @@ public sealed class AppOptions
   public string[] AdminEmails { get; set; }
   public int AssignmentCompletionHighThreshold { get; set; }
   public int AssignmentCompletionLowThreshold { get; set; }
+  public string BromcomApplicationId { get; set; }
+  public string BromcomApplicationSecret { get; set; }
+  public string BromcomSchoolId { get; set; }
   public string ClassChartsEmail { get; set; }
   public string ClassChartsPassword { get; set; }
   public int DailyTokenLimit { get; set; }

@@ -125,7 +125,7 @@ public class AssignmentService
     if (studentsWithClasses.Count == 0) return [];
 
     var assignmentCourses = (await _courseService.ListCoursesAsync())
-      .Where(o => o.AssignmentLength > 0 && !string.IsNullOrWhiteSpace(o.SubjectCode))
+      .Where(o => !string.IsNullOrWhiteSpace(o.SubjectCode))
       .ToList();
     var coursesByKeyStageAndSubjectCode = BuildCoursesByKeyStageAndSubjectCode(assignmentCourses);
     var assignmentKeys = NormalizeKeys(studentsWithClasses
@@ -563,16 +563,14 @@ public class AssignmentService
     };
 
     var assignmentCourses = (await _courseService.ListCoursesAsync())
-      .Where(o => o.AssignmentLength > 0 && !string.IsNullOrWhiteSpace(o.SubjectCode))
+      .Where(o => !string.IsNullOrWhiteSpace(o.SubjectCode))
       .ToList();
     var assignmentSubjectCodes = assignmentCourses
       .Select(o => o.SubjectCode)
       .ToHashSet(StringComparer.OrdinalIgnoreCase);
     if (assignmentSubjectCodes.Count == 0) return reports;
 
-    var coursesByKeyStageAndSubjectCode = assignmentCourses
-      .GroupBy(o => BuildCourseLookupKey(o.KeyStage, o.SubjectCode), StringComparer.OrdinalIgnoreCase)
-      .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+    var coursesByKeyStageAndSubjectCode = BuildCoursesByKeyStageAndSubjectCode(assignmentCourses);
     var classRosters = BuildClassRosters();
     var tutorGroupRosters = BuildTutorGroupRosters();
     var schoolClasses = ParseClasses(classRosters.Keys)

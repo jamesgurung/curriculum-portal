@@ -26,6 +26,7 @@ var configService = new ConfigService(appOptions);
 await configService.LoadAsync();
 
 builder.Services.AddSingleton(configService);
+RegisterBehaviourRecordService(builder.Services, appOptions);
 builder.Services.AddSingleton<CourseService>();
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<AIService>();
@@ -36,9 +37,9 @@ builder.Services.AddScoped<EmailTemplateService>();
 builder.Services.AddSingleton<ServiceAccountAuthService>();
 builder.Services.AddSingleton<MailService>();
 builder.Services.AddSingleton<TeamsService>();
-builder.Services.AddSingleton<AssignmentSettingService>();
+builder.Services.AddSingleton<AssignmentAutomationService>();
 
-builder.Services.AddHostedService(provider => provider.GetRequiredService<AssignmentSettingService>());
+builder.Services.AddHostedService(provider => provider.GetRequiredService<AssignmentAutomationService>());
 
 builder.ConfigureAuth(configService);
 builder.Services.AddResponseCompression(options => { options.EnableForHttps = isProduction; });
@@ -79,3 +80,39 @@ app.MapApiPaths();
 app.MapRazorPages();
 
 await app.RunAsync();
+
+static void RegisterBehaviourRecordService(IServiceCollection services, AppOptions options)
+{
+  var bromcomSettingsCount = CountConfigured(options.BromcomApplicationId, options.BromcomApplicationSecret, options.BromcomSchoolId);
+  var classChartsSettingsCount = CountConfigured(options.ClassChartsEmail, options.ClassChartsPassword);
+  var bromcomConfigured = bromcomSettingsCount == 3;
+  var classChartsConfigured = classChartsSettingsCount == 2;
+
+  if (bromcomSettingsCount is > 0 and < 3)
+    throw new InvalidOperationException("Bromcom behaviour recording is partially configured. Configure BromcomApplicationId, BromcomApplicationSecret, and BromcomSchoolId, or remove all Bromcom settings.");
+
+  if (classChartsSettingsCount is > 0 and < 2)
+    throw new InvalidOperationException("Class Charts behaviour recording is partially configured. Configure ClassChartsEmail and ClassChartsPassword, or remove both Class Charts settings.");
+
+  if (bromcomConfigured && classChartsConfigured)
+    throw new InvalidOperationException("Only one behaviour recording provider can be configured. Remove either Bromcom settings or Class Charts settings.");
+
+  if (bromcomConfigured)
+  {
+    services.AddSingleton<IBehaviourRecordService, BromcomService>();
+    return;
+  }
+
+  if (classChartsConfigured)
+  {
+    services.AddSingleton<IBehaviourRecordService, ClassChartsService>();
+    return;
+  }
+
+  services.AddSingleton<IBehaviourRecordService, NoOpBehaviourRecordService>();
+
+  static int CountConfigured(params string[] values)
+  {
+    return values.Count(value => !string.IsNullOrWhiteSpace(value));
+  }
+}

@@ -1,4 +1,3 @@
-using Azure;
 using Azure.Storage.Blobs;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -15,8 +14,6 @@ public partial class ConfigService(AppOptions options)
   private readonly BlobContainerClient _configClient = new BlobServiceClient(options.StorageAccountConnectionString).GetBlobContainerClient("config");
   private readonly ImmutableHashSet<string> _adminEmails = options.AdminEmails.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
   private volatile bool _isLoaded;
-  private volatile bool _classChartsBehavioursLoaded;
-  private Dictionary<string, ClassChartsBehaviourSet> _classChartsBehaviours = new(StringComparer.OrdinalIgnoreCase);
 
   public byte[] SchoolLogoBytes { get; private set; }
   public IReadOnlyDictionary<string, User> UsersByEmail { get; private set; } = new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase);
@@ -54,12 +51,6 @@ public partial class ConfigService(AppOptions options)
       var logoResponse = await _configClient.GetBlobClient("school-logo.png").DownloadContentAsync();
       SchoolLogoBytes = logoResponse.Value.Content.ToArray();
 
-      if (forceRefresh)
-      {
-        _classChartsBehavioursLoaded = false;
-        _classChartsBehaviours = new(StringComparer.OrdinalIgnoreCase);
-      }
-
       _isLoaded = true;
     }
     finally
@@ -77,36 +68,7 @@ public partial class ConfigService(AppOptions options)
     await blobClient.UploadAsync(stream, true);
   }
 
-  public async Task<Dictionary<string, ClassChartsBehaviourSet>> GetClassChartsBehavioursAsync()
-  {
-    if (_classChartsBehavioursLoaded) return _classChartsBehaviours;
-    await _semaphore.WaitAsync();
-    try
-    {
-      if (_classChartsBehavioursLoaded) return _classChartsBehaviours;
-
-      try
-      {
-        _classChartsBehaviours = ParseClassChartsBehaviours(await ReadBlobAsync("classcharts-behaviours.json"));
-        _classChartsBehavioursLoaded = true;
-        return _classChartsBehaviours;
-      }
-      catch (RequestFailedException ex)
-      {
-        throw new InvalidOperationException("Class Charts behaviour settings are not configured. Upload classcharts-behaviours.json to the config container.", ex);
-      }
-      catch (InvalidOperationException ex)
-      {
-        throw new InvalidOperationException("Class Charts behaviour settings are invalid. Check classcharts-behaviours.json in the config container.", ex);
-      }
-    }
-    finally
-    {
-      _semaphore.Release();
-    }
-  }
-
-  private async Task<string> ReadBlobAsync(string blobName)
+  public async Task<string> ReadBlobAsync(string blobName)
   {
     var response = await _configClient.GetBlobClient(blobName).DownloadContentAsync();
     return Encoding.UTF8.GetString(response.Value.Content.ToArray());
@@ -217,43 +179,6 @@ public partial class ConfigService(AppOptions options)
     }
 
     return records;
-  }
-
-  private static Dictionary<string, ClassChartsBehaviourSet> ParseClassChartsBehaviours(string json)
-  {
-    try
-    {
-      var blob = JsonSerializer.Deserialize<Dictionary<string, ClassChartsBehaviourSet>>(json, JsonDefaults.CamelCase) ?? throw new InvalidOperationException("classcharts-behaviours.json is invalid.");
-      if (blob.Count == 0) throw new InvalidOperationException("classcharts-behaviours.json is invalid.");
-
-      var behaviours = new Dictionary<string, ClassChartsBehaviourSet>(StringComparer.OrdinalIgnoreCase);
-      foreach (var item in blob)
-      {
-        var key = item.Key?.Trim();
-        if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("classcharts-behaviours.json contains an empty subject code.");
-        if (!behaviours.TryAdd(key, new ClassChartsBehaviourSet
-        {
-          Positive = ValidateBehaviour(item.Value?.Positive, $"{key}.positive"),
-          Negative = ValidateBehaviour(item.Value?.Negative, $"{key}.negative")
-        }))
-        {
-          throw new InvalidOperationException($"classcharts-behaviours.json contains a duplicate subject code '{key}'.");
-        }
-      }
-
-      return behaviours;
-    }
-    catch (JsonException ex)
-    {
-      throw new InvalidOperationException("classcharts-behaviours.json is invalid.", ex);
-    }
-  }
-
-  private static ClassChartsBehaviourConfig ValidateBehaviour(ClassChartsBehaviourConfig behaviour, string name)
-  {
-    if (behaviour is null || behaviour.Id <= 0 || string.IsNullOrWhiteSpace(behaviour.Reason) || string.IsNullOrWhiteSpace(behaviour.Icon)) throw new InvalidOperationException($"classcharts-behaviours.json is missing a valid '{name}' entry.");
-
-    return behaviour;
   }
 
   private static List<ChecklistItemConfig> ParseChecklistItems(string json)

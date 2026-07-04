@@ -14,7 +14,7 @@ Deploy effortlessly to Microsoft Azure.
 
     * Upload a blank file `keys.xml`. Generate a SAS URL for this file with read/write permissions and a distant expiry. This will be used to store the application's data protection keys so that auth cookies persist across app restarts.
 
-    * Upload a file `students.csv` with the following headers and populate it with all students in your school. "Id" can be any unique integer identifier. "PupilPremium" should be `true` or `false` for each student. The "Classes" field should contain a comma-separated list of classes, wrapped in double quotes. To correctly represent accented characters in student names, save the file in 'CSV UTF-8' format.
+    * Upload a file `students.csv` with the following headers and populate it with all students in your school. "Id" can be any unique integer identifier, unless you are using Bromcom to record behaviour events, in which case it must be the Bromcom student ID. "PupilPremium" should be `true` or `false` for each student. The "Classes" field should contain a comma-separated list of classes, wrapped in double quotes. To correctly represent accented characters in student names, save the file in 'CSV UTF-8' format.
 
         ```csv
         Id,Email,FirstName,LastName,TutorGroup,PupilPremium,Classes
@@ -79,6 +79,22 @@ Deploy effortlessly to Microsoft Azure.
         }
         ```
 
+    * If you are using Bromcom to record behaviour events, upload `bromcom-behaviours.json` containing the staff owner and one positive and one negative behaviour event type. Bromcom uses these same two event types for all subjects.
+
+        ```json
+        {
+          "staffId": 12345,
+          "positive": {
+            "eventTypeId": 100001,
+            "points": 10
+          },
+          "negative": {
+            "eventTypeId": 100002,
+            "points": -6
+          }
+        }
+        ```
+
     * Upload `checklist.json` containing the checklist items to show for each unit. Each `id` must be unique and may only contain letters, numbers, hyphens, and underscores.
 
         ```json
@@ -121,8 +137,11 @@ Deploy effortlessly to Microsoft Azure.
 6. Configure the following environment variables for the web app:
 
     * `AdminEmails__0` - the email address of the first admin user, who has full administrative access (subsequent admins can be configured by adding items with incrementing indices)
-    * `AssignmentCompletionHighThreshold` - the integer percentage completion rate above which students due assignments today receive the positive Class Charts behaviour (set this above `100` to disable positive behaviours)
-    * `AssignmentCompletionLowThreshold` - the integer percentage completion rate below which students due assignments today receive the negative Class Charts behaviour (set this below `0` to disable negative behaviours)
+    * `AssignmentCompletionHighThreshold` - the integer percentage completion rate above which students due assignments today receive the positive behaviour event (set this above `100` to disable positive behaviours)
+    * `AssignmentCompletionLowThreshold` - the integer percentage completion rate below which students due assignments today receive the negative behaviour event (set this below `0` to disable negative behaviours)
+    * `BromcomApplicationId` - the Bromcom application ID used to issue behaviours (if you are using Bromcom to record behaviour events)
+    * `BromcomApplicationSecret` - the Bromcom application secret used to issue behaviours (if you are using Bromcom to record behaviour events)
+    * `BromcomSchoolId` - the Bromcom school ID used to issue behaviours (if you are using Bromcom to record behaviour events)
     * `ClassChartsEmail` - the email address of the Class Charts account used to issue behaviours (if you are using Class Charts to record behaviour events)
     * `ClassChartsPassword` - the password for the Class Charts account used to issue behaviours (if you are using Class Charts to record behaviour events)
     * `DailyTokenLimit` - the maximum number of OpenAI tokens to use per UTC day (optional)
@@ -142,6 +161,8 @@ Deploy effortlessly to Microsoft Azure.
     * `StorageAccountConnectionString` - the connection string for the Azure Storage account
     * `SyncApiKey` - the secret key to use if you update the `students.csv` and `teachers.csv` files with an automated script (optional)
     * `Website` - the public base URL of your deployed Curriculum Portal, e.g. `https://example.com`
+
+    Configure exactly one behaviour recording provider. If all Bromcom settings are present the app uses Bromcom; if both Class Charts settings are present the app uses Class Charts; if neither provider is configured no behaviour events are recorded. Partial provider settings, or configuring both providers, causes startup to fail.
 
 7. Sign in as an admin and visit `/serviceaccount` to authenticate the Microsoft mailbox used for HTML email sending. Note that the service account should not typically be the same as the admin account.
 

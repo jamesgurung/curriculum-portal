@@ -8,13 +8,15 @@ EXPOSE 8081
 
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
 WORKDIR /src
+COPY nuget.config .
+COPY CustomPackages ./CustomPackages
 COPY CurriculumPortal.csproj .
-RUN dotnet restore CurriculumPortal.csproj
+RUN dotnet restore CurriculumPortal.csproj --configfile nuget.config
 COPY . .
-RUN dotnet build CurriculumPortal.csproj -c Release -o /app/build
+RUN dotnet build CurriculumPortal.csproj -c Release -o /app/build --no-restore
 
 FROM build AS publish
-RUN dotnet publish CurriculumPortal.csproj -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish CurriculumPortal.csproj -c Release -o /app/publish /p:UseAppHost=false --no-restore
 
 FROM base AS final
 WORKDIR /app

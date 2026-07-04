@@ -57,7 +57,7 @@ public class BackupService
         if (container.Name == "config" && blob.Name is "serviceaccount.json" or "keys.xml") continue;
 
         var entry = archive.CreateEntry($"blobs/{container.Name}/{Uri.EscapeDataString(blob.Name)}", CompressionLevel.SmallestSize);
-        await using var entryStream = entry.Open();
+        await using var entryStream = await entry.OpenAsync(cancellationToken);
         await containerClient.GetBlobClient(blob.Name).DownloadToAsync(entryStream, cancellationToken);
       }
     }
@@ -68,7 +68,7 @@ public class BackupService
     await foreach (var table in _tableServiceClient.QueryAsync(cancellationToken: cancellationToken))
     {
       var entry = archive.CreateEntry($"tables/{table.Name}.csv", CompressionLevel.SmallestSize);
-      await using var entryStream = entry.Open();
+      await using var entryStream = await entry.OpenAsync(cancellationToken);
       await using var writer = new StreamWriter(entryStream);
       await using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
       var propertyNames = new SortedSet<string>(StringComparer.Ordinal);
