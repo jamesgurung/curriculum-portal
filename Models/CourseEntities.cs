@@ -22,6 +22,7 @@ public class CourseEntity : ITableEntity
   public int KeyStage { get; set; }
   public string Name { get; set; }
   public string SubjectCode { get; set; }
+  public string Icon { get; set; }
   public string Intent { get; set; }
   public string Specification { get; set; }
   public int AssignmentLength { get; set; }

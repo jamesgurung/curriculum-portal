@@ -6,6 +6,7 @@
 @using System.Text.Json
 @{
   ViewData["Title"] = $"{Model.Course.Name} Evaluation";
+  ViewData["BodyClass"] = "evaluation-layout";
 }
 
 @functions {
@@ -28,8 +29,7 @@
   <link rel="stylesheet" href="/css/curriculum.css" />
 }
 
-<div id="curriculum-app" class="evaluation-app">
-  <main class="evaluation-main active">
+<main class="evaluation-main active">
     <div class="evaluation-header">
       <a class="back-button" href="/courses/@Uri.EscapeDataString(Model.CourseId)" title="Back to course" aria-label="Back to course">
         <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
@@ -245,8 +245,7 @@
         }
       </div>
     }
-  </main>
-</div>
+</main>
 
 <div id="modal" class="evaluation-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div id="modal-content">

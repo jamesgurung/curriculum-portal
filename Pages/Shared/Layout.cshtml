@@ -4,11 +4,13 @@
   var title = ViewData["Title"] as string;
   var resolvedTitle = string.IsNullOrWhiteSpace(title) ? AppOptions.SchoolName : title;
   var metaDescription = $"Explore the curriculum at {AppOptions.SchoolName}, including courses, units, and revision quiz content.";
+  var isCoursesSection = Context.Request.Path.StartsWithSegments("/courses");
   var isAssignmentsSection = Context.Request.Path.StartsWithSegments("/assignments");
   var bodyClass = isAssignmentsSection ? "assignments-layout" : string.Empty;
-  var sectionHomeHref = isAssignmentsSection ? "/assignments" : "/courses";
-  var sectionSwitchLabel = isAssignmentsSection ? "Courses" : "Assignments";
-  var sectionSwitchHref = isAssignmentsSection ? "/courses" : "/assignments";
+  var pageBodyClass = ViewData["BodyClass"] as string;
+  if (!string.IsNullOrWhiteSpace(pageBodyClass))
+    bodyClass = string.IsNullOrWhiteSpace(bodyClass) ? pageBodyClass : $"{bodyClass} {pageBodyClass}";
+  var returnUrl = Uri.EscapeDataString($"{Context.Request.Path}{Context.Request.QueryString}");
 
 }
 <!DOCTYPE html>
@@ -37,26 +39,49 @@
 </head>
 
 <body class="@bodyClass">
-  <header class="app-header">
+  <header class="app-header" style="--brand-colour: @AppOptions.BrandColour; --brand-accent-colour: @AppOptions.BrandAccentColour;">
     <div class="header-bar">
+      <details class="nav-menu">
+        <summary class="nav-menu-toggle" aria-label="Toggle navigation menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </summary>
+        <nav class="nav-menu-panel" aria-label="Main navigation">
+          <a class="nav-drawer-link @(isCoursesSection ? "active" : string.Empty)" href="/courses">Courses</a>
+          <a class="nav-drawer-link @(isAssignmentsSection ? "active" : string.Empty)" href="/assignments">Assignments</a>
+          @if (User.Identity.IsAuthenticated)
+          {
+            <span class="nav-drawer-user">@User.GetDisplayName()</span>
+            <a class="nav-drawer-link" href="/logout">Sign Out</a>
+          }
+          else
+          {
+            <a class="nav-drawer-link" href="/login?path=@returnUrl">Sign In</a>
+          }
+        </nav>
+      </details>
       <h1>
-        <a href="@sectionHomeHref">
-          <span class="hide-mobile">@AppOptions.SchoolName</span>
-          <span class="subheader"><span class="material-symbols-outlined">school</span>Curriculum</span>
+        <a class="navbar-brand" href="/courses">
+          <img class="navbar-logo" src="/images/school-logo-navbar.png" alt="@AppOptions.SchoolName logo">
+          <span>Curriculum Portal</span>
         </a>
       </h1>
+      @if (User.Identity.IsAuthenticated)
+      {
+        <nav class="nav-links" aria-label="Main navigation">
+          <a class="nav-link @(isCoursesSection ? "active" : string.Empty)" href="/courses">Courses</a>
+          <a class="nav-link @(isAssignmentsSection ? "active" : string.Empty)" href="/assignments">Assignments</a>
+        </nav>
+      }
       <div class="auth-actions">
         @if (User.Identity.IsAuthenticated)
         {
-          <span class="signed-in-name hide-mobile">@User.GetDisplayName()</span>
-          <a class="auth-button auth-button-section" href="@sectionSwitchHref">@sectionSwitchLabel</a>
-          <a class="auth-button auth-button-icon" href="/logout" aria-label="Sign Out" title="Sign Out">
-            <span class="material-symbols-outlined" aria-hidden="true">logout</span>
-          </a>
+          <span class="signed-in-name">@User.GetDisplayName()</span>
+          <a class="auth-button auth-link" href="/logout">Sign Out</a>
         }
         else
         {
-          var returnUrl = Uri.EscapeDataString($"{Context.Request.Path}{Context.Request.QueryString}");
           <a class="auth-button" href="/login?path=@returnUrl">Sign In</a>
         }
       </div>

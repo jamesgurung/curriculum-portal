@@ -21,6 +21,7 @@ const yearsForCourse = course => course.subjectCode === 'Rg'
 const fields = {
   intent: 'intent',
   specification: 'specification',
+  icon: 'icon',
   'assignment-length': 'assignmentLength',
   term: 'term',
   checklist: 'checklist',
@@ -53,6 +54,12 @@ const modalConfig = {
     title: 'Specification',
     question: 'State the exam board, course title, and specification code.',
     example: 'e.g. Edexcel GCSE Mathematics (1MA1)',
+    input: 'text'
+  },
+  icon: {
+    title: 'Course Icon',
+    question: 'Enter the Material Symbols icon name for this course.',
+    example: 'e.g. calculate',
     input: 'text'
   },
   'assignment-length': {
@@ -117,6 +124,14 @@ const elements = {
 const state = { courseId: null, unitId: null, courseEditable: false, editMode: false, quizQuestions: [], remainingQuestions: [], activeQuizQuestionCount: 0 };
 const coursesRootPath = '/courses';
 const coursesPathPrefix = '/courses/';
+
+function getPageScrollTop() {
+  return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+}
+
+function setPageScrollTop(scrollTop) {
+  window.scrollTo(0, scrollTop);
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   renderCourseList();
@@ -217,6 +232,7 @@ function renderCourseList() {
   for (const course of courses) {
     const li = clone('tpl-course-item');
     li.dataset.courseId = course.id;
+    qs('.material-symbols-outlined', li).textContent = course.icon || 'book';
     qs('.course-name', li).textContent = course.name;
     fragment.appendChild(li);
   }
@@ -264,6 +280,7 @@ function showCourseList(eventOrOptions, maybeOptions = {}) {
   if (options.scrollCourseListToTop) {
     elements.aside.scrollTop = 0;
   }
+  setPageScrollTop(0);
 
   if (!options.skipHistory) {
     updateDisplayPath(coursesRootPath, !!options.replaceHistory);
@@ -276,7 +293,7 @@ function showCourseList(eventOrOptions, maybeOptions = {}) {
 function showCourse(courseId, options = {}) {
   const previousCourseId = state.courseId;
   const scrollTop = options.preserveScroll
-    ? { main: elements.main.scrollTop, courseDetail: elements.courseDetail.scrollTop }
+    ? { page: getPageScrollTop(), courseDetail: elements.courseDetail.scrollTop }
     : null;
   if (!options.keepEditMode || previousCourseId !== courseId) {
     state.editMode = false;
@@ -395,6 +412,15 @@ function showCourse(courseId, options = {}) {
     container.appendChild(intentInfo);
   }
 
+  if (inEditMode && isAdmin) {
+    const iconInfo = clone('tpl-course-info');
+    qs('.icon', iconInfo).textContent = 'image';
+    qs('.label', iconInfo).textContent = 'Course icon';
+    qs('.value', iconInfo).textContent = course.icon || 'book';
+    iconInfo.appendChild(buildEditButton(courseId, '', 'icon'));
+    container.appendChild(iconInfo);
+  }
+
   for (const year of visibleYears) {
     container.appendChild(renderYearSection(courseId, unitsForCourse, year));
   }
@@ -423,10 +449,10 @@ function showCourse(courseId, options = {}) {
   elements.unitDetail.classList.remove('active');
   elements.unitQuiz.classList.remove('active');
   if (scrollTop) {
-    elements.main.scrollTop = scrollTop.main;
+    setPageScrollTop(scrollTop.page);
     elements.courseDetail.scrollTop = scrollTop.courseDetail;
   } else {
-    elements.main.scrollTop = 0;
+    setPageScrollTop(0);
     elements.courseDetail.scrollTop = 0;
   }
 
@@ -660,6 +686,7 @@ function buildEditButton(courseId, unitId, property, icon = 'edit') {
     'why-now': 'Edit why now',
     intent: 'Edit curriculum intent',
     specification: 'Edit specification',
+    icon: 'Edit course icon',
     'assignment-length': 'Edit weekly assignment length'
   };
   const label = labels[property] || 'Edit';
@@ -928,7 +955,7 @@ async function showUnit(unitId, options = {}) {
   elements.courseDetail.classList.remove('active');
   elements.unitQuiz.classList.remove('active');
   elements.unitDetail.classList.add('active');
-  elements.main.scrollTop = 0;
+  setPageScrollTop(0);
 
   if (!options.skipHistory) {
     updateDisplayPath(buildCurriculumPath(state.courseId, unitId), !!options.replaceHistory);
@@ -1178,7 +1205,7 @@ function startQuiz(skipHistoryUpdate = false) {
     updateLoginPath();
   }
 
-  elements.unitQuiz.scrollTop = 0;
+  setPageScrollTop(0);
   elements.unitDetail.classList.remove('active');
   elements.unitQuiz.classList.add('active');
   elements.quizPlay.classList.remove('hide');
@@ -1387,9 +1414,11 @@ function openEditModal(courseId, unitId, property) {
       ? (course?.intent || '')
       : property === 'specification'
         ? (course?.specification || '')
-        : property === 'assignment-length'
-          ? String(course?.assignmentLength ?? 0)
-          : (unit?.[fields[property]] || '');
+        : property === 'icon'
+          ? (course?.icon || '')
+          : property === 'assignment-length'
+            ? String(course?.assignmentLength ?? 0)
+            : (unit?.[fields[property]] || '');
   }
 
   elements.modalSave.dataset.course = courseId;
@@ -1469,9 +1498,12 @@ async function onSave() {
       return;
     }
 
-    if (property === 'intent' || property === 'specification' || property === 'assignment-length') {
+    if (property === 'intent' || property === 'specification' || property === 'icon' || property === 'assignment-length') {
       await request(`/courses/${course}/build/${property}`, 'PUT', { value });
       courseById(course)[fields[property]] = property === 'assignment-length' ? Number(value) : value;
+      if (property === 'icon') {
+        renderCourseList();
+      }
     } else {
       await request(`/courses/${course}/${unit}/build/${property}`, 'PUT', { value });
       unitById(unit)[fields[property]] = value;

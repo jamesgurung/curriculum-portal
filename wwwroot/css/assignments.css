@@ -20,14 +20,13 @@
   --assignments-shadow: 0 1px 3px rgba(11, 26, 45, 0.06), 0 4px 12px rgba(11, 26, 45, 0.06);
   min-height: 100%;
   padding: 0.9rem;
-  background: color-mix(in srgb, var(--assignments-bg) 88%, #ffffff);
   color: var(--assignments-text);
   box-sizing: border-box;
 }
 
 body.assignments-layout {
   --assignments-bg: #edf2f8;
-  --page-bg-solid: color-mix(in srgb, var(--assignments-bg) 88%, #ffffff);
+  --page-bg-solid: #ffffff;
   background: var(--page-bg-solid);
 }
 
@@ -100,7 +99,7 @@ body.assignments-layout .assignments-page {
   margin: 0;
   padding: 0.95rem 1.05rem;
   border-bottom: 1px solid var(--assignments-border);
-  background: var(--assignments-panel-soft);
+  background: color-mix(in srgb, var(--assignments-border-standard) 26%, var(--assignments-panel-soft));
   color: var(--assignments-text-strong);
   font-size: 1.02rem;
   font-weight: 650;
@@ -902,12 +901,11 @@ a.assignment-card.is-overdue:hover {
     --assignments-ring-complete: #5eb288;
     --assignments-ring-pp: #f25aa5;
     --assignments-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-    background: color-mix(in srgb, var(--assignments-bg) 96%, #000000);
   }
 
   body.assignments-layout {
     --assignments-bg: #141519;
-    --page-bg-solid: color-mix(in srgb, var(--assignments-bg) 96%, #000000);
+    --page-bg-solid: var(--assignments-bg);
   }
 }
 

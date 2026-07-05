@@ -32,8 +32,7 @@
   --shadow-panel: 0 1px 3px rgba(11, 26, 45, 0.06), 0 4px 12px rgba(11, 26, 45, 0.06);
   --radius-card: 12px;
   --radius-control: 8px;
-  --page-bg-solid: color-mix(in srgb, var(--page-bg) 88%, #ffffff);
-  --main-bg-solid: color-mix(in srgb, var(--panel-elevated) 98%, var(--accent-surface));
+  --page-bg-solid: #ffffff;
   --section-bg-solid: color-mix(in srgb, var(--panel-bg) 89%, #ffffff);
 }
 
@@ -70,9 +69,8 @@
     --checklist-exempt: var(--ink-faint);
 
     --shadow-panel: 0 2px 10px rgba(0, 0, 0, 0.28);
-    --page-bg-solid: color-mix(in srgb, var(--page-bg) 96%, #000000);
-    --main-bg-solid: color-mix(in srgb, var(--panel-elevated) 94%, var(--panel-bg));
-    --section-bg-solid: color-mix(in srgb, var(--panel-bg) 92%, #000000);
+    --page-bg-solid: var(--page-bg);
+    --section-bg-solid: color-mix(in srgb, var(--panel-bg) 92%, var(--page-bg));
   }
 
   aside,
@@ -105,7 +103,7 @@ body {
   grid-template-columns: 360px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   gap: 1rem;
-  max-width: var(--layout-max-width, 1280px);
+  max-width: var(--layout-max-width, 1172px);
   height: 100%;
   margin: 0 auto;
   padding: 0.9rem 0.9rem 0;
@@ -114,7 +112,6 @@ body {
 
 aside,
 main {
-  background: var(--panel-elevated);
   border: 1px solid var(--border-standard);
   box-shadow: var(--shadow-panel);
 }
@@ -129,7 +126,39 @@ main {
   min-height: 0;
   overflow: auto;
   padding: 1.2rem;
-  background: var(--main-bg-solid);
+}
+
+body.courses-layout {
+  height: auto;
+  min-height: 100dvh;
+  overflow-y: auto;
+}
+
+body.courses-layout .app-body {
+  flex: 1 0 auto;
+  overflow: visible;
+}
+
+body.courses-layout #curriculum-app {
+  display: block;
+  height: auto;
+  padding: 0.9rem;
+}
+
+body.courses-layout #course-column {
+  position: fixed;
+  top: calc(var(--app-header-height) + 0.9rem);
+  bottom: calc(var(--app-footer-height) + 0.9rem);
+  left: max(0.9rem, calc((100vw - var(--layout-max-width, 1172px)) / 2 + 0.9rem));
+  width: 360px;
+}
+
+body.courses-layout #curriculum-app > main {
+  margin-left: calc(360px + 1rem);
+  padding: 0.45rem 0 0;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
 }
 
 #course-list,
@@ -622,7 +651,7 @@ h3 {
   max-width: min(320px, calc(100vw - 1.5rem));
   padding: 0.42rem 0.58rem;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--ink-strong) 94%, #000000);
+  background: color-mix(in srgb, var(--ink-strong) 94%, var(--page-bg));
   color: #ffffff;
   font-size: 0.84rem;
   line-height: 1.35;
@@ -938,12 +967,32 @@ h3 {
   }
 }
 
-#curriculum-app.evaluation-app {
-  display: block;
+body.evaluation-layout {
+  height: auto;
+  min-height: 100dvh;
+  overflow-y: auto;
+}
+
+body.evaluation-layout .app-body {
+  flex: 1 0 auto;
+  overflow: visible;
+  padding-bottom: var(--app-footer-height);
+}
+
+body.evaluation-layout .app-footer {
+  left: 0;
+  position: fixed;
+  right: 0;
 }
 
 .evaluation-main {
   display: block;
+  max-width: var(--layout-max-width, 1172px);
+  margin: 0.9rem auto;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+  padding: 0;
 }
 
 .evaluation-header {
@@ -1650,9 +1699,29 @@ h3 {
     padding: 0.45rem 0.45rem 0;
   }
 
+  body.courses-layout #curriculum-app {
+    display: grid;
+    min-height: 0;
+  }
+
   aside {
     display: none;
     height: 100%;
+  }
+
+  body.courses-layout #course-column {
+    position: static;
+    bottom: auto;
+    width: auto;
+    max-height: none;
+    height: auto;
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  body.courses-layout #course-list {
+    padding: 0;
   }
 
   aside.active {
@@ -1662,6 +1731,12 @@ h3 {
   main {
     display: none;
     padding: 0.8rem;
+  }
+
+  body.courses-layout #curriculum-app > main {
+    margin-left: 0;
+    min-height: 0;
+    padding-top: 0;
   }
 
   main.active {

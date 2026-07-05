@@ -31,9 +31,14 @@ public static class Api
 
     app.MapGet("/images/school-logo.png", [AllowAnonymous] (HttpContext context, ConfigService config) =>
     {
-      var logo = config.SchoolLogoBytes;
       context.Response.Headers.CacheControl = "public, max-age=31536000";
       return Results.File(config.SchoolLogoBytes, "image/png");
+    });
+
+    app.MapGet("/images/school-logo-navbar.png", [AllowAnonymous] (HttpContext context, ConfigService config) =>
+    {
+      context.Response.Headers.CacheControl = "public, max-age=31536000";
+      return Results.File(config.SchoolNavbarLogoBytes, "image/png");
     });
 
     app.MapGet("/keyknowledge", [AllowAnonymous] async (HttpContext context, string unit, CourseService storage, CacheService cache) =>
@@ -388,6 +393,13 @@ public static class Api
           break;
         case "specification":
           course.Specification = value;
+          break;
+        case "icon":
+          if (!context.User.IsInRole(Roles.Admin))
+          {
+            return Results.Forbid();
+          }
+          course.Icon = value;
           break;
         case "assignment-length":
           if (!context.User.IsInRole(Roles.Admin))

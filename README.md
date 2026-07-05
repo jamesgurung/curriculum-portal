@@ -112,6 +112,8 @@ Deploy effortlessly to Microsoft Azure.
 
     * Upload `school-logo.png`.
 
+    * Upload `school-logo-navbar.png`.
+
 3. If you are using [Microsoft Foundry](https://ai.azure.com/), create a project and deploy an OpenAI reasoning model (e.g. `gpt-5.5`). Set `MicrosoftFoundryEndpoint` to use Microsoft Foundry. If `MicrosoftFoundryEndpoint` is not set, the app uses the direct OpenAI API instead.
 
 4. Create an Azure app registration.
@@ -139,6 +141,8 @@ Deploy effortlessly to Microsoft Azure.
     * `AdminEmails__0` - the email address of the first admin user, who has full administrative access (subsequent admins can be configured by adding items with incrementing indices)
     * `AssignmentCompletionHighThreshold` - the integer percentage completion rate above which students due assignments today receive the positive behaviour event (set this above `100` to disable positive behaviours)
     * `AssignmentCompletionLowThreshold` - the integer percentage completion rate below which students due assignments today receive the negative behaviour event (set this below `0` to disable negative behaviours)
+    * `BrandAccentColour` - the CSS colour used for the navbar bottom border
+    * `BrandColour` - the CSS colour used for the navbar background
     * `BromcomApplicationId` - the Bromcom application ID used to issue behaviours (if you are using Bromcom to record behaviour events)
     * `BromcomApplicationSecret` - the Bromcom application secret used to issue behaviours (if you are using Bromcom to record behaviour events)
     * `BromcomSchoolId` - the Bromcom school ID used to issue behaviours (if you are using Bromcom to record behaviour events)

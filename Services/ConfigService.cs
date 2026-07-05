@@ -16,6 +16,7 @@ public partial class ConfigService(AppOptions options)
   private volatile bool _isLoaded;
 
   public byte[] SchoolLogoBytes { get; private set; }
+  public byte[] SchoolNavbarLogoBytes { get; private set; }
   public IReadOnlyDictionary<string, User> UsersByEmail { get; private set; } = new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase);
   public IReadOnlyList<User> Teachers { get; private set; }
   public IReadOnlyList<User> Students { get; private set; }
@@ -50,6 +51,8 @@ public partial class ConfigService(AppOptions options)
 
       var logoResponse = await _configClient.GetBlobClient("school-logo.png").DownloadContentAsync();
       SchoolLogoBytes = logoResponse.Value.Content.ToArray();
+      var navbarLogoResponse = await _configClient.GetBlobClient("school-logo-navbar.png").DownloadContentAsync();
+      SchoolNavbarLogoBytes = navbarLogoResponse.Value.Content.ToArray();
 
       _isLoaded = true;
     }

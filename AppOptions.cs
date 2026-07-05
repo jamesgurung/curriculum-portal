@@ -5,6 +5,8 @@ public sealed class AppOptions
   public string[] AdminEmails { get; set; }
   public int AssignmentCompletionHighThreshold { get; set; }
   public int AssignmentCompletionLowThreshold { get; set; }
+  public string BrandAccentColour { get; set; }
+  public string BrandColour { get; set; }
   public string BromcomApplicationId { get; set; }
   public string BromcomApplicationSecret { get; set; }
   public string BromcomSchoolId { get; set; }
@@ -32,6 +34,8 @@ public sealed class AppOptions
   {
     EnsureValue(DataControllerName, nameof(DataControllerName));
     EnsureValue(DataProtectionBlobUri, nameof(DataProtectionBlobUri));
+    EnsureValue(BrandAccentColour, nameof(BrandAccentColour));
+    EnsureValue(BrandColour, nameof(BrandColour));
     EnsureValue(MicrosoftClientId, nameof(MicrosoftClientId));
     EnsureValue(MicrosoftClientSecret, nameof(MicrosoftClientSecret));
     EnsureValue(MicrosoftSharePointSubdomain, nameof(MicrosoftSharePointSubdomain));
