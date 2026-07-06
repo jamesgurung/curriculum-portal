@@ -48,10 +48,10 @@
           <span></span>
         </summary>
         <nav class="nav-menu-panel" aria-label="Main navigation">
-          <a class="nav-drawer-link @(isCoursesSection ? "active" : string.Empty)" href="/courses">Courses</a>
-          <a class="nav-drawer-link @(isAssignmentsSection ? "active" : string.Empty)" href="/assignments">Assignments</a>
           @if (User.Identity.IsAuthenticated)
           {
+            <a class="nav-drawer-link @(isCoursesSection ? "active" : string.Empty)" href="/courses">Courses</a>
+            <a class="nav-drawer-link @(isAssignmentsSection ? "active" : string.Empty)" href="/assignments">Assignments</a>
             <span class="nav-drawer-user">@User.GetDisplayName()</span>
             <a class="nav-drawer-link" href="/logout">Sign Out</a>
           }
