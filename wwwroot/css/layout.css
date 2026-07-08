@@ -24,7 +24,7 @@ textarea {
   font-family: var(--font-family);
 }
 
-.material-symbols-outlined {
+.material-symbols-outlined:not(a):not(button) {
   display: inline-block;
   width: 1em;
   min-width: 1em;
