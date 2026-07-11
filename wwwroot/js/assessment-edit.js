@@ -531,6 +531,8 @@ async function prepareImage(file, mono) {
   const height = Math.round(bitmap.height * scale);
   const offscreen = new OffscreenCanvas(width, height);
   const ctx = offscreen.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, width, height);
   if (mono) ctx.filter = 'grayscale(1)';
   ctx.drawImage(bitmap, 0, 0, width, height);
   const blob = await offscreen.convertToBlob({ type: 'image/webp', quality: 0.8 });

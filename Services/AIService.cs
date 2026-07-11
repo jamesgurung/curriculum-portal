@@ -49,15 +49,15 @@ public partial class AIService
       You are a meticulous assistant to the user, who is an experienced teacher. They will provide a school assessment in plain text format.
       Your task is to extract the questions in a structured JSON format.
       Please note:
-      * An assessment consists of sections. Each section has a one-word title (usually "Recap", "Knowledge", and "Application") and contains questions. The title must only be one word.
-      * If options are provided for a question, then it is multiple choice. The `answers` field should be an array of the four options, and the `markScheme` field should be the single letter a, b, c, or d. Set `lines` to null for multiple-choice questions.
-      * All other questions are open-ended. For open-ended questions, set `answers` to null, and set the `lines` field to the estimated number of lines for a response (1 for one-word answers, up to 40 for extended writing).
-      * The `marks` field should be the number of marks available for the question, as stated in the text. If not stated, estimate the number of marks in line with similar questions.
-      * The `markScheme` field should exactly use the mark scheme provided at the end of the text, if available. Otherwise, suggest an appropriate mark scheme. For multiple-choice questions, this must be the letter of the correct answer. For open-ended questions, it is sometimes short and sometimes very long and detailed (in which case, copy the whole mark scheme text in full).
-      * The `successCriteria` field should be an array of the success criteria for the question, if provided (otherwise, null).
-      * Keep all the same questions provided by the user, but correct any spelling, punctuation, or grammatical errors in British English. Also rephrase questions for clarity if needed.
-      * For mathematical expressions, always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted.
-      * Prefer double quotes ("") instead of single quotes (').
+      - An assessment consists of sections. Each section has a one-word title (usually "Recap", "Knowledge", and "Application") and contains questions. The title must only be one word.
+      - If options are provided for a question, then it is multiple choice. The `answers` field should be an array of the four options, and the `markScheme` field should be the single letter a, b, c, or d. Set `lines` to null for multiple-choice questions.
+      - All other questions are open-ended. For open-ended questions, set `answers` to null, and set the `lines` field to the estimated number of lines for a response (1 for one-word answers, up to 40 for extended writing).
+      - The `marks` field should be the number of marks available for the question, as stated in the text. If not stated, estimate the number of marks in line with similar questions.
+      - The `markScheme` field should exactly use the mark scheme provided at the end of the text, if available. Otherwise, suggest an appropriate mark scheme. For multiple-choice questions, this must be the letter of the correct answer. For open-ended questions, it is sometimes short and sometimes very long and detailed (in which case, copy the whole mark scheme text in full).
+      - The `successCriteria` field should be an array of the success criteria for the question, if provided (otherwise, null).
+      - Keep all the same questions provided by the user, but correct any spelling, punctuation, or grammatical errors in British English. Also rephrase questions for clarity if needed.
+      - For mathematical expressions, always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted.
+      - Prefer double quotes ("") instead of single quotes (').
       """.Trim();
 
     var userMessage = ResponseItem.CreateUserMessageItem(value);
@@ -755,7 +755,7 @@ public partial class AIService
       - Preserve Priorities 1 and 2 for fixing serious problems, if any. Do not assign a high priority to actions that are more subjective or open to debate.
       - Do not include Markdown bullet syntax, headings, or formatting.
       - The provided curriculum information is not intended to include assessments, rubrics, knowledge organisers, lesson plans, or other artefacts, so do not comment on these.
-      - Keep a high-level view and do not address minor unit-level details as these will be covered in the individual unit evaluations.
+      - Keep a high-level view and do not address minor unit-level or statement-level details as these will be covered in the individual unit evaluations.
       - Use British English spelling and terminology.
       - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
       """;
@@ -801,7 +801,7 @@ public partial class AIService
 
       - Is the coverage comprehensive and ambitious, prioritising the most important knowledge that students need to know and remember?
       - Does the list comprise powerful knowledge and threshold concepts that underpin deep understanding, rather than trivial or low-value facts?
-      - Are all the statements factually accurate? (It is a Priority 1 issue if there is an absolute, incontrovertible factual inaccuracy. Condone simplifications appropriate to Key Stage 3.)
+      - Are all the statements factually accurate? (It is a Priority 1 issue if there is an absolute, incontrovertible factual inaccuracy. Condone simplifications appropriate to Key Stage 3, such as omitted qualifications or exceptions.)
       - Are they specific enough to be assessed in a knowledge quiz?
       - Are they stated as facts, rather than signposts? For example, instead of "Know the houses of Hogwarts.", a well-written statement would say "The houses of Hogwarts are Gryffindor, Hufflepuff, Ravenclaw, and Slytherin."
       - Is any important knowledge missing?
@@ -811,12 +811,12 @@ public partial class AIService
       - Does the list comprise specific, knowledge-rich skills and techniques that students need to develop?
       - Are the highest-priority skills included, within the scope of the unit?
       - Are the skills precise enough to be assessed through performance, demonstration, or worked responses? Note that detailed success criteria are intentionally omitted.
-      - Does the list correctly avoid generic study skills and vague verbs like "know" and "understand".
+      - Does the list correctly avoid generic study skills and vague verbs like "know" and "understand"?
 
       # Guidance
 
       - Be mindful that the scheme fits within a wider curriculum. Focus on this specific unit and its level of challenge. If key knowledge is absent but might reasonably be included in an earlier or later unit, do not penalise the curriculum for this. However, if substantial knowledge is missing and it does not seem reasonable for it to be covered elsewhere in the curriculum, then this should be highlighted.
-      - Avoid substantially expanding the scope of the knowledge content to completely new areas; balance ambition with consideration of constraints on curriculum time.
+      - Avoid significantly expanding the scope of the knowledge content to completely new areas; balance ambition with consideration of constraints on curriculum time.
       - Key knowledge statements are not intended to be overly technical and it is usually acceptable for them to be simplified for clarity and accessibility.
       - Provide one short overview paragraph which evaluates the overall quality of the key knowledge.
       - Provide recommended actions in priority order, with the most important first, in a structured array of concise, plain-English strings (up to 10 actions but typically fewer).
@@ -861,8 +861,9 @@ public partial class AIService
       - Associate each action with a priority. Use Priority 1 sparingly, only for essential, critical, non-negotiable actions that must be addressed with urgency. Use Priority 2 only for important actions that fix substantial, indisputable problems which must be addressed promptly because they have significant impact. Use Priority 3 for strongly recommended actions that require attention. Use Priority 4 for suggested enhancements, refinements, or ideas, or opinionated changes. Use a best fit approach.
       - You do not necessarily need to include actions for every priority level. A well-designed assessment might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
       - When referring to a specific question, state the question number.
+      - Condone underspecified instructions for practical, physical, or performance-based assessment elements, as they are placeholders for fuller teacher guidance. An appropriate mark scheme should still be provided (mark bands or threshold descriptors are acceptable for this type of task).
       - Be cautious about advising the addition of too many new questions, as this may not be feasible given constraints on assessment length. One or two new questions could be added but otherwise consider replacing or refining existing questions.
-      - If the user input includes an [Image] placeholder, assume a real image is part of the key knowledge or assessment at that point. Do not ask for the image.
+      - If the assessment includes images, each [Image n] reference corresponds to the nth image included with the user input. Review these images as part of the assessment.
       - Do not include Markdown bullet syntax, headings, or formatting.
       - Use British English spelling and terminology.
       - Keep your feedback as concise and information-dense as possible. Be judicious about what to include, focusing on the most impactful points.
@@ -1067,9 +1068,10 @@ public partial class AIService
           assessmentPrompt,
           assessmentSchema,
           "assessmentEvaluation",
-          context.AssessmentContext,
+          context.AssessmentInput.Text,
           () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
-          cancellationToken)
+          cancellationToken,
+          context.AssessmentInput.Images)
       };
 
       if (context.Unit.AssessmentStatus < 2)
@@ -1156,7 +1158,7 @@ public partial class AIService
   }
 
   private async Task<T> RunEvaluationRequestAsync<T>(SemaphoreSlim semaphore, string instructions, BinaryData schema, string schemaName, string input, Action onComplete,
-    CancellationToken cancellationToken) where T : new()
+    CancellationToken cancellationToken, IReadOnlyList<string> images = null) where T : new()
   {
     await semaphore.WaitAsync(cancellationToken);
     try
@@ -1171,7 +1173,9 @@ public partial class AIService
         Model = _model
       };
 
-      options.InputItems.Add(ResponseItem.CreateUserMessageItem(input));
+      options.InputItems.Add(images?.Count > 0
+        ? ResponseItem.CreateUserMessageItem([ResponseContentPart.CreateInputTextPart(input), .. images.Select(o => ResponseContentPart.CreateInputImagePart(new Uri(o)))])
+        : ResponseItem.CreateUserMessageItem(input));
       var response = await client.CreateResponseAsync(options, cancellationToken);
       var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
       return JsonSerializer.Deserialize<T>(json, JsonOptions) ?? new T();
@@ -1200,13 +1204,14 @@ public partial class AIService
     return sb.ToString().Trim();
   }
 
-  private static string BuildAssessmentEvaluationContext(UnitEntity unit, KeyKnowledge keyKnowledge, Assessment assessment)
+  private static EvaluationInput BuildAssessmentEvaluationContext(UnitEntity unit, KeyKnowledge keyKnowledge, Assessment assessment)
   {
     var sb = new StringBuilder();
+    var images = new List<string>();
     AppendUnitEvaluationHeader(sb, unit);
     AppendKeyKnowledgeEvaluationSection(sb, keyKnowledge);
-    AppendAssessmentEvaluationSection(sb, assessment);
-    return sb.ToString().Trim();
+    AppendAssessmentEvaluationSection(sb, assessment, images);
+    return new EvaluationInput(sb.ToString().Trim(), images);
   }
 
   private async Task<string> BuildAssessmentRecapEvaluationContextAsync(IReadOnlyList<UnitEntity> units, CancellationToken cancellationToken)
@@ -1295,7 +1300,7 @@ public partial class AIService
     }
   }
 
-  private static void AppendAssessmentEvaluationSection(StringBuilder sb, Assessment assessment)
+  private static void AppendAssessmentEvaluationSection(StringBuilder sb, Assessment assessment, List<string> images)
   {
     sb.Append("## Assessment\n\n");
     if (!assessment.Sections.SelectMany(o => o.Questions).Any())
@@ -1310,7 +1315,7 @@ public partial class AIService
         sb.Append(CultureInfo.InvariantCulture, $"### {section.Title}\n\n");
         foreach (var question in section.Questions)
         {
-          AppendAssessmentQuestionEvaluationMarkdown(sb, question, true, questionNumber++);
+          AppendAssessmentQuestionEvaluationMarkdown(sb, question, true, questionNumber++, images);
         }
 
         sb.Append('\n');
@@ -1318,10 +1323,11 @@ public partial class AIService
     }
   }
 
-  private static void AppendAssessmentQuestionEvaluationMarkdown(StringBuilder sb, AssessmentQuestion question, bool includeMarkScheme, int? questionNumber = null)
+  private static void AppendAssessmentQuestionEvaluationMarkdown(StringBuilder sb, AssessmentQuestion question, bool includeMarkScheme, int? questionNumber = null, List<string> images = null)
   {
     if (question.Marks == 0) return;
-    var questionPrefix = string.IsNullOrWhiteSpace(question.Image) ? string.Empty : "[Image] ";
+    if (!string.IsNullOrWhiteSpace(question.Image) && images is not null) images.Add(question.Image);
+    var questionPrefix = string.IsNullOrWhiteSpace(question.Image) ? string.Empty : images is null ? "[Image] " : $"[Image {images.Count}] ";
     var questionNumberPrefix = questionNumber.HasValue ? $"Q{questionNumber.Value}. " : string.Empty;
     var questionText = string.Join(" ", (question.Question ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').Select(o => o.Trim()).Where(o => o.Length > 0));
     var marksSuffix = question.Marks == 1 ? "mark" : "marks";
@@ -1359,7 +1365,8 @@ public partial class AIService
     }
   }
 
-  private sealed record CourseEvaluationUnitContext(UnitEntity Unit, string KeyKnowledgeContext, string AssessmentContext);
+  private sealed record CourseEvaluationUnitContext(UnitEntity Unit, string KeyKnowledgeContext, EvaluationInput AssessmentInput);
+  private sealed record EvaluationInput(string Text, IReadOnlyList<string> Images);
 
   private sealed class AssessmentRecapEvaluationResponse
   {
