@@ -170,6 +170,7 @@ public class QuestionBankQuestionWithUnit : QuestionBankQuestion
 
 public class CourseEvaluation : CourseEvaluationResult
 {
+  [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
   public DateTimeOffset GeneratedAt { get; set; }
 }
 
@@ -179,7 +180,10 @@ public class CourseEvaluationResult
   public List<CourseEvaluationUnitResult> Units { get; set; } = [];
 }
 
-public record CourseEvaluationUnitResult(string UnitId, string Title, KeyKnowledgeEvaluationResponse KeyKnowledge, AssessmentEvaluationResponse Assessment);
+public record CourseEvaluationUnitResult(string UnitId, string Title, KeyKnowledgeEvaluationResponse KeyKnowledge, AssessmentEvaluationResponse Assessment)
+{
+  public DateTimeOffset GeneratedAt { get; set; }
+}
 
 public class CourseEvaluationRecommendedAction
 {
@@ -189,6 +193,7 @@ public class CourseEvaluationRecommendedAction
 
 public class CourseOverallEvaluationResponse
 {
+  public DateTimeOffset GeneratedAt { get; set; }
   public string SequencingOverview { get; set; } = string.Empty;
   public string CoverageBalanceOverview { get; set; } = string.Empty;
   public string AssessmentRecapOverview { get; set; } = string.Empty;

@@ -1146,6 +1146,17 @@ body.evaluation-layout .app-footer {
   justify-content: space-between;
 }
 
+.evaluation-section-heading {
+  min-width: 0;
+}
+
+.evaluation-section-heading p {
+  margin: 0.25rem 0 0;
+  color: var(--ink-muted);
+  line-height: 1.4;
+  font-size: 9pt;
+}
+
 .evaluation-section-action {
   display: inline-flex;
   align-items: center;
@@ -1816,6 +1827,10 @@ body.evaluation-layout .app-footer {
 
   .evaluation-header {
     grid-template-columns: 1fr;
+  }
+
+  .evaluation-main {
+    margin-inline: 0.9rem;
   }
 
   .evaluation-header .back-button {

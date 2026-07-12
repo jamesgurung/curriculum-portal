@@ -16,9 +16,9 @@ public class CourseEvaluationModel(CourseService storage, ConfigService config, 
   public string CsrfToken { get; private set; } = string.Empty;
   public bool IsAdmin { get; private set; }
 
-  public string GeneratedAtText => Evaluation is null
+  public string FormatGeneratedAt(DateTimeOffset generatedAt) => generatedAt == default
     ? string.Empty
-    : Evaluation.GeneratedAt.UtcDateTime.ToString("d MMMM yyyy", CultureInfo.CurrentCulture);
+    : generatedAt.UtcDateTime.ToString("d MMMM yyyy", CultureInfo.CurrentCulture);
 
   public async Task<IActionResult> OnGetAsync(string courseId)
   {

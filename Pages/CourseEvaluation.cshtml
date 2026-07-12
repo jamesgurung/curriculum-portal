@@ -37,10 +37,6 @@
       <div class="evaluation-heading">
         <span class="evaluation-kicker">Course evaluation</span>
         <h2>@Model.Course.Name</h2>
-        @if (Model.Evaluation is not null)
-        {
-          <p>Feedback generated on @Model.GeneratedAtText</p>
-        }
       </div>
       @if (Model.IsAdmin)
       {
@@ -62,6 +58,7 @@
     else
     {
       var priorities = new[] { 1, 2, 3, 4 };
+      var overviewGeneratedAtText = Model.FormatGeneratedAt(Model.Evaluation.Overall.GeneratedAt);
       var priorityCounts = priorities.ToDictionary(p => p, _ => 0);
       var evaluationActions = Clean(Model.Evaluation.Overall.SequencingRecommendedActions)
         .Concat(Clean(Model.Evaluation.Overall.CoverageBalanceRecommendedActions))
@@ -96,7 +93,13 @@
 
       <section class="evaluation-overview">
         <div class="evaluation-section-header">
-          <h3>Curriculum Overview</h3>
+          <div class="evaluation-section-heading">
+            <h3>Curriculum Overview</h3>
+            @if (!string.IsNullOrEmpty(overviewGeneratedAtText))
+            {
+              <p>Feedback generated on @overviewGeneratedAtText</p>
+            }
+          </div>
           <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/overview" data-evaluation-label="the curriculum overview" data-evaluation-title="curriculum overview">
             <span class="material-symbols-outlined">refresh</span>
             <span>Re-evaluate overview</span>
@@ -172,10 +175,17 @@
           var unit = Model.Evaluation.Units[unitIndex];
           var currentUnit = Model.Units.ElementAtOrDefault(unitIndex);
           var unitId = !string.IsNullOrWhiteSpace(unit.UnitId) ? unit.UnitId : currentUnit?.RowKey;
+          var unitGeneratedAtText = Model.FormatGeneratedAt(unit.GeneratedAt);
 
           <section class="evaluation-unit">
             <div class="evaluation-section-header evaluation-unit-header">
-              <h3>@unit.Title</h3>
+              <div class="evaluation-section-heading">
+                <h3>@unit.Title</h3>
+                @if (!string.IsNullOrEmpty(unitGeneratedAtText))
+                {
+                  <p>Feedback generated on @unitGeneratedAtText</p>
+                }
+              </div>
               @if (!string.IsNullOrWhiteSpace(unitId))
               {
                 <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/units/@Uri.EscapeDataString(unitId)" data-evaluation-label="@unit.Title">

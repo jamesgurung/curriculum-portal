@@ -120,7 +120,17 @@ public class CourseService
     try
     {
       var response = await blobClient.DownloadContentAsync(cancellationToken);
-      return JsonSerializer.Deserialize<CourseEvaluation>(response.Value.Content.ToString(), JsonOptions);
+      var evaluation = JsonSerializer.Deserialize<CourseEvaluation>(response.Value.Content.ToString(), JsonOptions);
+      if (evaluation?.GeneratedAt != default)
+      {
+        if (evaluation.Overall.GeneratedAt == default)
+          evaluation.Overall.GeneratedAt = evaluation.GeneratedAt;
+
+        foreach (var unit in evaluation.Units.Where(o => o.GeneratedAt == default))
+          unit.GeneratedAt = evaluation.GeneratedAt;
+      }
+
+      return evaluation;
     }
     catch (RequestFailedException ex) when (ex.Status == 404)
     {

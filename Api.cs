@@ -737,15 +737,19 @@ public static class Api
       return CreateProgressStream(async (reportProgress, ct) =>
       {
         var result = await ai.EvaluateCourseAsync(course, units, reportProgress, ct);
+        var generatedAt = DateTimeOffset.UtcNow;
+        result.Overall.GeneratedAt = generatedAt;
+        foreach (var unit in result.Units)
+          unit.GeneratedAt = generatedAt;
+
         var evaluation = new CourseEvaluation
         {
-          GeneratedAt = DateTimeOffset.UtcNow,
           Overall = result.Overall,
           Units = result.Units
         };
         await storage.UploadCourseEvaluationAsync(courseId, evaluation, CancellationToken.None);
 
-        return new { message = "The evaluation has been saved.", generatedAt = evaluation.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
+        return new { message = "The evaluation has been saved.", generatedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
       }, context.RequestAborted);
     });
 
@@ -783,10 +787,10 @@ public static class Api
       return CreateProgressStream(async (reportProgress, ct) =>
       {
         evaluation.Overall = await ai.EvaluateCourseOverviewAsync(course, units, reportProgress, ct);
-        evaluation.GeneratedAt = DateTimeOffset.UtcNow;
+        evaluation.Overall.GeneratedAt = DateTimeOffset.UtcNow;
         await storage.UploadCourseEvaluationAsync(courseId, evaluation, CancellationToken.None);
 
-        return new { message = "The evaluation has been saved.", generatedAt = evaluation.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
+        return new { message = "The evaluation has been saved.", generatedAt = evaluation.Overall.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
       }, context.RequestAborted);
     });
 
@@ -843,10 +847,10 @@ public static class Api
       return CreateProgressStream(async (reportProgress, ct) =>
       {
         evaluation.Units[evaluationUnitIndex] = await ai.EvaluateCourseUnitAsync(course, units, unit, reportProgress, ct);
-        evaluation.GeneratedAt = DateTimeOffset.UtcNow;
+        evaluation.Units[evaluationUnitIndex].GeneratedAt = DateTimeOffset.UtcNow;
         await storage.UploadCourseEvaluationAsync(courseId, evaluation, CancellationToken.None);
 
-        return new { message = "The evaluation has been saved.", generatedAt = evaluation.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
+        return new { message = "The evaluation has been saved.", generatedAt = evaluation.Units[evaluationUnitIndex].GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
       }, context.RequestAborted);
     });
 
