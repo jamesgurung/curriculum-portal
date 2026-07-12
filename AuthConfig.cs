@@ -79,7 +79,7 @@ public static class AuthConfig
             if (TryCreatePrincipal(email, config, out var principal))
             {
               context.Principal = principal;
-              if (principal.IsInRole(Roles.Student) && !context.Properties.RedirectUri.StartsWith("/assignments", StringComparison.OrdinalIgnoreCase))
+              if (principal.IsInRole(Roles.Student) && context.Properties.RedirectUri?.StartsWith("/assignments", StringComparison.OrdinalIgnoreCase) != true)
                 context.Properties.RedirectUri = "/assignments";
             }
             else
