@@ -99,8 +99,6 @@ public static partial class Api
       questionBank.Questions ??= [];
       keyKnowledge.RevisionQuiz = [];
       await courseService.UploadBlobAsync(unitId, keyKnowledge);
-      var previousStatus = unit.KeyKnowledgeStatus;
-      var previousQuizStatus = unit.RevisionQuizStatus;
       var hasKeyKnowledge = keyKnowledge.DeclarativeKnowledge.Count > 0 || keyKnowledge.ProceduralKnowledge.Count > 0;
       unit.KeyKnowledgeStatus = hasKeyKnowledge ? 1 : 0;
       if (!hasKeyKnowledge)
@@ -117,11 +115,8 @@ public static partial class Api
       {
         unit.RevisionQuizStatus = questionBank.Questions.Count == 0 ? 0 : 1;
       }
-      if (unit.KeyKnowledgeStatus != previousStatus || unit.RevisionQuizStatus != previousQuizStatus)
-      {
-        await courseService.UpdateUnitAsync(unit);
-        cache.Invalidate("units");
-      }
+      await courseService.UpdateUnitAsync(unit);
+      cache.Invalidate("units");
 
       cache.Update(unitId, JsonSerializer.Serialize(keyKnowledge, JsonDefaults.CamelCase));
       return Results.NoContent();
@@ -155,13 +150,9 @@ public static partial class Api
       questionBank.Questions ??= [];
       await courseService.UploadBlobAsync(unitId, questionBank);
 
-      var previousStatus = unit.RevisionQuizStatus;
       unit.RevisionQuizStatus = questionBank.Questions.Count == 0 ? 0 : 1;
-      if (unit.RevisionQuizStatus != previousStatus)
-      {
-        await courseService.UpdateUnitAsync(unit);
-        cache.Invalidate("units");
-      }
+      await courseService.UpdateUnitAsync(unit);
+      cache.Invalidate("units");
 
       return Results.NoContent();
     });
@@ -192,13 +183,9 @@ public static partial class Api
       }
 
       await courseService.UploadBlobAsync(unitId, assessment);
-      var previousStatus = unit.AssessmentStatus;
       unit.AssessmentStatus = assessment.Sections.SelectMany(o => o.Questions).Any() ? 1 : 0;
-      if (unit.AssessmentStatus != previousStatus)
-      {
-        await courseService.UpdateUnitAsync(unit);
-        cache.Invalidate("units");
-      }
+      await courseService.UpdateUnitAsync(unit);
+      cache.Invalidate("units");
 
       return Results.NoContent();
     });

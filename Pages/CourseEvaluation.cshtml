@@ -58,7 +58,6 @@
     else
     {
       var priorities = new[] { 1, 2, 3, 4 };
-      var overviewGeneratedAtText = Model.FormatGeneratedAt(Model.Evaluation.Overall.GeneratedAt);
       var priorityCounts = priorities.ToDictionary(p => p, _ => 0);
       var evaluationActions = Clean(Model.Evaluation.Overall.SequencingRecommendedActions)
         .Concat(Clean(Model.Evaluation.Overall.CoverageBalanceRecommendedActions))
@@ -95,14 +94,15 @@
         <div class="evaluation-section-header">
           <div class="evaluation-section-heading">
             <h3>Curriculum Overview</h3>
-            @if (!string.IsNullOrEmpty(overviewGeneratedAtText))
-            {
-              <p>Feedback generated on @overviewGeneratedAtText</p>
-            }
+            <p>@Model.GetGenerationText(Model.Evaluation.Overall.Model, Model.Evaluation.Overall.GeneratedAt)</p>
           </div>
-          <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/overview" data-evaluation-label="the curriculum overview" data-evaluation-title="curriculum overview">
+          <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/overview" data-evaluation-label="the curriculum overview" data-evaluation-title="curriculum overview" aria-label="@(Model.IsOverviewStale ? "Re-evaluate overview; the feedback may be out of date" : "Re-evaluate overview")">
             <span class="material-symbols-outlined">refresh</span>
             <span>Re-evaluate overview</span>
+            @if (Model.IsOverviewStale)
+            {
+              <span class="evaluation-stale-dot" aria-hidden="true"></span>
+            }
           </button>
         </div>
         <div class="evaluation-grid">
@@ -175,22 +175,23 @@
           var unit = Model.Evaluation.Units[unitIndex];
           var currentUnit = Model.Units.ElementAtOrDefault(unitIndex);
           var unitId = !string.IsNullOrWhiteSpace(unit.UnitId) ? unit.UnitId : currentUnit?.RowKey;
-          var unitGeneratedAtText = Model.FormatGeneratedAt(unit.GeneratedAt);
+          var unitIsStale = Model.IsUnitStale(unitId);
 
           <section class="evaluation-unit">
             <div class="evaluation-section-header evaluation-unit-header">
               <div class="evaluation-section-heading">
                 <h3>@unit.Title</h3>
-                @if (!string.IsNullOrEmpty(unitGeneratedAtText))
-                {
-                  <p>Feedback generated on @unitGeneratedAtText</p>
-                }
+                <p>@Model.GetGenerationText(unit.Model, unit.GeneratedAt)</p>
               </div>
               @if (!string.IsNullOrWhiteSpace(unitId))
               {
-                <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/units/@Uri.EscapeDataString(unitId)" data-evaluation-label="@unit.Title">
+                <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/units/@Uri.EscapeDataString(unitId)" data-evaluation-label="@unit.Title" aria-label="@(unitIsStale ? "Re-evaluate unit; the feedback may be out of date" : "Re-evaluate unit")">
                   <span class="material-symbols-outlined">refresh</span>
                   <span>Re-evaluate unit</span>
+                  @if (unitIsStale)
+                  {
+                    <span class="evaluation-stale-dot" aria-hidden="true"></span>
+                  }
                 </button>
               }
             </div>

@@ -14,8 +14,9 @@ public partial class AIService
   private readonly IHttpClientFactory _httpClientFactory;
   private readonly ILogger<AIService> _logger;
   private readonly string _openAIAdminApiKey;
-  private readonly string _model;
   private readonly int _dailyTokenLimit;
+
+  public string ModelName { get; }
 
   public AIService(AppOptions options, CourseService courseService, CacheService cache, IHttpClientFactory httpClientFactory, ILogger<AIService> logger)
   {
@@ -36,7 +37,7 @@ public partial class AIService
     _httpClientFactory = httpClientFactory;
     _logger = logger;
     _openAIAdminApiKey = options.OpenAIAdminApiKey;
-    _model = options.OpenAIModel;
+    ModelName = options.OpenAIModel;
     _dailyTokenLimit = options.DailyTokenLimit;
   }
 
@@ -97,7 +98,7 @@ public partial class AIService
       ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Low },
       StoredOutputEnabled = false,
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("assessment", schema, jsonSchemaIsStrict: true) },
-      Model = _model
+      Model = ModelName
     };
 
     options.InputItems.Add(userMessage);
@@ -215,7 +216,7 @@ public partial class AIService
         ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
         StoredOutputEnabled = false,
         TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
-        Model = _model
+        Model = ModelName
       };
 
       options.InputItems.Add(ResponseItem.CreateUserMessageItem(CreateUserMessage(knowledgeItems)));
@@ -239,7 +240,7 @@ public partial class AIService
         ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
         StoredOutputEnabled = false,
         TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
-        Model = _model
+        Model = ModelName
       };
 
       options.InputItems.Add(ResponseItem.CreateUserMessageItem(JsonSerializer.Serialize(new QuestionBank { Questions = questions }, JsonDefaults.CamelCase)));
@@ -419,7 +420,7 @@ public partial class AIService
       ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = reasoningEffort },
       StoredOutputEnabled = false,
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("markScheme", schema, jsonSchemaIsStrict: true) },
-      Model = _model
+      Model = ModelName
     };
 
     options.InputItems.Add(userMessage);
@@ -495,7 +496,7 @@ public partial class AIService
       ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
       StoredOutputEnabled = false,
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("keyKnowledge", schema, jsonSchemaIsStrict: true) },
-      Model = _model
+      Model = ModelName
     };
 
     options.InputItems.Add(userMessage);
@@ -609,7 +610,7 @@ public partial class AIService
       ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.Medium },
       StoredOutputEnabled = false,
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
-      Model = _model
+      Model = ModelName
     };
 
     options.InputItems.Add(ResponseItem.CreateUserMessageItem(userMessage));

@@ -1198,6 +1198,16 @@ body.evaluation-layout .app-footer {
   font-size: 1.05rem;
 }
 
+.evaluation-stale-dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: 0.26rem;
+  margin-right: 0.2rem;
+  border-radius: 50%;
+  background: #df8b00;
+}
+
 .evaluation-title-row {
   display: flex;
   gap: 0.48rem;

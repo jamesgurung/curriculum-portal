@@ -227,6 +227,7 @@ public partial class AIService
       - You do not necessarily need to include actions for every priority level. A well-designed assessment might have only Priority 4 actions (or none at all), while one with significant issues might have mostly Priorities 1 and 2.
       - When referring to a specific question, state the question number.
       - Condone underspecified instructions for practical, physical, or performance-based assessment elements, as they are placeholders for fuller teacher guidance. An appropriate mark scheme should still be provided (mark bands or threshold descriptors are acceptable for this type of task).
+      - If the text refers to an additional resource, such as an audio recording, assume that the resource is available to students and do not penalise the assessment for this.
       - Be cautious about advising the addition of too many new questions, as this may not be feasible given constraints on assessment length. One or two new questions could be added but otherwise consider replacing or refining existing questions.
       - If the assessment includes images, each [Image n] reference corresponds to the nth image included with the user input. Review these images as part of the assessment.
       - Do not include Markdown bullet syntax, headings, or formatting.

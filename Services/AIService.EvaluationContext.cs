@@ -50,7 +50,7 @@ public partial class AIService
         StoredOutputEnabled = false,
         TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat(schemaName, schema, jsonSchemaIsStrict: true) },
         ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
-        Model = _model
+        Model = ModelName
       };
 
       options.InputItems.Add(images?.Count > 0

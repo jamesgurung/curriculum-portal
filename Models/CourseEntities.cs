@@ -183,6 +183,12 @@ public class CourseEvaluationResult
 public record CourseEvaluationUnitResult(string UnitId, string Title, KeyKnowledgeEvaluationResponse KeyKnowledge, AssessmentEvaluationResponse Assessment)
 {
   public DateTimeOffset GeneratedAt { get; set; }
+
+  [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+  public string Model { get; set; }
+
+  [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+  public DateTimeOffset? EvaluationSourceUpdatedAt { get; set; }
 }
 
 public class CourseEvaluationRecommendedAction
@@ -194,6 +200,16 @@ public class CourseEvaluationRecommendedAction
 public class CourseOverallEvaluationResponse
 {
   public DateTimeOffset GeneratedAt { get; set; }
+
+  [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+  public string Model { get; set; }
+
+  [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+  public DateTimeOffset? EvaluationSourceUpdatedAt { get; set; }
+
+  [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+  public List<string> SourceUnitIds { get; set; }
+
   public string SequencingOverview { get; set; } = string.Empty;
   public string CoverageBalanceOverview { get; set; } = string.Empty;
   public string AssessmentRecapOverview { get; set; } = string.Empty;

@@ -84,6 +84,25 @@ public class CourseService
     }
   }
 
+  public async Task<DateTimeOffset?> GetEvaluationContentLastModifiedAsync(string unitId, CancellationToken cancellationToken = default)
+  {
+    async Task<DateTimeOffset?> GetLastModifiedAsync(string suffix)
+    {
+      try
+      {
+        var response = await _blobClient.GetBlobClient($"{unitId}.{suffix}.json").GetPropertiesAsync(cancellationToken: cancellationToken);
+        return response.Value.LastModified;
+      }
+      catch (RequestFailedException ex) when (ex.Status == 404)
+      {
+        return null;
+      }
+    }
+
+    var timestamps = await Task.WhenAll(GetLastModifiedAsync("knowledge"), GetLastModifiedAsync("assessment"));
+    return timestamps.Max();
+  }
+
   public Task UploadBlobAsync<T>(string unitId, T curriculumBlob, CancellationToken cancellationToken = default) where T : ICurriculumBlob
   {
     var suffix = GetSuffix(typeof(T));

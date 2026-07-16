@@ -32,13 +32,25 @@ public static partial class Api
       }
 
       var units = await courseService.ListUnitsAsync(courseId, context.RequestAborted);
+      var sourceUpdatedAt = units.Select(o => o.Timestamp ?? DateTimeOffset.MinValue)
+        .Append(course.Timestamp ?? DateTimeOffset.MinValue)
+        .Max();
+      var sourceUnitIds = units.Select(o => o.RowKey).ToList();
+      var unitSourceUpdatedAt = units.ToDictionary(o => o.RowKey, o => o.Timestamp ?? DateTimeOffset.MinValue, StringComparer.Ordinal);
       return CreateProgressStream(async (reportProgress, ct) =>
       {
         var result = await ai.EvaluateCourseAsync(course, units, reportProgress, ct);
         var generatedAt = DateTimeOffset.UtcNow;
         result.Overall.GeneratedAt = generatedAt;
+        result.Overall.Model = ai.ModelName;
+        result.Overall.EvaluationSourceUpdatedAt = sourceUpdatedAt;
+        result.Overall.SourceUnitIds = sourceUnitIds;
         foreach (var unit in result.Units)
+        {
           unit.GeneratedAt = generatedAt;
+          unit.Model = ai.ModelName;
+          unit.EvaluationSourceUpdatedAt = unitSourceUpdatedAt.GetValueOrDefault(unit.UnitId, DateTimeOffset.MinValue);
+        }
 
         var evaluation = new CourseEvaluation
         {
@@ -82,10 +94,17 @@ public static partial class Api
       }
 
       var units = await courseService.ListUnitsAsync(courseId, context.RequestAborted);
+      var sourceUpdatedAt = units.Select(o => o.Timestamp ?? DateTimeOffset.MinValue)
+        .Append(course.Timestamp ?? DateTimeOffset.MinValue)
+        .Max();
+      var sourceUnitIds = units.Select(o => o.RowKey).ToList();
       return CreateProgressStream(async (reportProgress, ct) =>
       {
         evaluation.Overall = await ai.EvaluateCourseOverviewAsync(course, units, reportProgress, ct);
         evaluation.Overall.GeneratedAt = DateTimeOffset.UtcNow;
+        evaluation.Overall.Model = ai.ModelName;
+        evaluation.Overall.EvaluationSourceUpdatedAt = sourceUpdatedAt;
+        evaluation.Overall.SourceUnitIds = sourceUnitIds;
         await courseService.UploadCourseEvaluationAsync(courseId, evaluation, CancellationToken.None);
 
         return new { message = "The evaluation has been saved.", generatedAt = evaluation.Overall.GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
@@ -142,10 +161,13 @@ public static partial class Api
         return Results.NotFound("Unit evaluation not found.");
       }
 
+      var sourceUpdatedAt = unit.Timestamp ?? DateTimeOffset.MinValue;
       return CreateProgressStream(async (reportProgress, ct) =>
       {
         evaluation.Units[evaluationUnitIndex] = await ai.EvaluateCourseUnitAsync(course, units, unit, reportProgress, ct);
         evaluation.Units[evaluationUnitIndex].GeneratedAt = DateTimeOffset.UtcNow;
+        evaluation.Units[evaluationUnitIndex].Model = ai.ModelName;
+        evaluation.Units[evaluationUnitIndex].EvaluationSourceUpdatedAt = sourceUpdatedAt;
         await courseService.UploadCourseEvaluationAsync(courseId, evaluation, CancellationToken.None);
 
         return new { message = "The evaluation has been saved.", generatedAt = evaluation.Units[evaluationUnitIndex].GeneratedAt, url = $"/courses/{Uri.EscapeDataString(courseId)}/evaluation" };
