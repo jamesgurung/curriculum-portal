@@ -34,17 +34,13 @@ public static class ExtensionMethods
   {
     ArgumentException.ThrowIfNullOrWhiteSpace(expectedPartitionKey);
     if (classes is null)
-    {
       return null;
-    }
 
     foreach (var className in classes)
     {
-      if (TryBuildStudentPartitionKey(className, out var partitionKey)
-        && partitionKey.Equals(expectedPartitionKey, StringComparison.OrdinalIgnoreCase))
-      {
+      var partitionKey = ClassNameParser.GetAssignmentPartitionKey(className);
+      if (string.Equals(partitionKey, expectedPartitionKey, StringComparison.OrdinalIgnoreCase))
         return className.Trim();
-      }
     }
 
     return null;
@@ -55,9 +51,7 @@ public static class ExtensionMethods
     ArgumentNullException.ThrowIfNull(query);
     var list = new List<T>();
     await foreach (var item in query)
-    {
       list.Add(item);
-    }
 
     return list;
   }
@@ -71,30 +65,5 @@ public static class ExtensionMethods
       var actions = batch.Select(entity => new TableTransactionAction(TableTransactionActionType.Add, entity)).ToList();
       await client.SubmitTransactionAsync(actions);
     }
-  }
-
-  private static bool TryBuildStudentPartitionKey(string className, out string partitionKey)
-  {
-    partitionKey = null;
-    if (string.IsNullOrWhiteSpace(className))
-    {
-      return false;
-    }
-
-    var trimmed = className.Trim();
-    var slashIndex = trimmed.IndexOf('/', StringComparison.Ordinal);
-    if (slashIndex <= 0 || slashIndex + 2 >= trimmed.Length)
-    {
-      return false;
-    }
-
-    var yearDigits = new string(trimmed.TakeWhile(char.IsDigit).ToArray());
-    if (!int.TryParse(yearDigits, out var yearGroup))
-    {
-      return false;
-    }
-
-    partitionKey = $"{yearGroup:D2}{trimmed.Substring(slashIndex + 1, 2)}";
-    return true;
   }
 }

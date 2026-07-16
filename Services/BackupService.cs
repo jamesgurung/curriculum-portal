@@ -11,11 +11,12 @@ public class BackupService
   private readonly BlobServiceClient _blobServiceClient;
   private readonly TableServiceClient _tableServiceClient;
 
-  public BackupService(AppOptions options)
+  public BackupService(BlobServiceClient blobServiceClient, TableServiceClient tableServiceClient)
   {
-    ArgumentNullException.ThrowIfNull(options);
-    _blobServiceClient = new BlobServiceClient(options.StorageAccountConnectionString);
-    _tableServiceClient = new TableServiceClient(options.StorageAccountConnectionString);
+    ArgumentNullException.ThrowIfNull(blobServiceClient);
+    ArgumentNullException.ThrowIfNull(tableServiceClient);
+    _blobServiceClient = blobServiceClient;
+    _tableServiceClient = tableServiceClient;
   }
 
   public async Task<(FileStream Stream, string FileName)> CreateBackupAsync(CancellationToken cancellationToken = default)

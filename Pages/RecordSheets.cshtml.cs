@@ -6,20 +6,20 @@ using System.Globalization;
 namespace CurriculumPortal;
 
 [Authorize(Roles = Roles.Teacher)]
-public class RecordSheetsModel(CourseService storage, ConfigService config) : PageModel
+public class RecordSheetsModel(CourseService courseService, ConfigService config) : PageModel
 {
   public RecordSheets Data { get; private set; } = new();
 
   public async Task<IActionResult> OnGetAsync(string courseId, string unitId)
   {
-    var unit = await storage.TryGetUnitAsync(courseId, unitId);
+    var unit = await courseService.TryGetUnitAsync(courseId, unitId);
     if (unit is null)
     {
       return NotFound("Unit not found.");
     }
 
     Data.UnitTitle = unit.Title;
-    var assessment = await storage.GetBlobAsync<Assessment>(unitId);
+    var assessment = await courseService.GetBlobAsync<Assessment>(unitId);
     if (assessment.Sections.Count == 0)
     {
       return NotFound("No assessment found for this unit.");

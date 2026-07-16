@@ -31,7 +31,7 @@ public sealed class BromcomService : IBehaviourRecordService
     _httpClientFactory = httpClientFactory;
   }
 
-  public async Task<(int Positive, int Negative)> IssueBehaviours(Dictionary<string, List<User>> positiveStudentsByBehaviour, Dictionary<string, List<User>> negativeStudentsByBehaviour)
+  public async Task<(int Positive, int Negative)> IssueBehavioursAsync(Dictionary<string, List<User>> positiveStudentsByBehaviour, Dictionary<string, List<User>> negativeStudentsByBehaviour)
   {
     ArgumentNullException.ThrowIfNull(positiveStudentsByBehaviour);
     ArgumentNullException.ThrowIfNull(negativeStudentsByBehaviour);

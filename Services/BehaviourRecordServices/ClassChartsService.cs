@@ -23,7 +23,7 @@ public sealed partial class ClassChartsService : IBehaviourRecordService
     _config = config;
   }
 
-  public async Task<(int Positive, int Negative)> IssueBehaviours(Dictionary<string, List<User>> positiveStudentsByBehaviour, Dictionary<string, List<User>> negativeStudentsByBehaviour)
+  public async Task<(int Positive, int Negative)> IssueBehavioursAsync(Dictionary<string, List<User>> positiveStudentsByBehaviour, Dictionary<string, List<User>> negativeStudentsByBehaviour)
   {
     ArgumentNullException.ThrowIfNull(positiveStudentsByBehaviour);
     ArgumentNullException.ThrowIfNull(negativeStudentsByBehaviour);
@@ -43,7 +43,7 @@ public sealed partial class ClassChartsService : IBehaviourRecordService
 
     var requestedStudents = positiveStudents.Concat(negativeStudents)
       .SelectMany(o => o.Value)
-      .Select(student => new StudentRequest(student, GetYearGroup(student.TutorGroup)))
+      .Select(student => new StudentRequest(student, ClassNameParser.GetLeadingNumber(student.TutorGroup)))
       .Where(o => o.YearGroup > 0)
       .DistinctBy(o => o.Student.Id)
       .ToList();
@@ -165,7 +165,7 @@ public sealed partial class ClassChartsService : IBehaviourRecordService
   private static async Task<int> IssueBehaviourAsync(HttpClient client, ClassChartsSession session, IEnumerable<User> students, Dictionary<string, int> lessonPupilIds, ClassChartsBehaviourConfig behaviour)
   {
     var matchedIds = students
-      .Select(student => new StudentRequest(student, GetYearGroup(student.TutorGroup)))
+      .Select(student => new StudentRequest(student, ClassNameParser.GetLeadingNumber(student.TutorGroup)))
       .Where(o => o.YearGroup > 0)
       .DistinctBy(o => o.Student.Id)
       .Select(o => lessonPupilIds.TryGetValue(BuildStudentKey(o.Student.FirstName, o.Student.LastName, o.YearGroup), out var lessonPupilId) ? lessonPupilId : 0)
@@ -201,10 +201,10 @@ public sealed partial class ClassChartsService : IBehaviourRecordService
     return matchedIds.Count;
   }
 
-  private static async Task<HttpResponseMessage> PostAsync(HttpClient client, string uri, IReadOnlyList<FormField> fields)
+  private static Task<HttpResponseMessage> PostAsync(HttpClient client, string uri, IReadOnlyList<FormField> fields)
   {
     ArgumentNullException.ThrowIfNull(fields);
-    return await SendAsync(client, HttpMethod.Post, uri, fields);
+    return SendAsync(client, HttpMethod.Post, uri, fields);
   }
 
   private static async Task<HttpResponseMessage> SendAsync(HttpClient client, HttpMethod method, string uri, IReadOnlyList<FormField> fields = null, bool allowNonSuccess = false)
@@ -292,14 +292,6 @@ public sealed partial class ClassChartsService : IBehaviourRecordService
   private static string DecodeValue(string value)
   {
     return WebUtility.HtmlDecode(Regex.Unescape(value ?? string.Empty));
-  }
-
-  private static int GetYearGroup(string tutorGroup)
-  {
-    if (string.IsNullOrWhiteSpace(tutorGroup)) return 0;
-
-    var digits = new string(tutorGroup.Trim().TakeWhile(char.IsDigit).ToArray());
-    return int.TryParse(digits, out var yearGroup) ? yearGroup : 0;
   }
 
   private static Dictionary<string, ClassChartsBehaviourSet> ParseClassChartsBehaviours(string json)

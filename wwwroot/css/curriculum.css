@@ -259,6 +259,16 @@ main h2,
     position: relative;
     top: -4px;
   }
+
+  & .course-title-icon {
+    top: 3px;
+    margin-right: 3px;
+  }
+}
+
+.status-error {
+  color: #b00020;
+  font-weight: bold;
 }
 
 .course-info {

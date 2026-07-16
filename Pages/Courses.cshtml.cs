@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace CurriculumPortal;
 
 [AllowAnonymous]
-public class CoursesModel(CourseService storage, CacheService cache, ConfigService config, AppOptions options, IAntiforgery antiforgery) : PageModel
+public class CoursesModel(CourseService courseService, CacheService cache, ConfigService config, AppOptions options, IAntiforgery antiforgery) : PageModel
 {
   public string CoursesJson { get; private set; }
   public string UnitsJson { get; private set; }
@@ -25,8 +25,8 @@ public class CoursesModel(CourseService storage, CacheService cache, ConfigServi
     IsStaff = User.Identity?.IsAuthenticated == true && User.IsInRole(Roles.Teacher);
     if (IsStaff)
     {
-      var courses = await storage.ListCoursesAsync();
-      var units = await storage.ListUnitsAsync();
+      var courses = await courseService.ListCoursesAsync();
+      var units = await courseService.ListUnitsAsync();
       var isAdmin = User.IsInRole(Roles.Admin);
       var editableCourseIds = courses.Where(o => User.CanEditCourse(o, config)).Select(o => o.RowKey).OrderBy(o => o).ToList();
 
@@ -41,8 +41,8 @@ public class CoursesModel(CourseService storage, CacheService cache, ConfigServi
       return Page();
     }
 
-    var cachedCourses = await cache.GetCachedDataAsync<List<CourseEntity>>("courses", async () => await storage.ListCoursesAsync());
-    var cachedUnits = await cache.GetCachedDataAsync<List<PublicFacingUnit>>("units", async () => (await storage.ListUnitsAsync()).Select(o => new PublicFacingUnit(o)).ToList());
+    var cachedCourses = await cache.GetCachedDataAsync<List<CourseEntity>>("courses", () => courseService.ListCoursesAsync());
+    var cachedUnits = await cache.GetCachedDataAsync<List<PublicFacingUnit>>("units", async () => (await courseService.ListUnitsAsync()).Select(o => new PublicFacingUnit(o)).ToList());
 
     CoursesJson = cachedCourses.Data;
     UnitsJson = cachedUnits.Data;

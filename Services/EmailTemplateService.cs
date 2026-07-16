@@ -31,7 +31,7 @@ public class EmailTemplateService(AppOptions options, IRazorViewRenderer razorVi
       DueDateLabel = model.DueDateLabel,
       Preheader = CompletionEmailPreheader,
       AssignmentsUrl = BuildAbsoluteUrl(options.Website, "/assignments"),
-      LeaderboardTitle = $"Year {GetYearGroup(model.TutorGroup)} Leaderboard",
+      LeaderboardTitle = $"Year {ClassNameParser.GetLeadingNumber(model.TutorGroup)} Leaderboard",
       Sections =
       [
         new CompletionEmailSection
@@ -48,6 +48,10 @@ public class EmailTemplateService(AppOptions options, IRazorViewRenderer razorVi
   {
     ArgumentNullException.ThrowIfNull(model);
     var title = GetTeacherCompletionTitle(model);
+    var classes = model.Classes
+      .OrderByDescending(o => o.CompletionPercentage)
+      .ThenBy(o => o.ClassName, StringComparer.OrdinalIgnoreCase)
+      .ToList();
 
     return razorViewRenderer.RenderAsync(actionContext, CompletionEmailViewPath, new CompletionEmailViewModel
     {
@@ -55,20 +59,15 @@ public class EmailTemplateService(AppOptions options, IRazorViewRenderer razorVi
       DueDateLabel = model.DueDateLabel,
       Preheader = CompletionEmailPreheader,
       AssignmentsUrl = BuildAbsoluteUrl(options.Website, "/assignments"),
-      ClassOverview = model.Classes
-        .OrderByDescending(o => o.CompletionPercentage)
-        .ThenBy(o => o.ClassName, StringComparer.OrdinalIgnoreCase)
-        .ToList(),
-      Sections = model.Classes
-      .OrderByDescending(o => o.CompletionPercentage)
-      .ThenBy(o => o.ClassName, StringComparer.OrdinalIgnoreCase)
-      .Select(o => new CompletionEmailSection
-      {
-        Title = $"{o.ClassName} – {o.CompletionPercentage}%",
-        CompletionPercentage = o.CompletionPercentage,
-        Students = OrderStudents(o.Students)
-      })
-      .ToList()
+      ClassOverview = classes,
+      Sections = classes
+        .Select(o => new CompletionEmailSection
+        {
+          Title = $"{o.ClassName} – {o.CompletionPercentage}%",
+          CompletionPercentage = o.CompletionPercentage,
+          Students = OrderStudents(o.Students)
+        })
+        .ToList()
     });
   }
 
@@ -81,12 +80,6 @@ public class EmailTemplateService(AppOptions options, IRazorViewRenderer razorVi
   {
     var baseUri = new Uri(website.TrimEnd('/') + "/");
     return new Uri(baseUri, path.TrimStart('/')).AbsoluteUri;
-  }
-
-  private static int GetYearGroup(string tutorGroup)
-  {
-    var digits = new string((tutorGroup ?? string.Empty).TakeWhile(char.IsDigit).ToArray());
-    return int.TryParse(digits, out var yearGroup) ? yearGroup : 0;
   }
 
   private static List<CompletionStudentRow> OrderStudents(IEnumerable<CompletionStudentRow> students)

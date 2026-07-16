@@ -43,69 +43,30 @@ function setupHeader() {
     initMode();
   }
 
-  btnSchemeOfWork?.addEventListener('click', function () {
-    tab = 'scheme';
-    history.replaceState(null, '', `#${tab}`);
-    setActiveButtons();
-    schemeOfWorkSheet.classList.remove('section-hidden');
-    keyKnowledgeSheet.classList.add('section-hidden');
-    assessmentElement.classList.add('section-hidden');
-    quizElement.classList.add('section-hidden');
-    pageContainer.classList.add('landscape-page');
-    bodyContainer.scrollTop = 0;
-  });
+  function showTab(nextTab) {
+    const assessmentTabs = ['assessment', 'mark-scheme'];
+    const preserveScroll = assessmentTabs.includes(tab) && assessmentTabs.includes(nextTab);
+    const visibleSection = nextTab === 'mark-scheme' ? 'assessment' : nextTab;
 
-  btnKeyKnowledge.addEventListener('click', function () {
-    tab = 'key-knowledge';
+    tab = nextTab;
     history.replaceState(null, '', `#${tab}`);
     setActiveButtons();
-    schemeOfWorkSheet.classList.add('section-hidden');
-    keyKnowledgeSheet.classList.remove('section-hidden');
-    assessmentElement.classList.add('section-hidden');
-    quizElement.classList.add('section-hidden');
-    pageContainer.classList.remove('landscape-page');
-    bodyContainer.scrollTop = 0;
-  });
+    schemeOfWorkSheet.classList.toggle('section-hidden', visibleSection !== 'scheme');
+    keyKnowledgeSheet.classList.toggle('section-hidden', visibleSection !== 'key-knowledge');
+    assessmentElement.classList.toggle('section-hidden', visibleSection !== 'assessment');
+    quizElement.classList.toggle('section-hidden', visibleSection !== 'quiz');
+    pageContainer.classList.toggle('landscape-page', visibleSection === 'scheme');
 
-  btnAssessment.addEventListener('click', function () {
-    const scroll = tab !== 'assessment' && tab !== 'mark-scheme';
-    tab = 'assessment';
-    history.replaceState(null, '', `#${tab}`);
-    setActiveButtons();
-    schemeOfWorkSheet.classList.add('section-hidden');
-    keyKnowledgeSheet.classList.add('section-hidden');
-    assessmentElement.classList.remove('section-hidden');
-    quizElement.classList.add('section-hidden');
-    pageContainer.classList.remove('landscape-page');
-    document.querySelectorAll('.mark-scheme').forEach(el => el.classList.add('hide'));
-    if (scroll) bodyContainer.scrollTop = 0;
-  });
+    if (visibleSection === 'assessment')
+      document.querySelectorAll('.mark-scheme').forEach(element => element.classList.toggle('hide', nextTab !== 'mark-scheme'));
+    if (!preserveScroll) bodyContainer.scrollTop = 0;
+  }
 
-  btnQuiz.addEventListener('click', function () {
-    tab = 'quiz';
-    history.replaceState(null, '', `#${tab}`);
-    setActiveButtons();
-    schemeOfWorkSheet.classList.add('section-hidden');
-    keyKnowledgeSheet.classList.add('section-hidden');
-    assessmentElement.classList.add('section-hidden');
-    quizElement.classList.remove('section-hidden');
-    pageContainer.classList.remove('landscape-page');
-    bodyContainer.scrollTop = 0;
-  });
-
-  btnMarkScheme.addEventListener('click', function () {
-    const scroll = tab !== 'assessment' && tab !== 'mark-scheme';
-    tab = 'mark-scheme';
-    history.replaceState(null, '', `#${tab}`);
-    setActiveButtons();
-    schemeOfWorkSheet.classList.add('section-hidden');
-    keyKnowledgeSheet.classList.add('section-hidden');
-    assessmentElement.classList.remove('section-hidden');
-    quizElement.classList.add('section-hidden');
-    pageContainer.classList.remove('landscape-page');
-    document.querySelectorAll('.mark-scheme').forEach(el => el.classList.remove('hide'));
-    if (scroll) bodyContainer.scrollTop = 0;
-  });
+  btnSchemeOfWork?.addEventListener('click', () => showTab('scheme'));
+  btnKeyKnowledge.addEventListener('click', () => showTab('key-knowledge'));
+  btnAssessment.addEventListener('click', () => showTab('assessment'));
+  btnQuiz.addEventListener('click', () => showTab('quiz'));
+  btnMarkScheme.addEventListener('click', () => showTab('mark-scheme'));
 
   btnEdit.addEventListener('click', function() {
     if (!isEditor) return;
@@ -133,20 +94,9 @@ function setupHeader() {
 
   btnComplete.addEventListener('click', async function () {
     if (tab === 'scheme') return;
-    if (tab === 'key-knowledge') {
-      if (keyKnowledge.declarativeKnowledge.length === 0 || keyKnowledge.proceduralKnowledge.length === 0) { alert('Both key knowledge sections are required.'); return; }
-      if (keyKnowledge.declarativeKnowledge.length < 5) { alert('There must be at least 5 declarative knowledge items.'); return; }
-    } else if (tab === 'quiz') {
-      if (questionBank.questions.length === 0) { alert('At least one quiz question is required.'); return; }
-      if (questionBank.questions.some(q => q.question === '')) { alert('Quiz questions cannot be blank.'); return; }
-      if (questionBank.questions.some(q => q.correctAnswer === '')) { alert('Every quiz question must have a correct answer.'); return; }
-      if (questionBank.questions.some(q => q.incorrectAnswer1 === '' || q.incorrectAnswer2 === '' || q.incorrectAnswer3 === '')) { alert('Every quiz question must have three incorrect answers.'); return; }
-    } else {
-      if (assessment.sections.some(section => section.questions.length === 0)) { alert('All sections must have at least one question.'); return; }
-      if (assessment.sections.some(section => section.questions.some(q => q.question === ''))) { alert('Questions cannot be blank.'); return; }
-      if (assessment.sections.some(section => section.questions.some(q => q.answers && q.answers.some(c => c === '')))) { alert('All multiple-choice questions must have four choices.'); return; }
-      if (assessment.sections.some(section => section.questions.some(q => q.markScheme.length === 0))) { alert('All questions must have a mark scheme.'); return; }
-    }
+    const validationError = getCompletionError();
+    if (validationError) { alert(validationError); return; }
+
     const part = tab === 'key-knowledge' ? 'key-knowledge' : tab === 'quiz' ? 'quiz' : 'assessment';
     const resp = await fetch(`/courses/${courseId}/${unitId}/build/${part}-complete`, {
       method: 'POST',
@@ -181,6 +131,28 @@ function setupHeader() {
     else if (location.hash === '#mark-scheme') btnMarkScheme.click();
     else btnKeyKnowledge.click();
   }
+}
+
+function getCompletionError() {
+  if (tab === 'key-knowledge') {
+    if (keyKnowledge.declarativeKnowledge.length === 0 || keyKnowledge.proceduralKnowledge.length === 0) return 'Both key knowledge sections are required.';
+    if (keyKnowledge.declarativeKnowledge.length < 5) return 'There must be at least 5 declarative knowledge items.';
+    return '';
+  }
+
+  if (tab === 'quiz') {
+    if (questionBank.questions.length === 0) return 'At least one quiz question is required.';
+    if (questionBank.questions.some(q => q.question === '')) return 'Quiz questions cannot be blank.';
+    if (questionBank.questions.some(q => q.correctAnswer === '')) return 'Every quiz question must have a correct answer.';
+    if (questionBank.questions.some(q => q.incorrectAnswer1 === '' || q.incorrectAnswer2 === '' || q.incorrectAnswer3 === '')) return 'Every quiz question must have three incorrect answers.';
+    return '';
+  }
+
+  if (assessment.sections.some(section => section.questions.length === 0)) return 'All sections must have at least one question.';
+  if (assessment.sections.some(section => section.questions.some(q => q.question === ''))) return 'Questions cannot be blank.';
+  if (assessment.sections.some(section => section.questions.some(q => q.answers && q.answers.some(c => c === '')))) return 'All multiple-choice questions must have four choices.';
+  if (assessment.sections.some(section => section.questions.some(q => q.markScheme.length === 0))) return 'All questions must have a mark scheme.';
+  return '';
 }
 
 async function save() {

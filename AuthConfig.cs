@@ -11,9 +11,10 @@ namespace CurriculumPortal;
 
 public static class AuthConfig
 {
-  public static void ConfigureAuth(this WebApplicationBuilder builder, ConfigService config)
+  public static void ConfigureAuth(this WebApplicationBuilder builder, ConfigService config, AppOptions appOptions)
   {
     ArgumentNullException.ThrowIfNull(builder);
+    ArgumentNullException.ThrowIfNull(appOptions);
     builder.Services
       .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
       .AddCookie(options =>
@@ -58,9 +59,9 @@ public static class AuthConfig
       })
       .AddOpenIdConnect("Microsoft", options =>
       {
-        options.Authority = $"https://login.microsoftonline.com/{builder.Configuration["MicrosoftTenantId"]}/v2.0/";
-        options.ClientId = builder.Configuration["MicrosoftClientId"];
-        options.ClientSecret = builder.Configuration["MicrosoftClientSecret"];
+        options.Authority = $"https://login.microsoftonline.com/{appOptions.MicrosoftTenantId}/v2.0/";
+        options.ClientId = appOptions.MicrosoftClientId;
+        options.ClientSecret = appOptions.MicrosoftClientSecret;
         options.ResponseType = OpenIdConnectResponseType.Code;
         options.MapInboundClaims = false;
         options.Scope.Clear();

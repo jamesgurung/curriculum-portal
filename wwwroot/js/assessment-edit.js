@@ -75,12 +75,24 @@ async function postSseJson(url, body) {
 }
 
 let editMode = false;
+const modalElements = {
+  root: document.getElementById('modal'),
+  title: document.getElementById('modal-title'),
+  body: document.getElementById('modal-body-content'),
+  text: document.getElementById('modal-text'),
+  numbers: document.getElementById('modal-numbers'),
+  multipleChoiceCount: document.getElementById('modal-multiple-choice-count'),
+  shortAnswerCount: document.getElementById('modal-short-answer-count'),
+  submit: document.getElementById('modal-submit'),
+  submitText: document.getElementById('modal-submit-text'),
+  close: document.getElementById('modal-close')
+};
 
 window.addEventListener('beforeunload', function (event) { if (editMode) event.preventDefault(); });
 document.getElementById('kki-add').addEventListener('click', uploadKeyKnowledgeImage);
 document.getElementById('import-assessment').addEventListener('click', showModal);
 document.getElementById('import-keyknowledge').addEventListener('click', showModal);
-document.getElementById('modal-close').addEventListener('click', closeModal);
+modalElements.close.addEventListener('click', closeModal);
 
 function initMode(root) {
   root ??= document;
@@ -239,7 +251,7 @@ function handleTextBlur(event) {
     element.dataset.text = text;
   } else if (element.classList.contains('marks')) {
     const marks = parseInt(text, 10);
-    if (!isNaN(marks) && (marks > 0 || (!question.answers && marks == 0))) question.marks = marks;
+    if (!isNaN(marks) && (marks > 0 || (!question.answers && marks === 0))) question.marks = marks;
     element.textContent = question.marks;
     element.parentElement.querySelector('.marks-suffix').textContent = question.marks === 1 ? 'mark' : 'marks';
     element.parentElement.parentElement.classList.toggle('zero-marks', question.marks === 0);
@@ -398,41 +410,45 @@ async function handleSideButtonClick(event) {
       td.querySelector('.choice-overlay').classList.toggle('correct', question.markScheme === String.fromCharCode(97 + index));
     });
   } else if (button.classList.contains('generate-mark-scheme')) {
-    if (question.markScheme?.length > 0) return;
-    button.disabled = true;
-    button.textContent = 'pending';
-    const row = answerCell.closest('tr');
-    row.querySelectorAll('.text-overlay').forEach(el => { el.contentEditable = false; el.textContent = 'Generating...'; });
-    row.querySelectorAll('.choice-overlay').forEach(el => el.classList.add('disabled'));
-    const resp = await fetch(`/courses/${courseId}/build/ai/generatemarkscheme`, { 
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-      body: JSON.stringify(question)
-    });
-    if (resp.ok) {
-      question.markScheme = await resp.json();
-      if (question.answers) {
-        const index = 'abcd'.indexOf(question.markScheme);
-        if (index === -1) {
-          alert('Invalid mark scheme generated.');
-          question.markScheme = '';
-        } else {
-          row.querySelectorAll('.choice-overlay').forEach((overlay, i) => overlay.classList.toggle('correct', i === index));
-        }
+    await generateMarkScheme(button, answerCell, question);
+  }
+}
+
+async function generateMarkScheme(button, answerCell, question) {
+  if (question.markScheme?.length > 0) return;
+  button.disabled = true;
+  button.textContent = 'pending';
+  const row = answerCell.closest('tr');
+  row.querySelectorAll('.text-overlay').forEach(el => { el.contentEditable = false; el.textContent = 'Generating...'; });
+  row.querySelectorAll('.choice-overlay').forEach(el => el.classList.add('disabled'));
+  const response = await fetch(`/courses/${courseId}/build/ai/generatemarkscheme`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+    body: JSON.stringify(question)
+  });
+  if (response.ok) {
+    question.markScheme = await response.json();
+    if (question.answers) {
+      const index = 'abcd'.indexOf(question.markScheme);
+      if (index === -1) {
+        alert('Invalid mark scheme generated.');
+        question.markScheme = '';
       } else {
-        row.querySelector('.mark-scheme').textContent = question.markScheme;
-        row.querySelector('.mark-scheme').dataset.text = question.markScheme;
+        row.querySelectorAll('.choice-overlay').forEach((overlay, i) => overlay.classList.toggle('correct', i === index));
       }
     } else {
-      alert(`Error generating mark scheme: ${await readAiError(resp, 'The AI operation failed.')}`);
-      row.querySelector('.mark-scheme').textContent = '';
+      row.querySelector('.mark-scheme').textContent = question.markScheme;
+      row.querySelector('.mark-scheme').dataset.text = question.markScheme;
     }
-    button.textContent = 'wand_stars';
-    button.disabled = false;
-    button.classList.add('hide');
-    row.querySelectorAll('.text-overlay').forEach(el => el.contentEditable = true);
-    row.querySelectorAll('.choice-overlay').forEach(el => el.classList.remove('disabled'));
+  } else {
+    alert(`Error generating mark scheme: ${await readAiError(response, 'The AI operation failed.')}`);
+    row.querySelector('.mark-scheme').textContent = '';
   }
+  button.textContent = 'wand_stars';
+  button.disabled = false;
+  button.classList.add('hide');
+  row.querySelectorAll('.text-overlay').forEach(el => el.contentEditable = true);
+  row.querySelectorAll('.choice-overlay').forEach(el => el.classList.remove('disabled'));
 }
 
 function toggleFeatureEditing(button, isActive) {
@@ -684,32 +700,41 @@ function handleKkiSideButtonClick(event) {
   }
 }
 
+function openModal(title, body, submitText) {
+  modalElements.root.classList.add('active');
+  modalElements.title.textContent = title;
+  modalElements.body.textContent = body;
+  modalElements.submitText.textContent = submitText;
+}
+
+function setModalLoading(text) {
+  modalElements.submit.disabled = true;
+  modalElements.submit.classList.add('loading');
+  modalElements.submitText.textContent = text;
+  modalElements.close.classList.add('hide');
+  modalElements.text.disabled = true;
+}
+
+function renderAssessmentSections() {
+  const content = document.getElementById('assessment-content');
+  const q = { number: 1 };
+  content.replaceChildren(...assessment.sections.map((section, index) => createSection(section, index, q)));
+  renumberQuestions();
+  updateMarkTotals();
+}
+
 function showModal(event) {
   const target = event.currentTarget ?? event.target;
   if (target.id === 'import-assessment') {
-    document.getElementById('modal').classList.add('active');
-    document.getElementById('modal-title').textContent = 'Import existing assessment';
-    document.getElementById('modal-body-content').textContent = 'Paste the text of the whole assessment and mark scheme:';
-    document.getElementById('modal-submit-text').textContent = 'Import';
-    document.getElementById('modal-submit').onclick = async () => {
-      const value = cleanText(document.getElementById('modal-text').value);
+    openModal('Import existing assessment', 'Paste the text of the whole assessment and mark scheme:', 'Import');
+    modalElements.submit.onclick = async () => {
+      const value = cleanText(modalElements.text.value);
       if (!value) return;
-      document.getElementById('modal-submit').disabled = true;
-      document.getElementById('modal-submit').classList.add('loading');
-      document.getElementById('modal-submit-text').textContent = 'Importing...';
-      document.getElementById('modal-close').classList.add('hide');
-      document.getElementById('modal-text').disabled = true;
+      setModalLoading('Importing...');
       try {
         const data = await postSseJson('/courses/build/ai/import', { value });
         assessment.sections = data.sections;
-        document.getElementById('assessment-content').innerHTML = '';
-        const q = { number: 1 };
-        assessment.sections.forEach((section, index) => {
-          const sectionElement = createSection(section, index, q);
-          document.getElementById('assessment-content').appendChild(sectionElement);
-        });
-        renumberQuestions();
-        updateMarkTotals();
+        renderAssessmentSections();
         document.getElementById('btn-assessment').click();
       } catch (error) {
         alert(`Error importing assessment: ${error.message}`);
@@ -720,18 +745,11 @@ function showModal(event) {
     if (keyKnowledge.declarativeKnowledge.length > 0 || keyKnowledge.proceduralKnowledge.length > 0) {
       if (!confirm('Are you sure you want to replace the existing key knowledge? This cannot be undone.')) return;
     }
-    document.getElementById('modal').classList.add('active');
-    document.getElementById('modal-title').textContent = 'Generate key knowledge';
-    document.getElementById('modal-body-content').textContent = 'Paste the text of the scheme for this unit:';
-    document.getElementById('modal-submit-text').textContent = 'Generate';
-    document.getElementById('modal-submit').onclick = async () => {
-      const value = cleanText(document.getElementById('modal-text').value);
+    openModal('Generate key knowledge', 'Paste the text of the scheme for this unit:', 'Generate');
+    modalElements.submit.onclick = async () => {
+      const value = cleanText(modalElements.text.value);
       if (!value) return;
-      document.getElementById('modal-submit').disabled = true;
-      document.getElementById('modal-submit').classList.add('loading');
-      document.getElementById('modal-submit-text').textContent = 'Generating...';
-      document.getElementById('modal-close').classList.add('hide');
-      document.getElementById('modal-text').disabled = true;
+      setModalLoading('Generating...');
       try {
         const data = await postSseJson('/courses/build/ai/generatekeyknowledge', { value });
         keyKnowledge.declarativeKnowledge = data.declarativeKnowledge;
@@ -748,15 +766,12 @@ function showModal(event) {
       alert('Please add key knowledge items first.');
       return;
     }
-    document.getElementById('modal').classList.add('active');
-    document.getElementById('modal-title').textContent = 'Generate questions from key knowledge';
-    document.getElementById('modal-body-content').textContent = 'How many questions would you like to generate?';
-    document.getElementById('modal-submit-text').textContent = 'Generate';
-    document.getElementById('modal-numbers').classList.remove('hide');
-    document.getElementById('modal-text').classList.add('hide');
-    document.getElementById('modal-submit').onclick = async () => {
-      const multipleChoiceCount = Number.parseInt(document.getElementById('modal-multiple-choice-count').value, 10);
-      const shortAnswerCount = Number.parseInt(document.getElementById('modal-short-answer-count').value, 10);
+    openModal('Generate questions from key knowledge', 'How many questions would you like to generate?', 'Generate');
+    modalElements.numbers.classList.remove('hide');
+    modalElements.text.classList.add('hide');
+    modalElements.submit.onclick = async () => {
+      const multipleChoiceCount = Number.parseInt(modalElements.multipleChoiceCount.value, 10);
+      const shortAnswerCount = Number.parseInt(modalElements.shortAnswerCount.value, 10);
       if (!Number.isInteger(multipleChoiceCount) || !Number.isInteger(shortAnswerCount) || multipleChoiceCount < 0 || shortAnswerCount < 0 || multipleChoiceCount > 20 || shortAnswerCount > 20) {
         alert('Please enter two valid numbers.');
         return;
@@ -766,11 +781,7 @@ function showModal(event) {
         return;
       }
       const currentSection = assessment.sections[parseInt(target.closest('.section').dataset.index, 10)];
-      document.getElementById('modal-submit').disabled = true;
-      document.getElementById('modal-submit').classList.add('loading');
-      document.getElementById('modal-submit-text').textContent = 'Generating...';
-      document.getElementById('modal-close').classList.add('hide');
-      document.getElementById('modal-text').disabled = true;
+      setModalLoading('Generating...');
       try {
         const data = await postSseJson('/courses/build/ai/generatequestions', {
           declarativeKnowledge: keyKnowledge.declarativeKnowledge,
@@ -779,14 +790,7 @@ function showModal(event) {
           existingQuestions: currentSection.questions.map(q => q.question).filter(q => q.length > 0)
         });
         currentSection.questions.push(...data);
-        document.getElementById('assessment-content').innerHTML = '';
-        const q = { number: 1 };
-        assessment.sections.forEach((section, index) => {
-          const sectionElement = createSection(section, index, q);
-          document.getElementById('assessment-content').appendChild(sectionElement);
-        });
-        renumberQuestions();
-        updateMarkTotals();
+        renderAssessmentSections();
         document.getElementById('btn-assessment').click();
       } catch (error) {
         alert(`Error generating questions: ${error.message}`);
@@ -799,16 +803,10 @@ function showModal(event) {
       return;
     }
     if (questionBank.questions.length > 0 && !confirm('Are you sure you want to replace all existing quiz questions? This cannot be undone.')) return;
-    document.getElementById('modal').classList.add('active');
-    document.getElementById('modal-title').textContent = 'Replace quiz questions from key knowledge';
-    document.getElementById('modal-body-content').textContent = 'Generate a new revision quiz from the unit key knowledge.';
-    document.getElementById('modal-submit-text').textContent = 'Generate';
-    document.getElementById('modal-text').classList.add('hide');
-    document.getElementById('modal-submit').onclick = async () => {
-      document.getElementById('modal-submit').disabled = true;
-      document.getElementById('modal-submit').classList.add('loading');
-      document.getElementById('modal-submit-text').textContent = 'Generating...';
-      document.getElementById('modal-close').classList.add('hide');
+    openModal('Replace quiz questions from key knowledge', 'Generate a new revision quiz from the unit key knowledge.', 'Generate');
+    modalElements.text.classList.add('hide');
+    modalElements.submit.onclick = async () => {
+      setModalLoading('Generating...');
       try {
         const data = await postSseJson(`/courses/${courseId}/${unitId}/build/ai/generatequiz`);
         questionBank.questions = data.questions ?? [];
@@ -822,18 +820,18 @@ function showModal(event) {
       closeModal();
     };
   }
-  document.getElementById('modal-text').focus();
+  modalElements.text.focus();
 }
 
 function closeModal() {
-  document.getElementById('modal').classList.remove('active');
-  document.getElementById('modal-text').value = '';
-  document.getElementById('modal-submit').disabled = false;
-  document.getElementById('modal-submit').classList.remove('loading');
-  document.getElementById('modal-close').classList.remove('hide');
-  document.getElementById('modal-text').disabled = false;
-  document.getElementById('modal-numbers').classList.add('hide');
-  document.getElementById('modal-text').classList.remove('hide');
+  modalElements.root.classList.remove('active');
+  modalElements.text.value = '';
+  modalElements.submit.disabled = false;
+  modalElements.submit.classList.remove('loading');
+  modalElements.close.classList.remove('hide');
+  modalElements.text.disabled = false;
+  modalElements.numbers.classList.add('hide');
+  modalElements.text.classList.remove('hide');
 }
 
 function shuffleQuestion(question) {

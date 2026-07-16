@@ -4,5 +4,5 @@ namespace CurriculumPortal;
 
 public static class JsonDefaults
 {
-  public static readonly JsonSerializerOptions CamelCase = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+  public static JsonSerializerOptions CamelCase { get; } = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 }

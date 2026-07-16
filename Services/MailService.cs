@@ -7,12 +7,12 @@ namespace CurriculumPortal;
 
 public class MailService(ServiceAccountAuthService authService)
 {
-  private static readonly SemaphoreSlim Semaphore = new(1);
+  private static readonly SemaphoreSlim SendLock = new(1);
 
   public async Task SendAsync(List<Email> emails, CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(emails);
-    await Semaphore.WaitAsync(cancellationToken);
+    await SendLock.WaitAsync(cancellationToken);
     try
     {
       using var client = new GraphServiceClient(new ServiceAccountMailCredential(authService), ["Mail.Send"]);
@@ -66,7 +66,7 @@ public class MailService(ServiceAccountAuthService authService)
     }
     finally
     {
-      Semaphore.Release();
+      SendLock.Release();
     }
   }
 
@@ -93,8 +93,8 @@ public class MailService(ServiceAccountAuthService authService)
     public override AccessToken GetToken(TokenRequestContext requestContext, CancellationToken cancellationToken)
       => authService.GetMailAccessTokenAsync(cancellationToken).GetAwaiter().GetResult();
 
-    public override async ValueTask<AccessToken> GetTokenAsync(TokenRequestContext requestContext, CancellationToken cancellationToken)
-      => await authService.GetMailAccessTokenAsync(cancellationToken);
+    public override ValueTask<AccessToken> GetTokenAsync(TokenRequestContext requestContext, CancellationToken cancellationToken)
+      => new(authService.GetMailAccessTokenAsync(cancellationToken));
   }
 }
 

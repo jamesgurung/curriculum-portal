@@ -16,7 +16,7 @@ public class AssignmentAutomationService(
   ILogger<AssignmentAutomationService> logger) : BackgroundService
 {
   private static readonly TimeSpan ReauthenticationReminderWindow = TimeSpan.FromDays(14);
-  private static readonly TimeZoneInfo _ukTime = TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time");
+  private static readonly TimeZoneInfo UkTime = TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time");
 
   protected override async Task ExecuteAsync(CancellationToken stoppingToken)
   {
@@ -24,11 +24,11 @@ public class AssignmentAutomationService(
     {
       // Run every Monday at 08:05
       var utcNow = DateTime.UtcNow;
-      var now = TimeZoneInfo.ConvertTimeFromUtc(utcNow, _ukTime);
+      var now = TimeZoneInfo.ConvertTimeFromUtc(utcNow, UkTime);
       var daysUntilMonday = ((int)DayOfWeek.Monday - (int)now.DayOfWeek + 7) % 7;
       if (daysUntilMonday == 0 && now.TimeOfDay >= TimeSpan.FromMinutes(485)) daysUntilMonday = 7;
       var nextRun = now.Date.AddDays(daysUntilMonday).AddHours(8).AddMinutes(5);
-      var wait = TimeZoneInfo.ConvertTimeToUtc(nextRun, _ukTime) - utcNow;
+      var wait = TimeZoneInfo.ConvertTimeToUtc(nextRun, UkTime) - utcNow;
 
       try
       {
@@ -66,17 +66,7 @@ public class AssignmentAutomationService(
 
         try
         {
-          var students = await assignmentService.GetStudentsWithCompletionAsync(today);
-          var positiveStudents = students
-            .Where(o => o.CompletionRate >= options.AssignmentCompletionHighThreshold)
-            .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
-          var negativeStudents = students
-            .Where(o => o.CompletionRate < options.AssignmentCompletionLowThreshold && !configService.Exemptions.Contains(o.Student.Id) && !IsExamYearExempt(o.Student, today))
-            .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
-          var issued = await behaviourRecordService.IssueBehaviours(positiveStudents, negativeStudents);
-          logger.LogInformation("Issued {PositiveCount} positive and {NegativeCount} negative behaviour events.", issued.Positive, issued.Negative);
+          await IssueBehavioursAsync(today);
         }
         catch (Exception ex)
         {
@@ -87,7 +77,7 @@ public class AssignmentAutomationService(
         HashSet<string> assignmentPartitionKeys;
         try
         {
-          assignmentPartitionKeys = await assignmentService.GenerateAssignments(dueDate);
+          assignmentPartitionKeys = await assignmentService.GenerateAssignmentsAsync(dueDate);
           logger.LogInformation("Generated new assignments for due date {DueDate}.", dueDate);
         }
         catch (Exception ex)
@@ -98,18 +88,7 @@ public class AssignmentAutomationService(
 
         try
         {
-          var ks3YearGroupsWithAssignments = assignmentPartitionKeys
-            .Select(GetLeadingNumber)
-            .Where(yearGroup => yearGroup is >= 7 and <= 9)
-            .ToHashSet();
-          var classes = configService.Students
-            .SelectMany(student => student.Classes)
-            .Where(className => !IsExamYearExempt(GetLeadingNumber(className), dueDate)
-              && (IsKs3TutorClassWithAssignments(className, ks3YearGroupsWithAssignments)
-                || IsKs45SubjectClassWithAssignment(className, assignmentPartitionKeys)))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-          await teamsService.SetAssignments(dueDate, classes);
-          logger.LogInformation("Set Teams assignments for due date {DueDate}.", dueDate);
+          await SetTeamsAssignmentsAsync(dueDate, assignmentPartitionKeys);
         }
         catch (Exception ex)
         {
@@ -125,6 +104,37 @@ public class AssignmentAutomationService(
         logger.LogError(ex, "Weekly assignment setting failed.");
       }
     }
+  }
+
+  private async Task IssueBehavioursAsync(DateOnly dueDate)
+  {
+    var students = await assignmentService.GetStudentsWithCompletionAsync(dueDate);
+    var positiveStudents = students
+      .Where(o => o.CompletionRate >= options.AssignmentCompletionHighThreshold)
+      .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
+      .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
+    var negativeStudents = students
+      .Where(o => o.CompletionRate < options.AssignmentCompletionLowThreshold && !configService.Exemptions.Contains(o.Student.Id) && !IsExamYearExempt(o.Student, dueDate))
+      .GroupBy(o => o.BehaviourCode, StringComparer.OrdinalIgnoreCase)
+      .ToDictionary(g => g.Key, g => g.Select(o => o.Student).ToList(), StringComparer.OrdinalIgnoreCase);
+    var issued = await behaviourRecordService.IssueBehavioursAsync(positiveStudents, negativeStudents);
+    logger.LogInformation("Issued {PositiveCount} positive and {NegativeCount} negative behaviour events.", issued.Positive, issued.Negative);
+  }
+
+  private async Task SetTeamsAssignmentsAsync(DateOnly dueDate, HashSet<string> assignmentPartitionKeys)
+  {
+    var ks3YearGroupsWithAssignments = assignmentPartitionKeys
+      .Select(ClassNameParser.GetLeadingNumber)
+      .Where(yearGroup => yearGroup is >= 7 and <= 9)
+      .ToHashSet();
+    var classes = configService.Students
+      .SelectMany(student => student.Classes)
+      .Where(className => !IsExamYearExempt(ClassNameParser.GetLeadingNumber(className), dueDate)
+        && (IsKs3TutorClassWithAssignments(className, ks3YearGroupsWithAssignments)
+          || IsKs45SubjectClassWithAssignment(className, assignmentPartitionKeys)))
+      .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    await teamsService.SetAssignmentsAsync(dueDate, classes);
+    logger.LogInformation("Set Teams assignments for due date {DueDate}.", dueDate);
   }
 
   private async Task SendServiceAccountReauthenticationReminderAsync(CancellationToken cancellationToken)
@@ -145,22 +155,22 @@ public class AssignmentAutomationService(
     }], cancellationToken);
   }
 
-  public async Task<(int TutorEmails, int TeacherEmails)> SendTestCompletionEmailsAsync(CancellationToken cancellationToken)
+  public Task<(int TutorEmails, int TeacherEmails)> SendTestCompletionEmailsAsync(CancellationToken cancellationToken)
   {
     var now = DateOnly.FromDateTime(DateTime.UtcNow);
     var dueDate = now.AddDays(((int)DayOfWeek.Monday - (int)now.DayOfWeek + 7) % 7);
     dueDate = assignmentService.ResolveDueDate(dueDate);
-    return await SendCompletionEmailsAsync(dueDate, options.AdminEmails.First(), true, cancellationToken);
+    return SendCompletionEmailsAsync(dueDate, options.AdminEmails.First(), true, cancellationToken);
   }
 
-  private async Task<(int TutorEmails, int TeacherEmails)> SendCompletionEmailsAsync(DateOnly dueDate, CancellationToken cancellationToken)
-    => await SendCompletionEmailsAsync(dueDate, null, false, cancellationToken);
+  private Task<(int TutorEmails, int TeacherEmails)> SendCompletionEmailsAsync(DateOnly dueDate, CancellationToken cancellationToken)
+    => SendCompletionEmailsAsync(dueDate, null, false, cancellationToken);
 
   private async Task<(int TutorEmails, int TeacherEmails)> SendCompletionEmailsAsync(DateOnly dueDate, string recipientOverride, bool firstOnly, CancellationToken cancellationToken)
   {
     var reports = await assignmentService.GetWeeklyCompletionReportsAsync(dueDate);
     var tutorReports = reports.Tutors
-      .Where(o => !IsExamYearExempt(GetLeadingNumber(o.TutorGroup), dueDate))
+      .Where(o => !IsExamYearExempt(ClassNameParser.GetLeadingNumber(o.TutorGroup), dueDate))
       .Take(firstOnly ? 1 : int.MaxValue)
       .ToList();
     var teacherReports = reports.Teachers
@@ -169,7 +179,7 @@ public class AssignmentAutomationService(
         DueDateLabel = o.DueDateLabel,
         Teacher = o.Teacher,
         Classes = o.Classes
-          .Where(cls => !IsExamYearExempt(GetLeadingNumber(cls.ClassName), dueDate))
+          .Where(cls => !IsExamYearExempt(ClassNameParser.GetLeadingNumber(cls.ClassName), dueDate))
           .ToList()
       })
       .Where(o => o.Classes.Count > 0)
@@ -226,17 +236,17 @@ public class AssignmentAutomationService(
     {
       foreach (var className in student.Classes)
       {
-        var yearGroup = GetLeadingNumber(className);
+        var yearGroup = ClassNameParser.GetLeadingNumber(className);
         if (yearGroup is 11 or 13) return yearGroup;
       }
     }
 
-    return GetLeadingNumber(student.TutorGroup);
+    return ClassNameParser.GetLeadingNumber(student.TutorGroup);
   }
 
   private static bool IsKs3TutorClassWithAssignments(string className, HashSet<int> ks3YearGroupsWithAssignments)
   {
-    var yearGroup = GetLeadingNumber(className);
+    var yearGroup = ClassNameParser.GetLeadingNumber(className);
     return yearGroup is >= 7 and <= 9
       && className.Contains("/Tu", StringComparison.OrdinalIgnoreCase)
       && ks3YearGroupsWithAssignments.Contains(yearGroup);
@@ -244,29 +254,9 @@ public class AssignmentAutomationService(
 
   private static bool IsKs45SubjectClassWithAssignment(string className, HashSet<string> assignmentPartitionKeys)
   {
-    var partitionKey = GetAssignmentPartitionKey(className);
+    var partitionKey = ClassNameParser.GetAssignmentPartitionKey(className);
     return partitionKey is not null
-      && GetLeadingNumber(partitionKey) is >= 10 and <= 13
+      && ClassNameParser.GetLeadingNumber(partitionKey) is >= 10 and <= 13
       && assignmentPartitionKeys.Contains(partitionKey);
-  }
-
-  private static string GetAssignmentPartitionKey(string className)
-  {
-    if (string.IsNullOrWhiteSpace(className)) return null;
-
-    var trimmed = className.Trim();
-    var yearGroup = GetLeadingNumber(trimmed);
-    var slashIndex = trimmed.IndexOf('/', StringComparison.Ordinal);
-    if (yearGroup == 0 || slashIndex < 0 || slashIndex + 2 >= trimmed.Length) return null;
-
-    return $"{yearGroup:D2}{trimmed.Substring(slashIndex + 1, 2)}";
-  }
-
-  private static int GetLeadingNumber(string value)
-  {
-    if (string.IsNullOrWhiteSpace(value)) return 0;
-
-    var digits = new string(value.Trim().TakeWhile(char.IsDigit).ToArray());
-    return int.TryParse(digits, out var yearGroup) ? yearGroup : 0;
   }
 }

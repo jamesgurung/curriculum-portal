@@ -7,7 +7,7 @@ using System.Globalization;
 namespace CurriculumPortal;
 
 [Authorize(Roles = Roles.Teacher)]
-public class CourseEvaluationModel(CourseService storage, ConfigService config, IAntiforgery antiforgery) : PageModel
+public class CourseEvaluationModel(CourseService courseService, ConfigService config, IAntiforgery antiforgery) : PageModel
 {
   public string CourseId { get; private set; } = string.Empty;
   public CourseEntity Course { get; private set; }
@@ -27,7 +27,7 @@ public class CourseEvaluationModel(CourseService storage, ConfigService config, 
       return BadRequest("Course ID is required.");
     }
 
-    var course = await storage.TryGetCourseAsync(courseId);
+    var course = await courseService.TryGetCourseAsync(courseId);
     if (course is null)
     {
       return NotFound("Course not found.");
@@ -40,8 +40,8 @@ public class CourseEvaluationModel(CourseService storage, ConfigService config, 
 
     CourseId = courseId;
     Course = course;
-    Evaluation = await storage.TryGetCourseEvaluationAsync(courseId);
-    Units = Evaluation is null ? [] : await storage.ListUnitsAsync(courseId);
+    Evaluation = await courseService.TryGetCourseEvaluationAsync(courseId);
+    Units = Evaluation is null ? [] : await courseService.ListUnitsAsync(courseId);
     CsrfToken = antiforgery.GetAndStoreTokens(HttpContext).RequestToken ?? string.Empty;
     IsAdmin = User.IsInRole(Roles.Admin);
 

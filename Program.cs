@@ -1,3 +1,5 @@
+using Azure.Data.Tables;
+using Azure.Storage.Blobs;
 using CurriculumPortal;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -20,9 +22,13 @@ appOptions.Validate();
 builder.Services.AddSingleton(appOptions);
 
 builder.Services.AddHttpClient();
+var blobServiceClient = new BlobServiceClient(appOptions.StorageAccountConnectionString);
+var tableServiceClient = new TableServiceClient(appOptions.StorageAccountConnectionString);
+builder.Services.AddSingleton(blobServiceClient);
+builder.Services.AddSingleton(tableServiceClient);
 builder.Services.AddDataProtection().PersistKeysToAzureBlobStorage(new Uri(appOptions.DataProtectionBlobUri));
 
-var configService = new ConfigService(appOptions);
+var configService = new ConfigService(appOptions, blobServiceClient);
 await configService.LoadAsync();
 
 builder.Services.AddSingleton(configService);
@@ -41,7 +47,7 @@ builder.Services.AddSingleton<AssignmentAutomationService>();
 
 builder.Services.AddHostedService(provider => provider.GetRequiredService<AssignmentAutomationService>());
 
-builder.ConfigureAuth(configService);
+builder.ConfigureAuth(configService, appOptions);
 builder.Services.AddResponseCompression(options => { options.EnableForHttps = isProduction; });
 builder.Services.AddAntiforgery(options => { options.HeaderName = "X-CSRF-TOKEN"; });
 builder.Services.Configure<RouteOptions>(options => { options.LowercaseUrls = true; });

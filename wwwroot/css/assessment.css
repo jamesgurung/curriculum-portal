@@ -990,9 +990,7 @@ button.loading .spinner {
   #btn-recordsheets {
     display: none;
   }
-}
 
-@media (max-width: 885px) {
   .scheme-header {
     flex-direction: column;
   }

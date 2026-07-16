@@ -8,10 +8,10 @@ using System.Text.Json;
 
 namespace CurriculumPortal;
 
-public partial class ConfigService(AppOptions options)
+public class ConfigService(AppOptions options, BlobServiceClient blobServiceClient)
 {
-  private static readonly SemaphoreSlim _semaphore = new(1, 1);
-  private readonly BlobContainerClient _configClient = new BlobServiceClient(options.StorageAccountConnectionString).GetBlobContainerClient("config");
+  private static readonly SemaphoreSlim LoadLock = new(1, 1);
+  private readonly BlobContainerClient _configClient = blobServiceClient.GetBlobContainerClient("config");
   private readonly ImmutableHashSet<string> _adminEmails = options.AdminEmails.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
   private volatile bool _isLoaded;
 
@@ -25,22 +25,18 @@ public partial class ConfigService(AppOptions options)
   public HashSet<int> Exemptions { get; private set; } = [];
   public IReadOnlyList<ChecklistItemConfig> ChecklistItems { get; private set; } = [];
 
-  public Task LoadAsync()
-  {
-    return LoadAsync(false);
-  }
+  public Task LoadAsync() => LoadAsync(false);
 
-  public Task ReloadAsync()
-  {
-    return LoadAsync(true);
-  }
+  public Task ReloadAsync() => LoadAsync(true);
 
   private async Task LoadAsync(bool forceRefresh)
   {
     if (_isLoaded && !forceRefresh) return;
-    await _semaphore.WaitAsync();
+    await LoadLock.WaitAsync();
     try
     {
+      if (_isLoaded && !forceRefresh) return;
+
       Teachers = ParseUsers(await ReadBlobAsync("teachers.csv"), true);
       Students = ParseUsers(await ReadBlobAsync("students.csv"), false);
       SeniorLeaders = ParseEmailList(await ReadBlobAsync("seniorleaders.csv"));
@@ -58,7 +54,7 @@ public partial class ConfigService(AppOptions options)
     }
     finally
     {
-      _semaphore.Release();
+      LoadLock.Release();
     }
   }
 

@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace CurriculumPortal;
 
 [Authorize(Roles = Roles.Teacher)]
-public class BuildModel(CourseService storage, ConfigService config, IAntiforgery antiforgery) : PageModel
+public class BuildModel(CourseService courseService, ConfigService config, IAntiforgery antiforgery) : PageModel
 {
   public string PageTitle { get; private set; } = string.Empty;
   public string CourseIdJson { get; private set; } = "\"\"";
@@ -34,16 +34,16 @@ public class BuildModel(CourseService storage, ConfigService config, IAntiforger
       return BadRequest("Course ID and unit ID are required.");
     }
 
-    var course = await storage.TryGetCourseAsync(courseId);
-    var unit = await storage.TryGetUnitAsync(courseId, unitId);
+    var course = await courseService.TryGetCourseAsync(courseId);
+    var unit = await courseService.TryGetUnitAsync(courseId, unitId);
     if (course is null || unit is null)
     {
       return NotFound("Assessment not found.");
     }
 
-    var keyKnowledge = await storage.GetBlobAsync<KeyKnowledge>(unitId);
-    var assessment = await storage.GetBlobAsync<Assessment>(unitId);
-    var questionBank = await storage.GetBlobAsync<QuestionBank>(unitId);
+    var keyKnowledge = await courseService.GetBlobAsync<KeyKnowledge>(unitId);
+    var assessment = await courseService.GetBlobAsync<Assessment>(unitId);
+    var questionBank = await courseService.GetBlobAsync<QuestionBank>(unitId);
 
     var editable = User.CanEditCourse(course, config);
 

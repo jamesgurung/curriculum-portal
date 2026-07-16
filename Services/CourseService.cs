@@ -11,13 +11,12 @@ public class CourseService
   private readonly BlobContainerClient _blobClient;
   private readonly TableClient _coursesClient;
   private readonly TableClient _unitsClient;
-  private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-  public CourseService(AppOptions options, ConfigService config)
+  public CourseService(BlobServiceClient blobServiceClient, TableServiceClient tableServiceClient, ConfigService config)
   {
-    ArgumentNullException.ThrowIfNull(options);
-    _blobClient = new BlobServiceClient(options.StorageAccountConnectionString).GetBlobContainerClient("curriculum");
-    var tableServiceClient = new TableServiceClient(options.StorageAccountConnectionString);
+    ArgumentNullException.ThrowIfNull(blobServiceClient);
+    ArgumentNullException.ThrowIfNull(tableServiceClient);
+    _blobClient = blobServiceClient.GetBlobContainerClient("curriculum");
     _coursesClient = tableServiceClient.GetTableClient("courses");
     _unitsClient = tableServiceClient.GetTableClient("units");
     _config = config;
@@ -27,11 +26,8 @@ public class CourseService
   {
     var courses = await _coursesClient.QueryAsync<CourseEntity>(cancellationToken: cancellationToken).ToListAsync(cancellationToken);
     foreach (var course in courses)
-    {
-      course.LeaderNames = string.Join(", ", course.LeadersList
-        .Select(o => _config.UsersByEmail.TryGetValue(o, out var t) ? t.DisplayName : null)
-        .Where(o => o is not null));
-    }
+      PopulateLeaderNames(course);
+
     return courses.OrderBy(o => o.KeyStage).ThenBy(o => o.Name).ToList();
   }
 
@@ -46,42 +42,24 @@ public class CourseService
 
   public async Task<CourseEntity> TryGetCourseAsync(string courseId, CancellationToken cancellationToken = default)
   {
-    try
-    {
-      var response = await _coursesClient.GetEntityAsync<CourseEntity>("course", courseId, cancellationToken: cancellationToken);
-      response.Value.LeaderNames = string.Join(", ", response.Value.LeadersList
-        .Select(o => _config.UsersByEmail.TryGetValue(o, out var t) ? t.DisplayName : null)
-        .Where(o => o is not null));
-      return response.Value;
-    }
-    catch (RequestFailedException ex) when (ex.Status == 404)
-    {
-      return null;
-    }
+    var response = await _coursesClient.GetEntityIfExistsAsync<CourseEntity>("course", courseId, cancellationToken: cancellationToken);
+    if (!response.HasValue) return null;
+
+    PopulateLeaderNames(response.Value);
+    return response.Value;
   }
 
   public async Task<UnitEntity> TryGetUnitAsync(string courseId, string unitId, CancellationToken cancellationToken = default)
   {
-    try
-    {
-      var response = await _unitsClient.GetEntityAsync<UnitEntity>(courseId, unitId, cancellationToken: cancellationToken);
-      return response.Value;
-    }
-    catch (RequestFailedException ex) when (ex.Status == 404)
-    {
-      return null;
-    }
+    var response = await _unitsClient.GetEntityIfExistsAsync<UnitEntity>(courseId, unitId, cancellationToken: cancellationToken);
+    return response.HasValue ? response.Value : null;
   }
 
-  public Task UpdateCourseAsync(CourseEntity course)
-  {
-    return _coursesClient.UpsertEntityAsync(course, TableUpdateMode.Replace);
-  }
+  public Task UpdateCourseAsync(CourseEntity course, CancellationToken cancellationToken = default) =>
+    _coursesClient.UpsertEntityAsync(course, TableUpdateMode.Replace, cancellationToken);
 
-  public Task UpdateUnitAsync(UnitEntity unit, CancellationToken cancellationToken = default)
-  {
-    return _unitsClient.UpsertEntityAsync(unit, TableUpdateMode.Replace, cancellationToken);
-  }
+  public Task UpdateUnitAsync(UnitEntity unit, CancellationToken cancellationToken = default) =>
+    _unitsClient.UpsertEntityAsync(unit, TableUpdateMode.Replace, cancellationToken);
 
   public async Task DeleteUnitAsync(string courseId, string unitId)
   {
@@ -98,7 +76,7 @@ public class CourseService
     try
     {
       var response = await blobClient.DownloadContentAsync(cancellationToken);
-      return JsonSerializer.Deserialize<T>(response.Value.Content.ToString(), JsonOptions) ?? new T();
+      return JsonSerializer.Deserialize<T>(response.Value.Content.ToString(), JsonDefaults.CamelCase) ?? new T();
     }
     catch (RequestFailedException ex) when (ex.Status == 404)
     {
@@ -110,7 +88,7 @@ public class CourseService
   {
     var suffix = GetSuffix(typeof(T));
     var blobClient = _blobClient.GetBlobClient($"{unitId}.{suffix}.json");
-    var binaryData = new BinaryData(JsonSerializer.Serialize(curriculumBlob, JsonOptions));
+    var binaryData = new BinaryData(JsonSerializer.Serialize(curriculumBlob, JsonDefaults.CamelCase));
     return blobClient.UploadAsync(binaryData, overwrite: true, cancellationToken);
   }
 
@@ -120,7 +98,7 @@ public class CourseService
     try
     {
       var response = await blobClient.DownloadContentAsync(cancellationToken);
-      var evaluation = JsonSerializer.Deserialize<CourseEvaluation>(response.Value.Content.ToString(), JsonOptions);
+      var evaluation = JsonSerializer.Deserialize<CourseEvaluation>(response.Value.Content.ToString(), JsonDefaults.CamelCase);
       if (evaluation?.GeneratedAt != default)
       {
         if (evaluation.Overall.GeneratedAt == default)
@@ -141,8 +119,15 @@ public class CourseService
   public Task UploadCourseEvaluationAsync(string courseId, CourseEvaluation evaluation, CancellationToken cancellationToken = default)
   {
     var blobClient = _blobClient.GetBlobClient($"evaluations/{courseId}.json");
-    var binaryData = new BinaryData(JsonSerializer.Serialize(evaluation, JsonOptions));
+    var binaryData = new BinaryData(JsonSerializer.Serialize(evaluation, JsonDefaults.CamelCase));
     return blobClient.UploadAsync(binaryData, overwrite: true, cancellationToken);
+  }
+
+  private void PopulateLeaderNames(CourseEntity course)
+  {
+    course.LeaderNames = string.Join(", ", course.LeadersList
+      .Select(email => _config.UsersByEmail.TryGetValue(email, out var user) ? user.DisplayName : null)
+      .Where(name => name is not null));
   }
 
   private static string GetSuffix(Type type)

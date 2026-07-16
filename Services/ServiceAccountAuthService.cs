@@ -12,20 +12,20 @@ public sealed class ServiceAccountAuthService : IDisposable
   private static readonly string[] MailScopes = ["Mail.Send"];
   private static readonly string[] AuthScopes = [.. MailScopes, "offline_access"];
   private static readonly string AuthScopeKey = string.Join(' ', AuthScopes);
-  private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
   private readonly SemaphoreSlim _authSemaphore = new(1);
   private readonly BlobContainerClient _configClient;
   private readonly string _tenantId;
   private readonly string _clientId;
   private readonly string _clientSecret;
 
-  public ServiceAccountAuthService(AppOptions options)
+  public ServiceAccountAuthService(AppOptions options, BlobServiceClient blobServiceClient)
   {
     ArgumentNullException.ThrowIfNull(options);
+    ArgumentNullException.ThrowIfNull(blobServiceClient);
     _tenantId = options.MicrosoftTenantId;
     _clientId = options.MicrosoftClientId;
     _clientSecret = options.MicrosoftClientSecret;
-    _configClient = new BlobServiceClient(options.StorageAccountConnectionString).GetBlobContainerClient("config");
+    _configClient = blobServiceClient.GetBlobContainerClient("config");
   }
 
   public async Task<ServiceAccountStatus> GetStatusAsync(Uri redirectUri, bool reauthenticate = false)
@@ -178,7 +178,7 @@ public sealed class ServiceAccountAuthService : IDisposable
     {
       var response = await _configClient.GetBlobClient(AuthBlobName).DownloadContentAsync();
       var json = response.Value.Content.ToString();
-      return JsonSerializer.Deserialize<ServiceAccountAuthState>(json, JsonOptions) ?? new();
+      return JsonSerializer.Deserialize<ServiceAccountAuthState>(json, JsonDefaults.CamelCase) ?? new();
     }
     catch (RequestFailedException ex) when (ex.Status == 404)
     {
@@ -190,7 +190,7 @@ public sealed class ServiceAccountAuthService : IDisposable
 
   private async Task PersistAuthStateAsync(ServiceAccountAuthState authState)
   {
-    await _configClient.GetBlobClient(AuthBlobName).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(authState, JsonOptions)), true);
+    await _configClient.GetBlobClient(AuthBlobName).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(authState, JsonDefaults.CamelCase)), true);
   }
 
   private static ServiceAccountStatus CreateStatus(ServiceAccountAuthState authState, string message)
