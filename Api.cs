@@ -12,6 +12,7 @@ public static partial class Api
 {
   public static void MapApiPaths(this WebApplication app)
   {
+    ArgumentNullException.ThrowIfNull(app);
     MapInfrastructurePaths(app);
     MapCurriculumPaths(app);
     MapCourseAiPaths(app);

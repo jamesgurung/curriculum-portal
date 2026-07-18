@@ -1,6 +1,5 @@
 using OpenAI.Responses;
 using System.Globalization;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
@@ -8,35 +7,6 @@ namespace CurriculumPortal;
 
 public partial class AIService
 {
-  private async Task AssertTokensRemainingAsync(int reservedTokens, CancellationToken cancellationToken = default)
-  {
-    if (_dailyTokenLimit == default) return;
-
-    var start = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
-    var end = start.AddDays(1);
-    var url = new Uri($"https://api.openai.com/v1/organization/usage/completions?start_time={start.ToUnixTimeSeconds()}&end_time={end.ToUnixTimeSeconds()}&bucket_width=1d");
-
-    using var http = _httpClientFactory.CreateClient();
-    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _openAIAdminApiKey);
-
-    var json = await http.GetStringAsync(url, cancellationToken);
-    using var doc = JsonDocument.Parse(json);
-
-    var inputTokens = 0;
-    var outputTokens = 0;
-
-    foreach (var bucket in doc.RootElement.GetProperty("data").EnumerateArray())
-    {
-      foreach (var result in bucket.GetProperty("results").EnumerateArray())
-      {
-        inputTokens += result.GetProperty("input_tokens").GetInt32();
-        outputTokens += result.GetProperty("output_tokens").GetInt32();
-      }
-    }
-
-    if (inputTokens + outputTokens + reservedTokens >= _dailyTokenLimit) throw new InsufficientTokensException();
-  }
-
   private async Task<T> RunEvaluationRequestAsync<T>(SemaphoreSlim semaphore, string instructions, BinaryData schema, string schemaName, string input, Action onComplete,
     CancellationToken cancellationToken, IReadOnlyList<string> images = null) where T : new()
   {
@@ -254,4 +224,3 @@ public partial class AIService
     public List<CourseEvaluationRecommendedAction> RecommendedActions { get; set; } = [];
   }
 }
-

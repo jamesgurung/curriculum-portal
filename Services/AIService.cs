@@ -6,22 +6,21 @@ using System.Text.Json;
 
 namespace CurriculumPortal;
 
-public partial class AIService
+public sealed partial class AIService : IDisposable
 {
   private readonly OpenAIClient _aiClient;
   private readonly CourseService _courseService;
   private readonly CacheService _cache;
-  private readonly IHttpClientFactory _httpClientFactory;
+  private readonly AITokenBudgetService _tokenBudget;
   private readonly ILogger<AIService> _logger;
-  private readonly string _openAIAdminApiKey;
-  private readonly int _dailyTokenLimit;
+  private readonly SemaphoreSlim _evaluationSemaphore = new(5, 5);
 
   public string ModelName { get; }
 
-  public AIService(AppOptions options, CourseService courseService, CacheService cache, IHttpClientFactory httpClientFactory, ILogger<AIService> logger)
+  public AIService(AppOptions options, CourseService courseService, CacheService cache, AITokenBudgetService tokenBudget, ILogger<AIService> logger)
   {
     ArgumentNullException.ThrowIfNull(options);
-    ArgumentNullException.ThrowIfNull(httpClientFactory);
+    ArgumentNullException.ThrowIfNull(tokenBudget);
     ArgumentNullException.ThrowIfNull(logger);
     var clientOptions = new OpenAIClientOptions { NetworkTimeout = TimeSpan.FromMinutes(10) };
     var credential = new ApiKeyCredential(options.OpenAIApiKey);
@@ -34,16 +33,16 @@ public partial class AIService
     _aiClient = new OpenAIClient(credential, clientOptions);
     _courseService = courseService;
     _cache = cache;
-    _httpClientFactory = httpClientFactory;
+    _tokenBudget = tokenBudget;
     _logger = logger;
-    _openAIAdminApiKey = options.OpenAIAdminApiKey;
     ModelName = options.OpenAIModel;
-    _dailyTokenLimit = options.DailyTokenLimit;
   }
+
+  public void Dispose() => _evaluationSemaphore.Dispose();
 
   public async Task<Assessment> ImportTextAssessmentAsync(string value, CancellationToken cancellationToken = default)
   {
-    await AssertTokensRemainingAsync(16000, cancellationToken);
+    using var tokenReservation = await _tokenBudget.ReserveAsync(16000, cancellationToken);
     var client = _aiClient.GetResponsesClient();
 
     var systemMessage = """
@@ -112,12 +111,12 @@ public partial class AIService
   {
     ArgumentNullException.ThrowIfNull(unit);
     ArgumentNullException.ThrowIfNull(keyKnowledge);
-    await AssertTokensRemainingAsync(12000, cancellationToken);
     if (keyKnowledge.DeclarativeKnowledge.Count == 0)
     {
       return [];
     }
 
+    using var tokenReservation = await _tokenBudget.ReserveAsync(12000, cancellationToken);
     var client = _aiClient.GetResponsesClient();
 
     var criteria = """
@@ -313,7 +312,6 @@ public partial class AIService
     var units = await _courseService.ListUnitsAsync(cancellationToken: cancellationToken);
     var unitsToProcess = units.Where(o => o.YearGroup <= 9 && o.RevisionQuizStatus < 2 && o.KeyKnowledgeStatus == 2).ToList();
     if (unitsToProcess.Count == 0) return 0;
-    await AssertTokensRemainingAsync(unitsToProcess.Count * 12000, cancellationToken);
     var processed = 0;
 
     await Parallel.ForEachAsync(unitsToProcess, new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cancellationToken }, async (unit, ct) =>
@@ -352,7 +350,7 @@ public partial class AIService
   {
     ArgumentNullException.ThrowIfNull(courseId);
     ArgumentNullException.ThrowIfNull(question);
-    await AssertTokensRemainingAsync(20000, cancellationToken);
+    using var tokenReservation = await _tokenBudget.ReserveAsync(20000, cancellationToken);
     var isMathematics = courseId.Contains("mathematics", StringComparison.OrdinalIgnoreCase);
     var client = _aiClient.GetResponsesClient();
 
@@ -432,7 +430,7 @@ public partial class AIService
 
   public async Task<KeyKnowledge> GenerateKeyKnowledgeAsync(string value, CancellationToken cancellationToken = default)
   {
-    await AssertTokensRemainingAsync(20000, cancellationToken);
+    using var tokenReservation = await _tokenBudget.ReserveAsync(20000, cancellationToken);
     var client = _aiClient.GetResponsesClient();
 
     var systemMessage = """
@@ -509,7 +507,7 @@ public partial class AIService
   public async Task<List<AssessmentQuestion>> GenerateQuestionsAsync(GenerateQuestionsRequest model, CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(model);
-    await AssertTokensRemainingAsync(16000, cancellationToken);
+    using var tokenReservation = await _tokenBudget.ReserveAsync(16000, cancellationToken);
     var client = _aiClient.GetResponsesClient();
     var systemMessage = $"""
     You are an experienced secondary school teacher with exceptional pedagogical subject knowledge.

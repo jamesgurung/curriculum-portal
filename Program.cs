@@ -35,9 +35,11 @@ builder.Services.AddSingleton(configService);
 RegisterBehaviourRecordService(builder.Services, appOptions);
 builder.Services.AddSingleton<CourseService>();
 builder.Services.AddSingleton<BackupService>();
+builder.Services.AddSingleton<AITokenBudgetService>();
 builder.Services.AddSingleton<AIService>();
 builder.Services.AddSingleton<AssignmentService>();
 builder.Services.AddSingleton<CacheService>();
+builder.Services.AddSingleton<CourseEvaluationService>();
 builder.Services.AddScoped<IRazorViewRenderer, RazorViewRenderer>();
 builder.Services.AddScoped<EmailTemplateService>();
 builder.Services.AddSingleton<ServiceAccountAuthService>();
@@ -46,6 +48,7 @@ builder.Services.AddSingleton<TeamsService>();
 builder.Services.AddSingleton<AssignmentAutomationService>();
 
 builder.Services.AddHostedService(provider => provider.GetRequiredService<AssignmentAutomationService>());
+builder.Services.AddHostedService<CourseEvaluationAutomationService>();
 
 builder.ConfigureAuth(configService, appOptions);
 builder.Services.AddResponseCompression(options => { options.EnableForHttps = isProduction; });

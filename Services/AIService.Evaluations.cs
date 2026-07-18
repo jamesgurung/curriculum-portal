@@ -5,6 +5,12 @@ namespace CurriculumPortal;
 
 public partial class AIService
 {
+  internal const int CourseOverviewEvaluationReservedTokens = 20000;
+  internal const int CourseUnitEvaluationReservedTokens = 12000;
+
+  internal static int GetEvaluationReservedTokens(int unitCount, bool includeOverall) =>
+    (unitCount * CourseUnitEvaluationReservedTokens) + (includeOverall ? CourseOverviewEvaluationReservedTokens : 0);
+
   public async Task<string> SummariseCourseAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, CancellationToken cancellationToken = default)
   {
     ArgumentNullException.ThrowIfNull(course);
@@ -51,34 +57,7 @@ public partial class AIService
     return sb.ToString().Trim();
   }
 
-  public async Task<CourseEvaluationResult> EvaluateCourseAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, Action<int, int> reportProgress, CancellationToken cancellationToken = default)
-  {
-    ArgumentNullException.ThrowIfNull(course);
-    ArgumentNullException.ThrowIfNull(units);
-    await AssertTokensRemainingAsync((6000 * units.Count * 2) + 20000, cancellationToken);
-    return await EvaluateCourseSectionsAsync(course, units, units, true, reportProgress, cancellationToken);
-  }
-
-  public async Task<CourseOverallEvaluationResponse> EvaluateCourseOverviewAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, Action<int, int> reportProgress, CancellationToken cancellationToken = default)
-  {
-    ArgumentNullException.ThrowIfNull(course);
-    ArgumentNullException.ThrowIfNull(units);
-    await AssertTokensRemainingAsync(20000, cancellationToken);
-    var result = await EvaluateCourseSectionsAsync(course, units, [], true, reportProgress, cancellationToken);
-    return result.Overall;
-  }
-
-  public async Task<CourseEvaluationUnitResult> EvaluateCourseUnitAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, UnitEntity unit, Action<int, int> reportProgress, CancellationToken cancellationToken = default)
-  {
-    ArgumentNullException.ThrowIfNull(course);
-    ArgumentNullException.ThrowIfNull(units);
-    ArgumentNullException.ThrowIfNull(unit);
-    await AssertTokensRemainingAsync(6000 * 2, cancellationToken);
-    var result = await EvaluateCourseSectionsAsync(course, units, [unit], false, reportProgress, cancellationToken);
-    return result.Units.First();
-  }
-
-  private async Task<CourseEvaluationResult> EvaluateCourseSectionsAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, IReadOnlyList<UnitEntity> unitsToEvaluate, bool includeOverall,
+  internal async Task<CourseEvaluationResult> EvaluateCourseSectionsAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, IReadOnlyList<UnitEntity> unitsToEvaluate, bool includeOverall,
     Action<int, int> reportProgress, CancellationToken cancellationToken)
   {
     ArgumentNullException.ThrowIfNull(course);
@@ -362,14 +341,21 @@ public partial class AIService
       contexts.Add(new CourseEvaluationUnitContext(unit, BuildKeyKnowledgeEvaluationContext(unit, keyKnowledge, units), BuildAssessmentEvaluationContext(unit, keyKnowledge, assessment)));
     }
 
-    var semaphore = new SemaphoreSlim(5);
+    var courseSummary = string.Empty;
+    var assessmentRecapContext = string.Empty;
+    if (includeOverall)
+    {
+      courseSummary = await SummariseCourseAsync(course, units, cancellationToken);
+      assessmentRecapContext = await BuildAssessmentRecapEvaluationContextAsync(units, cancellationToken);
+    }
+
+    using var tokenReservation = await _tokenBudget.ReserveAsync(GetEvaluationReservedTokens(unitsToEvaluate.Count, includeOverall), cancellationToken);
     Task<CourseOverallEvaluationResponse> overallTask = null;
     Task<AssessmentRecapEvaluationResponse> assessmentRecapTask = null;
     if (includeOverall)
     {
-      var courseSummary = await SummariseCourseAsync(course, units, cancellationToken);
       overallTask = RunEvaluationRequestAsync<CourseOverallEvaluationResponse>(
-        semaphore,
+        _evaluationSemaphore,
         overviewPrompt,
         overviewSchema,
         "courseOverallEvaluation",
@@ -377,9 +363,8 @@ public partial class AIService
         () => reportProgress?.Invoke(Interlocked.Increment(ref completed), total),
         cancellationToken);
 
-      var assessmentRecapContext = await BuildAssessmentRecapEvaluationContextAsync(units, cancellationToken);
       assessmentRecapTask = RunEvaluationRequestAsync<AssessmentRecapEvaluationResponse>(
-        semaphore,
+        _evaluationSemaphore,
         assessmentRecapPrompt,
         assessmentRecapSchema,
         "assessmentRecapEvaluation",
@@ -403,7 +388,7 @@ public partial class AIService
           RecommendedActions = [new CourseEvaluationRecommendedAction { Action = "Complete the key knowledge for this unit.", Priority = 1 }]
         }),
         _ => RunEvaluationRequestAsync<KeyKnowledgeEvaluationResponse>(
-          semaphore,
+          _evaluationSemaphore,
           keyKnowledgePrompt,
           keyKnowledgeSchema,
           "keyKnowledgeEvaluation",
@@ -430,7 +415,7 @@ public partial class AIService
           DesignRecommendedActions = [new CourseEvaluationRecommendedAction { Action = "Complete the assessment for this unit.", Priority = 1 }]
         }),
         _ => RunEvaluationRequestAsync<AssessmentEvaluationResponse>(
-          semaphore,
+          _evaluationSemaphore,
           assessmentPrompt,
           assessmentSchema,
           "assessmentEvaluation",
