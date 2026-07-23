@@ -35,13 +35,17 @@ public class FollowupModel(CourseService storage, ConfigService config) : PageMo
       var evaluation = course.KeyStage == 3
         ? await storage.TryGetCourseEvaluationAsync(course.RowKey, HttpContext.RequestAborted)
         : null;
-      department.Courses.Add(BuildCourseFollowup(course, courseUnits, evaluation));
+      department.Courses.Add(BuildCourseFollowup(course, courseUnits, evaluation, config.ChecklistItems));
     }
 
     Departments = departments.Values.OrderBy(o => o.Name).ToList();
   }
 
-  private static FollowupCourse BuildCourseFollowup(CourseEntity course, List<UnitEntity> units, CourseEvaluation evaluation)
+  private static FollowupCourse BuildCourseFollowup(
+    CourseEntity course,
+    List<UnitEntity> units,
+    CourseEvaluation evaluation,
+    IReadOnlyList<ChecklistItemConfig> checklistItems)
   {
     var followup = new FollowupCourse { Name = course.Name, HasUnits = units.Count > 0 };
     followup.Criteria.Add(new FollowupCriterion { Name = "'Why this?' and 'why now?' rationale" });
@@ -51,8 +55,8 @@ public class FollowupModel(CourseService storage, ConfigService config) : PageMo
     if (course.KeyStage == 3)
       followup.Criteria.Add(new FollowupCriterion { Name = "Key knowledge defined" });
 
-    followup.Criteria.Add(new FollowupCriterion { Name = "Curriculum audit checklist started" });
-    followup.Criteria.Add(new FollowupCriterion { Name = "Teacher-assessed task every 8 lessons" });
+    foreach (var item in checklistItems)
+      followup.Criteria.Add(new FollowupCriterion { Name = item.Title });
     if (course.KeyStage == 3 && evaluation is not null)
     {
       followup.Criteria.Add(new FollowupCriterion { Name = "Priority AI feedback addressed" });
@@ -76,7 +80,7 @@ public class FollowupModel(CourseService storage, ConfigService config) : PageMo
     foreach (var unit in units)
     {
       unitEvaluations.TryGetValue(unit.RowKey, out var unitEvaluation);
-      followup.Rows.Add(BuildUnitRow(unit, unitEvaluation, course.KeyStage == 3, evaluation is not null));
+      followup.Rows.Add(BuildUnitRow(unit, unitEvaluation, course.KeyStage == 3, evaluation is not null, checklistItems));
     }
 
     return followup;
@@ -89,12 +93,17 @@ public class FollowupModel(CourseService storage, ConfigService config) : PageMo
       Name = name,
       Cells = Enumerable.Range(0, criterionCount - 1)
         .Select(_ => new FollowupCell { Applicable = false })
-        .Append(new FollowupCell { Complete = priorityActionCount == 0, Count = priorityActionCount })
+        .Append(new FollowupCell { Complete = priorityActionCount == 0, Important = true, Count = priorityActionCount })
         .ToList()
     };
   }
 
-  private static FollowupRow BuildUnitRow(UnitEntity unit, CourseEvaluationUnitResult evaluation, bool includeKeyKnowledge, bool includeAi)
+  private static FollowupRow BuildUnitRow(
+    UnitEntity unit,
+    CourseEvaluationUnitResult evaluation,
+    bool includeKeyKnowledge,
+    bool includeAi,
+    IReadOnlyList<ChecklistItemConfig> checklistItems)
   {
     var row = new FollowupRow
     {
@@ -114,8 +123,14 @@ public class FollowupModel(CourseService storage, ConfigService config) : PageMo
     if (includeKeyKnowledge)
       row.Cells.Add(new FollowupCell { Complete = unit.KeyKnowledgeStatus == 2 });
 
-    row.Cells.Add(new FollowupCell { Complete = HasChecklistProgress(unit.Checklist) });
-    row.Cells.Add(new FollowupCell { Complete = IsChecklistItemCompleteOrExempt(unit.Checklist, "assessedTasks") });
+    foreach (var item in checklistItems)
+    {
+      row.Cells.Add(new FollowupCell
+      {
+        Complete = IsChecklistItemCompleteOrExempt(unit.Checklist, item.Id),
+        Important = string.Equals(item.Id, "assessedTasks", StringComparison.OrdinalIgnoreCase)
+      });
+    }
 
     if (includeAi)
     {
@@ -124,7 +139,7 @@ public class FollowupModel(CourseService storage, ConfigService config) : PageMo
         : Clean(evaluation.KeyKnowledge?.RecommendedActions).Count()
           + Clean(evaluation.Assessment?.AlignmentRecommendedActions).Count()
           + Clean(evaluation.Assessment?.DesignRecommendedActions).Count();
-      row.Cells.Add(new FollowupCell { Complete = priorityActionCount == 0, Count = priorityActionCount });
+      row.Cells.Add(new FollowupCell { Complete = priorityActionCount == 0, Important = true, Count = priorityActionCount });
     }
 
     return row;
@@ -173,20 +188,6 @@ public class FollowupModel(CourseService storage, ConfigService config) : PageMo
     return false;
   }
 
-  private static bool HasChecklistProgress(string checklist)
-  {
-    if (string.IsNullOrWhiteSpace(checklist)) return false;
-
-    foreach (var pair in checklist.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-    {
-      var parts = pair.Split(',', 2, StringSplitOptions.TrimEntries);
-      if (parts.Length == 2 && parts[1] is "1" or "2")
-        return true;
-    }
-
-    return false;
-  }
-
   private static string UnitName(UnitEntity unit) => $"Year {unit.YearGroup} – {unit.Title}";
 
 }
@@ -220,5 +221,6 @@ public sealed class FollowupCell
 {
   public bool Applicable { get; set; } = true;
   public bool Complete { get; set; }
+  public bool Important { get; set; } = true;
   public int Count { get; set; }
 }

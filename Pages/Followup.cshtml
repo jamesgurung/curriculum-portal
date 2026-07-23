@@ -9,14 +9,15 @@
 
 <style>
   @@page {
-    size: A4 landscape;
-    margin: 10mm;
+    size: A4 portrait;
+    margin: 8mm;
   }
 
   .followup-page {
-    max-width: 1200px;
-    margin: 0;
-    padding: 24px;
+    box-sizing: border-box;
+    max-width: var(--layout-max-width);
+    margin: 0 auto;
+    padding: 24px 16px;
     font-family: Arial, sans-serif;
     font-size: 9pt;
     color: #202124;
@@ -37,6 +38,11 @@
   .followup-department:last-child {
     break-after: auto;
     page-break-after: auto;
+  }
+
+  .followup-page-title {
+    font-size: 22px;
+    margin-bottom: 24px;
   }
 
   .followup-title {
@@ -78,7 +84,7 @@
   .followup-table th,
   .followup-table td {
     border: 1px solid #dadce0;
-    padding: 6px;
+    padding: 3px 0;
     vertical-align: middle;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -88,21 +94,45 @@
     background: #f8f9fa;
   }
 
+  .followup-table thead th {
+    vertical-align: bottom;
+  }
+
   .followup-row-heading {
-    width: 34%;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    width: 28%;
     text-align: left;
   }
 
+  .followup-table tbody .followup-row-heading {
+    font-weight: normal;
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: normal;
+  }
+
   .followup-criterion-heading {
-    height: 190px;
-    padding: 6px 4px !important;
+    padding: 0 !important;
     text-align: center;
     vertical-align: bottom !important;
   }
 
+  .followup-criterion-heading-content {
+    align-items: flex-end;
+    display: flex;
+    height: 190px;
+    justify-content: center;
+    padding-bottom: 3px;
+  }
+
   .followup-criterion-heading-text {
     display: inline-block;
+    height: 100%;
     line-height: 1.15;
+    text-align: start;
     transform: rotate(180deg);
     writing-mode: vertical-rl;
   }
@@ -125,19 +155,34 @@
     color: #b3261e;
   }
 
+  .followup-status-secondary {
+    color: #bdc1c6;
+  }
+
+  .followup-status-count {
+    color: #bdc1c6;
+    font-weight: normal;
+  }
+
   .followup-not-applicable {
-    color: #5f6368;
+    color: #bdc1c6;
   }
 
   .followup-no-units {
-    color: #5f6368;
-    font-style: italic;
+    font-weight: bold;
     text-align: left;
+  }
+
+  @@media screen {
+    .followup-department + .followup-department {
+      margin-top: 32px;
+    }
   }
 
   @@media print {
     .app-header,
-    .app-footer {
+    .app-footer,
+    .followup-page-title {
       display: none !important;
     }
 
@@ -168,8 +213,29 @@
       width: 100%;
     }
 
+    .followup-table th,
+    .followup-table td {
+      padding: 0;
+    }
+
+    .followup-table col:first-child {
+      width: 22% !important;
+    }
+
+    .followup-row-heading {
+      padding-left: 1px !important;
+      padding-right: 1px !important;
+    }
+
     .followup-table thead {
+      break-after: avoid-page;
       display: table-header-group;
+      page-break-after: avoid;
+    }
+
+    .followup-table tbody tr:first-child {
+      break-before: avoid-page;
+      page-break-before: avoid;
     }
 
     .followup-table tr {
@@ -177,8 +243,24 @@
       page-break-inside: avoid;
     }
 
+    .followup-title,
+    .followup-course-title {
+      break-after: avoid-page;
+      page-break-after: avoid;
+    }
+
     .followup-criterion-heading {
-      height: 44mm;
+      padding: 0 !important;
+      font-size: 7pt;
+    }
+
+    .followup-criterion-heading-content {
+      height: 52mm;
+      padding-bottom: 0;
+    }
+
+    .followup-status-symbol {
+      font-size: 12px;
     }
 
     .followup-page,
@@ -191,6 +273,8 @@
 </style>
 
 <main class="followup-page">
+  <h1 class="followup-page-title">Curriculum Follow-Up</h1>
+
   @if (Model.Departments.Count == 0)
   {
     <text>No course summaries could be generated.</text>
@@ -199,16 +283,16 @@
   @foreach (var department in Model.Departments)
   {
     <section class="followup-department">
-      <h1 class="followup-title">Head of Department: @department.Name</h1>
+      <h2 class="followup-title">Head of Department: @department.Name</h2>
 
       @foreach (var course in department.Courses)
       {
         <section class="followup-course">
-          <h2 class="followup-course-title">@course.Name</h2>
+          <h3 class="followup-course-title">@course.Name</h3>
           <div class="followup-table-wrapper">
             <table class="followup-table">
               <colgroup>
-                <col style="width: 34%">
+                <col style="width: 28%">
                 @foreach (var criterion in course.Criteria)
                 {
                   <col>
@@ -216,11 +300,13 @@
               </colgroup>
               <thead>
                 <tr>
-                  <th class="followup-row-heading" scope="col">Unit / overview</th>
+                  <th class="followup-row-heading" scope="col">Unit</th>
                   @foreach (var criterion in course.Criteria)
                   {
                     <th class="followup-criterion-heading" scope="col">
-                      <span class="followup-criterion-heading-text">@criterion.Name</span>
+                      <span class="followup-criterion-heading-content">
+                        <span class="followup-criterion-heading-text">@criterion.Name</span>
+                      </span>
                     </th>
                   }
                 </tr>
@@ -229,7 +315,7 @@
                 @foreach (var row in course.Rows)
                 {
                   <tr>
-                    <th class="followup-row-heading" scope="row">@row.Name</th>
+                    <th class="followup-row-heading" scope="row" title="@row.Name">@row.Name</th>
                     @foreach (var cell in row.Cells)
                     {
                       <td class="followup-status">
@@ -243,8 +329,8 @@
                         }
                         else
                         {
-                          <span class="followup-status-symbol followup-status-incomplete" aria-label="Incomplete">
-                            &#x274C;@if (cell.Count > 0){<text>&nbsp;@cell.Count</text>}
+                          <span class="followup-status-symbol @(cell.Important ? "followup-status-incomplete" : "followup-status-secondary")" aria-label="Incomplete">
+                            @if (cell.Important){<text>&#x274C;</text>}else{<text>&#x2715;</text>}@if (cell.Count > 0){<span class="followup-status-count">&nbsp;@cell.Count</span>}
                           </span>
                         }
                       </td>
@@ -254,7 +340,10 @@
                 @if (!course.HasUnits)
                 {
                   <tr>
-                    <td class="followup-no-units" colspan="@(course.Criteria.Count + 1)">No units configured</td>
+                    <td class="followup-no-units" colspan="@(course.Criteria.Count + 1)">
+                      <span class="followup-status-symbol followup-status-incomplete" aria-label="Compulsory item incomplete">&#x274C;</span>
+                      No units configured
+                    </td>
                   </tr>
                 }
               </tbody>
