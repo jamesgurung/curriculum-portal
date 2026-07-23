@@ -1,0 +1,267 @@
+@page "/followup"
+@using CurriculumPortal
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = Roles.Admin)]
+@model FollowupModel
+@{
+  ViewData["Title"] = "Curriculum Follow-Up";
+}
+
+<style>
+  @@page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  .followup-page {
+    max-width: 1200px;
+    margin: 0;
+    padding: 24px;
+    font-family: Arial, sans-serif;
+    font-size: 9pt;
+    color: #202124;
+  }
+
+  .followup-page * {
+    box-sizing: border-box;
+    margin: 0;
+  }
+
+  .followup-department {
+    margin: 0;
+    padding: 0;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .followup-department:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .followup-title {
+    break-after: avoid;
+    font-size: 18px;
+    margin-bottom: 16px;
+    page-break-after: avoid;
+  }
+
+  .followup-course {
+    margin-bottom: 24px;
+  }
+
+  .followup-course:last-child {
+    margin-bottom: 0;
+  }
+
+  .followup-course-title {
+    break-after: avoid;
+    font-size: 14px;
+    margin-bottom: 8px;
+    page-break-after: avoid;
+  }
+
+  .followup-table-wrapper {
+    break-before: avoid;
+    overflow-x: auto;
+    page-break-before: avoid;
+  }
+
+  .followup-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin: 0;
+  }
+
+  .followup-table th,
+  .followup-table td {
+    border: 1px solid #dadce0;
+    padding: 6px;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .followup-table th {
+    background: #f8f9fa;
+  }
+
+  .followup-row-heading {
+    width: 34%;
+    text-align: left;
+  }
+
+  .followup-criterion-heading {
+    height: 190px;
+    padding: 6px 4px !important;
+    text-align: center;
+    vertical-align: bottom !important;
+  }
+
+  .followup-criterion-heading-text {
+    display: inline-block;
+    line-height: 1.15;
+    transform: rotate(180deg);
+    writing-mode: vertical-rl;
+  }
+
+  .followup-status {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .followup-status-symbol {
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  .followup-status-complete {
+    color: #137333;
+  }
+
+  .followup-status-incomplete {
+    color: #b3261e;
+  }
+
+  .followup-not-applicable {
+    color: #5f6368;
+  }
+
+  .followup-no-units {
+    color: #5f6368;
+    font-style: italic;
+    text-align: left;
+  }
+
+  @@media print {
+    .app-header,
+    .app-footer {
+      display: none !important;
+    }
+
+    body {
+      display: block;
+      height: auto;
+      min-height: 0;
+      overflow: visible;
+    }
+
+    .app-body {
+      display: block;
+    }
+
+    .followup-page {
+      max-width: none;
+      padding: 0;
+      width: 100%;
+      font-size: 8pt;
+    }
+
+    .followup-table-wrapper {
+      overflow: visible;
+    }
+
+    .followup-table {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .followup-table thead {
+      display: table-header-group;
+    }
+
+    .followup-table tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .followup-criterion-heading {
+      height: 44mm;
+    }
+
+    .followup-page,
+    .followup-page * {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+  }
+
+</style>
+
+<main class="followup-page">
+  @if (Model.Departments.Count == 0)
+  {
+    <text>No course summaries could be generated.</text>
+  }
+
+  @foreach (var department in Model.Departments)
+  {
+    <section class="followup-department">
+      <h1 class="followup-title">Head of Department: @department.Name</h1>
+
+      @foreach (var course in department.Courses)
+      {
+        <section class="followup-course">
+          <h2 class="followup-course-title">@course.Name</h2>
+          <div class="followup-table-wrapper">
+            <table class="followup-table">
+              <colgroup>
+                <col style="width: 34%">
+                @foreach (var criterion in course.Criteria)
+                {
+                  <col>
+                }
+              </colgroup>
+              <thead>
+                <tr>
+                  <th class="followup-row-heading" scope="col">Unit / overview</th>
+                  @foreach (var criterion in course.Criteria)
+                  {
+                    <th class="followup-criterion-heading" scope="col">
+                      <span class="followup-criterion-heading-text">@criterion.Name</span>
+                    </th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @foreach (var row in course.Rows)
+                {
+                  <tr>
+                    <th class="followup-row-heading" scope="row">@row.Name</th>
+                    @foreach (var cell in row.Cells)
+                    {
+                      <td class="followup-status">
+                        @if (!cell.Applicable)
+                        {
+                          <span class="followup-not-applicable" aria-label="Not applicable">&mdash;</span>
+                        }
+                        else if (cell.Complete)
+                        {
+                          <span class="followup-status-symbol followup-status-complete" aria-label="Complete">&#x2705;</span>
+                        }
+                        else
+                        {
+                          <span class="followup-status-symbol followup-status-incomplete" aria-label="Incomplete">
+                            &#x274C;@if (cell.Count > 0){<text>&nbsp;@cell.Count</text>}
+                          </span>
+                        }
+                      </td>
+                    }
+                  </tr>
+                }
+                @if (!course.HasUnits)
+                {
+                  <tr>
+                    <td class="followup-no-units" colspan="@(course.Criteria.Count + 1)">No units configured</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+    </section>
+  }
+</main>

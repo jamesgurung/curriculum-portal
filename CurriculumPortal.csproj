@@ -15,7 +15,7 @@
     <PackageReference Include="Azure.Data.Tables" Version="12.11.0" />
     <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.3" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.30.0-beta.1" />
     <PackageReference Include="BromcomEssentials" Version="1.0.0" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="LigerShark.WebOptimizer.Core" Version="3.0.477" />
