@@ -8,7 +8,8 @@
 - Avoid introducing new dependencies unless they are clearly necessary.
 - Reuse existing code and patterns in the codebase where possible.
 - There is no need to maintain backwards compatibility unless explicitly stated in the task.
-- To avoid interfering with active processes, run validation builds with a temporary artifacts directory outside the repo, then delete it afterwards. Example PowerShell flow: `$artifacts = Join-Path $env:TEMP ("dotnet-build-" + [guid]::NewGuid().ToString("N")); dotnet build --artifacts-path $artifacts; $exitCode = $LASTEXITCODE; Remove-Item -LiteralPath $artifacts -Recurse -Force; exit $exitCode`
+- To avoid interfering with active processes, run validation builds in two separate shell calls using a unique literal path beneath the project's MSBuild-excluded and gitignored `artifacts` directory: first run `dotnet build --artifacts-path 'artifacts/dotnet-build-<unique-token>'` with a timeout of at least 120 seconds, then run `dotnet build --target:Clean --no-restore --artifacts-path '<same path>'` to remove the generated files. Let `dotnet` create the directory; do not use shell variables, pre-create it, use `Remove-Item -Recurse`, or combine the build and cleanup. Empty ignored directories may remain.
+- Such builds are only necessary after a significant C# code change, not after every minor edit.
 - Do not introduce any test projects.
 - Do not access files named `appsettings.json`, `secrets.json`, or `local.settings.json` under any circumstances.
 

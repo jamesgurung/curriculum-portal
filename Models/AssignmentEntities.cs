@@ -135,5 +135,6 @@ public class AssignmentSubmissionEntity : ITableEntity
   public string ClassName { get; set; }
   public string Progress { get; set; }
   public int Completed { get; set; }
+  public DateTimeOffset? CompletedAt { get; set; }
   public DateTimeOffset LockedUntil { get; set; }
 }

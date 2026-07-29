@@ -280,6 +280,8 @@ public partial class AssignmentService
 
     submission.Progress = BuildProgress(entries);
     submission.Completed = entries.Count(item => item.IsCorrect);
+    if (submission.Completed == context.Questions.Count && submission.CompletedAt is null)
+      submission.CompletedAt = acceptedAt;
     submission.LockedUntil = acceptedAt.Add(isCorrect ? CorrectAnswerDelay : IncorrectAnswerDelay);
 
     try
