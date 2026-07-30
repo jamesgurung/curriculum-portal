@@ -17,6 +17,8 @@
   --assignments-ring-active: #0f7a3f;
   --assignments-ring-complete: #0f7a3f;
   --assignments-ring-pp: #d9368b;
+  --assignments-xp: #8a6500;
+  --assignments-xp-soft: #fff7d6;
   --assignments-shadow: 0 1px 3px rgba(11, 26, 45, 0.06), 0 4px 12px rgba(11, 26, 45, 0.06);
   min-height: 100%;
   padding: 0.9rem;
@@ -67,6 +69,146 @@ body.assignments-layout .assignments-page {
 .assignment-staff-controls {
   display: flex;
   justify-content: flex-end;
+}
+
+.assignment-gamification {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.9rem 1.3rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--assignments-xp) 34%, var(--assignments-border-standard));
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--assignments-xp-soft) 72%, var(--assignments-panel)) 0%, var(--assignments-panel) 72%);
+  box-shadow: var(--assignments-shadow);
+}
+
+.assignment-gamification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  grid-column: 1 / -1;
+}
+
+.assignment-gamification-identity {
+  min-width: 0;
+}
+
+.assignment-gamification-rank {
+  margin: 0;
+  color: var(--assignments-text-strong);
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.assignment-gamification-total {
+  flex: none;
+  text-align: right;
+}
+
+.assignment-gamification-xp {
+  display: block;
+  color: var(--assignments-xp);
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.assignment-gamification-streaks {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.assignment-gamification-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--assignments-muted);
+  font-size: 0.84rem;
+}
+
+.assignment-gamification-stat .material-symbols-outlined {
+  color: var(--assignments-xp);
+  font-size: 1.15rem;
+}
+
+.assignment-gamification-stat strong {
+  color: var(--assignments-text-strong);
+}
+
+.assignment-rank-progress {
+  display: grid;
+  align-content: center;
+  gap: 0.36rem;
+  width: min(32rem, 44vw);
+}
+
+.assignment-rank-progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  color: var(--assignments-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.assignment-rank-progress-bar,
+.assignment-complete-rank-bar {
+  height: 0.46rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--assignments-ring-track);
+}
+
+.assignment-rank-progress-fill,
+.assignment-complete-rank-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--assignments-xp);
+}
+
+.assignment-rank-progress.is-maximum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  color: var(--assignments-xp);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.assignment-rank-progress.is-maximum .material-symbols-outlined {
+  font-size: 1.15rem;
+}
+
+.assignment-bonus-quiz {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  grid-column: 1 / -1;
+  width: fit-content;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--assignments-xp) 38%, var(--assignments-border-standard));
+  border-radius: 9px;
+  background: var(--assignments-xp-soft);
+  color: var(--assignments-xp);
+  text-decoration: none;
+}
+
+.assignment-bonus-quiz:hover {
+  border-color: var(--assignments-xp);
+}
+
+.assignment-bonus-quiz .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+.assignment-bonus-quiz > span:last-child {
+  color: var(--assignments-muted);
+  font-size: 0.8rem;
 }
 
 .assignment-pp-toggle {
@@ -123,7 +265,7 @@ body.assignments-layout .assignments-page {
   display: flex;
   flex-direction: column;
   gap: 0.78rem;
-  height: 5.8rem;
+  min-height: 6.6rem;
   padding: 0.94rem;
   border: 1px solid var(--assignments-border-standard);
   border-radius: 10px;
@@ -168,6 +310,7 @@ a.assignment-card.is-overdue:hover {
 
 .assignment-card-title,
 .assignment-card-meta,
+.assignment-card-xp,
 .assignment-card-status,
 .assignments-empty {
   margin: 0;
@@ -184,6 +327,13 @@ a.assignment-card.is-overdue:hover {
   margin-top: 0.22rem;
   color: var(--assignments-muted);
   font-size: 0.88rem;
+}
+
+.assignment-card-xp {
+  margin-top: 0.3rem;
+  color: var(--assignments-xp);
+  font-size: 0.8rem;
+  font-weight: 750;
 }
 
 .assignment-card-status,
@@ -487,12 +637,45 @@ a.assignment-card.is-overdue:hover {
   font-weight: 600;
 }
 
+.assignment-detail-notice {
+  margin: 0;
+  color: var(--assignments-xp);
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
 .assignment-complete {
+  position: relative;
   display: grid;
   justify-items: center;
-  gap: 0.45rem;
-  padding: 1.25rem 1rem 1rem;
+  gap: 0.65rem;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 1.5rem 1rem 1.2rem;
   text-align: center;
+}
+
+.assignment-complete::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(circle at 50% 34%, color-mix(in srgb, var(--assignments-xp-soft) 82%, transparent) 0%, transparent 55%);
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+}
+
+.assignment-complete > :not(.assignment-complete-effects) {
+  position: relative;
+  z-index: 1;
+}
+
+.assignment-complete.is-celebrating {
+  animation: assignment-complete-arrive 480ms cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+}
+
+.assignment-complete.is-celebrating::before {
+  animation: assignment-complete-glow 1800ms ease-out both;
 }
 
 .assignment-complete .material-symbols-outlined {
@@ -500,8 +683,74 @@ a.assignment-card.is-overdue:hover {
   color: #d4a81f;
 }
 
+.assignment-complete-trophy {
+  filter: drop-shadow(0 6px 8px color-mix(in srgb, var(--assignments-xp) 22%, transparent));
+  font-variation-settings: 'FILL' 1;
+  transform-origin: 50% 80%;
+}
+
+.assignment-complete.is-celebrating .assignment-complete-trophy {
+  animation: assignment-complete-trophy-pop 800ms 100ms cubic-bezier(0.18, 0.89, 0.32, 1.45) both;
+}
+
+.assignment-complete-effects {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.assignment-complete-particle {
+  position: absolute;
+  top: 5.5rem;
+  left: 50%;
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 2px;
+  background: #d4a81f;
+  opacity: 0;
+}
+
+.assignment-complete-particle:nth-child(3n + 2) {
+  border-radius: 50%;
+  background: var(--assignments-ring-active);
+}
+
+.assignment-complete-particle:nth-child(3n) {
+  width: 0.34rem;
+  height: 0.7rem;
+  background: var(--assignments-accent);
+}
+
+.assignment-complete.is-celebrating .assignment-complete-particle {
+  animation: assignment-complete-particle-burst 850ms var(--assignment-particle-delay) cubic-bezier(0.15, 0.72, 0.35, 1) both;
+}
+
+.assignment-complete-xp-float {
+  position: absolute;
+  top: 8.7rem;
+  left: 50%;
+  padding: 0.3rem 0.58rem;
+  border: 1px solid color-mix(in srgb, var(--assignments-xp) 32%, var(--assignments-border-standard));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--assignments-xp-soft) 88%, var(--assignments-panel));
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--assignments-xp) 18%, transparent);
+  color: var(--assignments-xp);
+  font-size: 0.88rem;
+  font-weight: 800;
+  opacity: 0;
+  white-space: nowrap;
+}
+
+.assignment-complete.is-celebrating .assignment-complete-xp-float {
+  animation: assignment-complete-xp-float 1250ms 250ms cubic-bezier(0.16, 0.8, 0.3, 1) both;
+}
+
 .assignment-complete-title,
-.assignment-complete-text {
+.assignment-complete-text,
+.assignment-complete-xp,
+.assignment-rank-up {
   margin: 0;
 }
 
@@ -513,6 +762,318 @@ a.assignment-card.is-overdue:hover {
 
 .assignment-complete-text {
   color: var(--assignments-muted);
+}
+
+.assignment-complete-xp {
+  color: var(--assignments-xp);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.assignment-complete.is-celebrating .assignment-complete-xp {
+  animation: assignment-complete-xp-pulse 700ms 420ms ease-out both;
+}
+
+.assignment-rank-up {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.38rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--assignments-xp) 30%, var(--assignments-border-standard));
+  border-radius: 999px;
+  background: var(--assignments-xp-soft);
+  color: var(--assignments-xp);
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.assignment-rank-up .material-symbols-outlined {
+  color: inherit;
+  font-size: 1.1rem;
+}
+
+.assignment-complete.is-celebrating .assignment-rank-up {
+  opacity: 0;
+  transform: translateY(0.35rem) scale(0.82);
+}
+
+.assignment-complete.is-rank-up-revealed .assignment-rank-up {
+  animation: assignment-rank-up-reveal 650ms cubic-bezier(0.18, 0.89, 0.32, 1.4) forwards;
+  border-width: 2px;
+  padding: 0.52rem 0.9rem;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--assignments-xp-soft) 82%, var(--assignments-panel)), var(--assignments-xp-soft));
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--assignments-xp) 22%, transparent);
+}
+
+.assignment-complete.is-rank-up-revealed .assignment-complete-particle {
+  animation: assignment-rank-up-particle-burst 1050ms var(--assignment-particle-delay) cubic-bezier(0.12, 0.75, 0.28, 1) both;
+}
+
+.assignment-complete.is-level-up-impact {
+  animation: assignment-level-up-impact 1000ms cubic-bezier(0.18, 0.89, 0.32, 1.25) both;
+}
+
+.assignment-complete.is-level-up-impact::before {
+  animation: assignment-level-up-flash 1000ms ease-out both;
+}
+
+.assignment-complete.is-level-up-impact .assignment-complete-trophy {
+  animation: assignment-level-up-trophy 1000ms cubic-bezier(0.15, 0.85, 0.25, 1.35) both;
+}
+
+.assignment-complete.is-level-up-impact .assignment-rank-up .material-symbols-outlined {
+  animation: assignment-level-up-star 800ms ease-out both;
+}
+
+.assignment-complete.is-level-up-impact .assignment-complete-effects::before,
+.assignment-complete.is-level-up-impact .assignment-complete-effects::after {
+  position: absolute;
+  top: 5.5rem;
+  left: 50%;
+  width: 4rem;
+  height: 4rem;
+  border: 2px solid color-mix(in srgb, var(--assignments-xp) 72%, transparent);
+  border-radius: 50%;
+  content: '';
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.3);
+}
+
+.assignment-complete.is-level-up-impact .assignment-complete-effects::before {
+  animation: assignment-level-up-ring 850ms ease-out both;
+}
+
+.assignment-complete.is-level-up-impact .assignment-complete-effects::after {
+  animation: assignment-level-up-ring 850ms 140ms ease-out both;
+}
+
+.assignment-complete-bonuses {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  width: min(100%, 25rem);
+}
+
+.assignment-complete-bonus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  max-height: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--assignments-muted);
+  font-size: 0.88rem;
+  font-weight: 750;
+  opacity: 0;
+  transform: translateY(0.35rem) scale(0.9);
+}
+
+.assignment-complete-bonus .material-symbols-outlined {
+  color: inherit;
+  font-size: 1.1rem;
+}
+
+.assignment-complete-bonus.is-weekly {
+  color: var(--assignments-ring-active);
+}
+
+.assignment-complete-bonus.is-streak {
+  color: #b35d0b;
+}
+
+.assignment-complete-bonus.is-revealed {
+  max-height: 3rem;
+  padding: 0.38rem 0.72rem;
+  border-color: color-mix(in srgb, currentColor 28%, var(--assignments-border-standard));
+  background: color-mix(in srgb, currentColor 8%, var(--assignments-panel));
+  animation: assignment-completion-bonus-reveal 620ms cubic-bezier(0.18, 0.89, 0.32, 1.35) forwards;
+}
+
+.assignment-complete.is-streak-celebrating .assignment-complete-bonus.is-streak .material-symbols-outlined {
+  animation: assignment-streak-flame 700ms ease-out both;
+}
+
+.assignment-complete-rank {
+  display: grid;
+  gap: 0.42rem;
+  width: min(100%, 25rem);
+  margin-top: 0.65rem;
+  padding: 0.72rem 0.8rem;
+  border: 1px solid var(--assignments-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--assignments-xp-soft) 34%, var(--assignments-panel));
+  text-align: left;
+  transition: border-color 300ms ease, box-shadow 300ms ease, transform 300ms ease;
+}
+
+.assignment-complete.is-rank-complete .assignment-complete-rank {
+  border-color: color-mix(in srgb, var(--assignments-xp) 55%, var(--assignments-border-standard));
+  animation: assignment-rank-card-celebrate 700ms ease-out both;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--assignments-xp) 10%, transparent), 0 8px 24px color-mix(in srgb, var(--assignments-xp) 14%, transparent);
+}
+
+.assignment-complete-rank-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.assignment-complete-rank-summary strong {
+  color: var(--assignments-text-strong);
+}
+
+.assignment-complete-rank-summary span,
+.assignment-complete-rank-next {
+  color: var(--assignments-muted);
+  font-size: 0.78rem;
+}
+
+.assignment-complete-rank-next.is-maximum {
+  color: var(--assignments-xp);
+  font-weight: 700;
+}
+
+.assignment-complete-rank-fill {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--assignments-xp) 82%, #ffffff), var(--assignments-xp));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--assignments-xp) 32%, transparent);
+  transition: width var(--assignment-rank-progress-duration, 1100ms) cubic-bezier(0.16, 0.8, 0.3, 1);
+}
+
+.assignment-complete-rank-fill::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.72) 48%, transparent 76%);
+  content: '';
+  transform: translateX(-120%);
+}
+
+.assignment-complete.is-celebrating .assignment-complete-rank-fill::after {
+  animation: assignment-rank-bar-shimmer 900ms 260ms ease-in-out;
+}
+
+.assignment-complete.is-rank-complete .assignment-complete-rank-fill::after {
+  animation: assignment-rank-bar-shimmer 750ms ease-in-out 2;
+}
+
+.assignment-complete-rank-fill.is-resetting {
+  transition: none;
+}
+
+@keyframes assignment-complete-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(0.65rem) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes assignment-complete-glow {
+  0% { opacity: 0; transform: scale(0.7); }
+  28% { opacity: 1; }
+  100% { opacity: 0.35; transform: scale(1.15); }
+}
+
+@keyframes assignment-complete-trophy-pop {
+  0% { opacity: 0; transform: translateY(0.6rem) rotate(-8deg) scale(0.4); }
+  55% { opacity: 1; transform: translateY(-0.18rem) rotate(5deg) scale(1.16); }
+  75% { transform: rotate(-2deg) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+
+@keyframes assignment-complete-particle-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2) rotate(0); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--assignment-particle-x)), calc(-50% + var(--assignment-particle-y))) scale(1) rotate(210deg); }
+}
+
+@keyframes assignment-complete-xp-float {
+  0% { opacity: 0; transform: translate(-50%, 0.5rem) scale(0.72); }
+  24% { opacity: 1; transform: translate(-50%, 0) scale(1.06); }
+  72% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -2.35rem) scale(0.94); }
+}
+
+@keyframes assignment-complete-xp-pulse {
+  0% { transform: scale(0.85); }
+  52% { text-shadow: 0 0 16px color-mix(in srgb, var(--assignments-xp) 44%, transparent); transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+@keyframes assignment-rank-up-reveal {
+  0% { opacity: 0; transform: translateY(0.35rem) scale(0.82); }
+  62% { opacity: 1; transform: translateY(-0.08rem) scale(1.08); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes assignment-rank-up-particle-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2) rotate(0); }
+  16% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--assignment-rank-particle-x)), calc(-50% + var(--assignment-rank-particle-y))) scale(1.3) rotate(360deg); }
+}
+
+@keyframes assignment-rank-card-celebrate {
+  0% { transform: scale(1); }
+  42% { transform: scale(1.025); }
+  100% { transform: scale(1); }
+}
+
+@keyframes assignment-rank-bar-shimmer {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(120%); }
+}
+
+@keyframes assignment-level-up-impact {
+  0% { transform: scale(1); }
+  18% { transform: scale(1.025); }
+  38% { transform: scale(0.992); }
+  62% { transform: scale(1.012); }
+  100% { transform: scale(1); }
+}
+
+@keyframes assignment-level-up-flash {
+  0% { opacity: 0.3; transform: scale(0.7); }
+  28% { opacity: 1; }
+  100% { opacity: 0.45; transform: scale(1.35); }
+}
+
+@keyframes assignment-level-up-trophy {
+  0% { filter: drop-shadow(0 6px 8px color-mix(in srgb, var(--assignments-xp) 22%, transparent)); transform: rotate(0) scale(1); }
+  26% { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--assignments-xp) 70%, transparent)); transform: translateY(-0.38rem) rotate(-10deg) scale(1.28); }
+  52% { transform: translateY(-0.18rem) rotate(9deg) scale(1.18); }
+  76% { transform: rotate(-4deg) scale(1.08); }
+  100% { filter: drop-shadow(0 6px 8px color-mix(in srgb, var(--assignments-xp) 22%, transparent)); transform: rotate(0) scale(1); }
+}
+
+@keyframes assignment-level-up-star {
+  from { transform: rotate(-90deg) scale(0.35); }
+  55% { transform: rotate(24deg) scale(1.45); }
+  to { transform: rotate(0) scale(1); }
+}
+
+@keyframes assignment-level-up-ring {
+  0% { opacity: 0.9; transform: translate(-50%, -50%) scale(0.3); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(3.2); }
+}
+
+@keyframes assignment-completion-bonus-reveal {
+  0% { max-height: 0; opacity: 0; transform: translateY(0.35rem) scale(0.9); }
+  62% { opacity: 1; transform: translateY(-0.06rem) scale(1.04); }
+  100% { max-height: 3rem; opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes assignment-streak-flame {
+  0% { transform: translateY(0.2rem) scale(0.6); }
+  45% { text-shadow: 0 0 12px currentColor; transform: translateY(-0.1rem) scale(1.3) rotate(-7deg); }
+  72% { transform: scale(0.95) rotate(5deg); }
+  100% { transform: translateY(0) scale(1) rotate(0); }
 }
 
 .assignment-complete-link {
@@ -900,6 +1461,8 @@ a.assignment-card.is-overdue:hover {
     --assignments-ring-active: #5eb288;
     --assignments-ring-complete: #5eb288;
     --assignments-ring-pp: #f25aa5;
+    --assignments-xp: #e1bd55;
+    --assignments-xp-soft: #342e1c;
     --assignments-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
   }
 
@@ -911,12 +1474,42 @@ a.assignment-card.is-overdue:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .assignment-answer-waiting-dot,
-  .assignment-answer-list.is-revealed {
+  .assignment-answer-list.is-revealed,
+  .assignment-complete.is-celebrating,
+  .assignment-complete.is-celebrating::before,
+  .assignment-complete.is-celebrating .assignment-complete-trophy,
+  .assignment-complete.is-celebrating .assignment-complete-xp,
+  .assignment-complete.is-rank-up-revealed .assignment-rank-up,
+  .assignment-complete.is-rank-complete .assignment-complete-rank,
+  .assignment-complete.is-level-up-impact,
+  .assignment-complete.is-level-up-impact::before,
+  .assignment-complete.is-level-up-impact .assignment-complete-trophy,
+  .assignment-complete.is-level-up-impact .assignment-rank-up .material-symbols-outlined,
+  .assignment-complete-bonus.is-revealed,
+  .assignment-complete.is-streak-celebrating .assignment-complete-bonus.is-streak .material-symbols-outlined,
+  .assignment-complete.is-celebrating .assignment-complete-rank-fill::after,
+  .assignment-complete.is-rank-complete .assignment-complete-rank-fill::after {
     animation: none;
   }
 
-  .assignment-question-progress-fill {
+  .assignment-question-progress-fill,
+  .assignment-complete-rank,
+  .assignment-complete-rank-fill {
     transition: none;
+  }
+
+  .assignment-complete-effects {
+    display: none;
+  }
+
+  .assignment-complete.is-celebrating .assignment-rank-up {
+    opacity: 1;
+    transform: none;
+  }
+
+  .assignment-complete-bonus.is-revealed {
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -930,6 +1523,26 @@ a.assignment-card.is-overdue:hover {
     padding: 0.75rem;
   }
 
+  .assignment-gamification {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-gamification-header {
+    align-items: flex-start;
+  }
+
+  .assignment-gamification-streaks {
+    flex-wrap: wrap;
+  }
+
+  .assignment-rank-progress {
+    width: 100%;
+  }
+
+  .assignment-rank-progress.is-maximum {
+    justify-content: flex-start;
+  }
+
   .assignment-card {
     height: auto;
   }
@@ -937,6 +1550,19 @@ a.assignment-card.is-overdue:hover {
   .assignment-play-body,
   .assignment-question-card {
     padding: 0.85rem;
+  }
+
+  .assignment-complete {
+    gap: 0.52rem;
+    padding: 1.15rem 0.75rem 0.85rem;
+  }
+
+  .assignment-complete-bonuses {
+    gap: 0.38rem;
+  }
+
+  .assignment-complete-rank {
+    margin-top: 0.45rem;
   }
 
   .assignment-question-summary {
@@ -951,6 +1577,72 @@ a.assignment-card.is-overdue:hover {
     font-size: 1.2rem;
   }
 
+}
+
+@media (max-width: 800px) and (max-height: 700px) {
+  .assignments-page {
+    padding: 0.35rem;
+  }
+
+  .assignment-detail-header {
+    padding: 0.62rem 0.8rem;
+  }
+
+  .assignment-play-body {
+    padding: 0.55rem;
+  }
+
+  .assignment-play-meta {
+    margin-top: 0.12rem;
+    font-size: 0.8rem;
+  }
+
+  .assignment-complete {
+    gap: 0.3rem;
+    padding: 0.55rem 0.5rem 0.4rem;
+  }
+
+  .assignment-complete .assignment-complete-trophy {
+    font-size: 3.25rem;
+  }
+
+  .assignment-complete-title {
+    font-size: 1.25rem;
+  }
+
+  .assignment-complete-xp {
+    font-size: 1.1rem;
+  }
+
+  .assignment-complete-bonuses {
+    gap: 0.2rem;
+  }
+
+  .assignment-complete-bonus.is-revealed {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.78rem;
+  }
+
+  .assignment-complete.is-rank-up-revealed .assignment-rank-up {
+    padding: 0.34rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  .assignment-complete-text {
+    font-size: 0.88rem;
+  }
+
+  .assignment-complete-rank {
+    gap: 0.3rem;
+    margin-top: 0.15rem;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .assignment-complete-link {
+    min-height: 2.4rem;
+    margin: 1rem 0 0.35rem;
+    padding: 0.55rem 0.9rem;
+  }
 }
 
 @media (min-width: 1280px) {

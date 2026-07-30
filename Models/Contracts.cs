@@ -142,6 +142,10 @@ public class AssignmentsStudentData
 {
   public List<AssignmentsStudentCard> ToDo { get; set; } = [];
   public List<AssignmentsStudentCard> Past { get; set; } = [];
+  [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+  public BonusQuizAvailability BonusQuiz { get; set; }
+  [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+  public GamificationProgress Gamification { get; set; }
 }
 
 public class StudentWithCompletion
@@ -234,11 +238,14 @@ public class AssignmentDetailPageData
   public int TotalQuestions { get; set; }
   public bool IsComplete { get; set; }
   public AssignmentQuestionDto CurrentQuestion { get; set; }
+  [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+  public GamificationProgress Gamification { get; set; }
 }
 
 public class AssignmentQuestionDto
 {
   public int QuestionNumber { get; set; }
+  public string CourseId { get; set; } = string.Empty;
   public string UnitId { get; set; } = string.Empty;
   public string UnitTitle { get; set; } = string.Empty;
   public string QuestionText { get; set; } = string.Empty;
@@ -257,6 +264,52 @@ public class AssignmentAnswerResponse
   public int CompletedQuestions { get; set; }
   public int TotalQuestions { get; set; }
   public AssignmentQuestionDto NextQuestion { get; set; }
+  [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+  public int? NewlyAwardedXp { get; set; }
+  [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+  public GamificationProgress Gamification { get; set; }
+}
+
+public class GamificationProgress
+{
+  public int TotalXp { get; set; }
+  public string CurrentRank { get; set; } = string.Empty;
+  public string NextRank { get; set; }
+  public int RankProgressXp { get; set; }
+  public int RankSpanXp { get; set; }
+  public int CurrentStreak { get; set; }
+  public int BestStreak { get; set; }
+}
+
+public class BonusQuizAvailability
+{
+  public string Href { get; set; } = "/bonus-quiz";
+  public bool InProgress { get; set; }
+  public int QuizXp { get; set; }
+  public int RemainingBonusXp { get; set; }
+}
+
+public class BonusQuizPageData
+{
+  public string AttemptId { get; set; } = string.Empty;
+  public int CompletedQuestions { get; set; }
+  public int TotalQuestions { get; set; }
+  public bool IsComplete { get; set; }
+  public AssignmentQuestionDto CurrentQuestion { get; set; }
+  public int RemainingBonusXp { get; set; }
+  public GamificationProgress Gamification { get; set; }
+}
+
+public class BonusQuizAnswerRequest : AssignmentAnswerRequest
+{
+  public string AttemptId { get; set; } = string.Empty;
+}
+
+public class BonusQuizAnswerResponse : AssignmentAnswerResponse
+{
+  public string AttemptId { get; set; } = string.Empty;
+  public bool Restarted { get; set; }
+  public int RemainingBonusXp { get; set; }
 }
 
 public class AssignmentsStaffData

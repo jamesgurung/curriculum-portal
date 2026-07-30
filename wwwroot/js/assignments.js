@@ -64,9 +64,88 @@ function renderAssignments() {
 
 function renderStudentAssignments() {
   const container = document.createDocumentFragment();
+  if (assignmentsData.student?.gamification) {
+    container.appendChild(buildGamificationSummary(assignmentsData.student.gamification, assignmentsData.student.bonusQuiz));
+  }
   container.appendChild(buildStudentSection('To Do', assignmentsData.student?.toDo ?? [], 'Nothing due right now.', false));
   container.appendChild(buildStudentSection('Recent', assignmentsData.student?.past ?? [], 'Past assignments will appear here.', true));
   assignmentsRoot.replaceChildren(container);
+}
+
+function buildGamificationSummary(progress, bonusQuiz) {
+  const summary = createElement('section', 'assignment-gamification');
+  summary.setAttribute('aria-labelledby', 'assignment-rank-title');
+
+  const identity = createElement('div', 'assignment-gamification-identity');
+  const rankTitle = createElement('h2', 'assignment-gamification-rank', progress.currentRank);
+  rankTitle.id = 'assignment-rank-title';
+  identity.appendChild(rankTitle);
+
+  const total = createElement('div', 'assignment-gamification-total');
+  total.appendChild(createElement('strong', 'assignment-gamification-xp', `${progress.totalXp} XP`));
+
+  const header = createElement('div', 'assignment-gamification-header');
+  header.append(identity, total);
+
+  const streaks = createElement('div', 'assignment-gamification-streaks');
+  streaks.append(
+    buildGamificationStat('local_fire_department', progress.currentStreak, 'Current streak'),
+    buildGamificationStat('workspace_premium', progress.bestStreak, 'Best streak')
+  );
+
+  const rankProgress = createElement('div', `assignment-rank-progress${progress.nextRank ? '' : ' is-maximum'}`);
+  if (progress.nextRank) {
+    const progressLabel = createElement('div', 'assignment-rank-progress-label');
+    progressLabel.append(
+      createElement('span', '', `Progress to ${progress.nextRank}`),
+      createElement('span', '', `${progress.rankProgressXp} / ${progress.rankSpanXp} XP`)
+    );
+    const progressBar = createElement('div', 'assignment-rank-progress-bar');
+    progressBar.setAttribute('role', 'progressbar');
+    progressBar.setAttribute('aria-label', `Progress to ${progress.nextRank}`);
+    progressBar.setAttribute('aria-valuemin', '0');
+    progressBar.setAttribute('aria-valuemax', String(progress.rankSpanXp));
+    progressBar.setAttribute('aria-valuenow', String(progress.rankProgressXp));
+    const fill = createElement('span', 'assignment-rank-progress-fill');
+    fill.style.width = `${progress.rankSpanXp > 0 ? Math.min(progress.rankProgressXp / progress.rankSpanXp, 1) * 100 : 0}%`;
+    progressBar.appendChild(fill);
+    rankProgress.append(progressLabel, progressBar);
+  } else {
+    const maximumIcon = createElement('span', 'material-symbols-outlined', 'verified');
+    maximumIcon.setAttribute('aria-hidden', 'true');
+    rankProgress.append(
+      maximumIcon,
+      createElement('span', '', 'Maximum rank reached')
+    );
+  }
+
+  summary.append(header, streaks, rankProgress);
+  if (bonusQuiz) {
+    const action = createElement('a', 'assignment-bonus-quiz');
+    const icon = createElement('span', 'material-symbols-outlined', bonusQuiz.inProgress ? 'play_arrow' : 'neurology');
+    icon.setAttribute('aria-hidden', 'true');
+    action.href = bonusQuiz.href;
+    action.append(
+      icon,
+      createElement('strong', '', bonusQuiz.inProgress ? 'Resume bonus quiz' : 'Start bonus quiz'),
+      createElement('span', '', `${bonusQuiz.quizXp} XP this run · ${bonusQuiz.remainingBonusXp} XP remaining`)
+    );
+    summary.appendChild(action);
+  }
+  return summary;
+}
+
+function buildGamificationStat(iconName, value, label) {
+  const stat = createElement('div', 'assignment-gamification-stat');
+  const icon = createElement('span', 'material-symbols-outlined', iconName);
+  icon.setAttribute('aria-hidden', 'true');
+  const text = createElement('span', 'assignment-gamification-stat-text');
+  text.append(
+    createElement('strong', '', String(value)),
+    document.createTextNode(` ${label}`)
+  );
+  stat.append(icon, text);
+  return stat;
 }
 
 function buildStudentSection(title, cards, emptyText, highlightIncomplete) {
@@ -101,6 +180,8 @@ function buildStudentCard(card, highlightIncomplete) {
     createElement('p', 'assignment-card-title', card.courseName),
     createElement('p', 'assignment-card-meta', `Due ${card.dueDateLabel}`)
   );
+  if (!card.isComplete)
+    titleBlock.appendChild(createElement('p', 'assignment-card-xp', `+${card.totalQuestions} XP`));
 
   const progress = buildProgressBadge(card.completed, card.totalQuestions, false);
   header.append(titleBlock, progress);

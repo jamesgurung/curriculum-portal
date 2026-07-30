@@ -138,3 +138,19 @@ public class AssignmentSubmissionEntity : ITableEntity
   public DateTimeOffset? CompletedAt { get; set; }
   public DateTimeOffset LockedUntil { get; set; }
 }
+
+public class XpLedgerEntity : ITableEntity
+{
+  public string PartitionKey { get; set; }
+  public string RowKey { get; set; }
+  [JsonIgnore]
+  public DateTimeOffset? Timestamp { get; set; }
+  [JsonIgnore]
+  public ETag ETag { get; set; }
+
+  public string CompletedKeysJson { get; set; } = "[]";
+  public int AnswerPoints { get; set; }
+  public int CompletionPoints { get; set; }
+  public int BonusQuizPoints { get; set; }
+  public string BonusQuizStateJson { get; set; } = string.Empty;
+}

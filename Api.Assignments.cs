@@ -9,12 +9,12 @@ public static partial class Api
 {
   private static void MapAssignmentPaths(WebApplication app)
   {
-    app.MapGet("/assignments/set", [Authorize(Roles = Roles.Admin)] async (AssignmentService assignmentService) =>
+    app.MapGet("/assignments/set", [Authorize(Roles = Roles.Admin)] async (AssignmentService assignmentService, CancellationToken cancellationToken) =>
     {
       var now = DateOnly.FromDateTime(DateTime.UtcNow);
       var dueDate = now.AddDays((((int)DayOfWeek.Monday - (int)now.DayOfWeek + 6) % 7) + 1);
       dueDate = assignmentService.ResolveDueDate(dueDate);
-      await assignmentService.GenerateAssignmentsAsync(dueDate);
+      await assignmentService.GenerateAssignmentsAsync(dueDate, cancellationToken);
       return Results.Text($"Created assignments due {dueDate:yyyy-MM-dd}.");
     });
 
@@ -71,6 +71,43 @@ public static partial class Api
           return Results.NotFound();
         }
 
+        return Results.Content(JsonSerializer.Serialize(response, JsonDefaults.CamelCase), "application/json");
+      }
+      catch (ArgumentException ex)
+      {
+        return Results.BadRequest(ex.Message);
+      }
+      catch (TooManyRequestsException ex)
+      {
+        return Results.Text(ex.Message, "text/plain", statusCode: StatusCodes.Status429TooManyRequests);
+      }
+      catch (InvalidOperationException ex)
+      {
+        return Results.Conflict(ex.Message);
+      }
+    });
+
+    app.MapPost("/bonus-quiz/submit", [Authorize(Roles = Roles.Student)] async (
+      HttpContext context,
+      IAntiforgery antiforgery,
+      BonusQuizAnswerRequest model,
+      ConfigService config,
+      BonusQuizService bonusQuizService) =>
+    {
+      var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
+      if (csrfError is not null) return csrfError;
+
+      if (context.User.Identity?.IsAuthenticated != true) return Results.Unauthorized();
+      if (!config.UsersByEmail.TryGetValue(context.User.GetEmail(), out var currentUser)) return Results.Forbid();
+      if (model is null) return Results.BadRequest("Data missing.");
+
+      try
+      {
+        var response = await bonusQuizService.SubmitAnswerAsync(
+          currentUser,
+          model,
+          DateTimeOffset.UtcNow,
+          context.RequestAborted);
         return Results.Content(JsonSerializer.Serialize(response, JsonDefaults.CamelCase), "application/json");
       }
       catch (ArgumentException ex)

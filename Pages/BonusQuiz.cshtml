@@ -1,0 +1,41 @@
+@page "/bonus-quiz"
+@model CurriculumPortal.BonusQuizModel
+
+@section Head {
+  <link rel="stylesheet" href="/css/assignments.css" />
+}
+
+<div id="assignments-app" class="assignments-page">
+  <div class="assignments-shell">
+    <section class="assignment-detail assignment-play">
+      <header class="assignment-detail-header assignment-play-header">
+        <div>
+          <h2 class="assignment-play-title">Bonus quiz</h2>
+          <p class="assignment-play-meta">Get every question right to earn XP</p>
+        </div>
+      </header>
+      <div id="assignment-detail-root" class="assignment-play-body">
+        <p class="assignments-empty">Loading bonus quiz...</p>
+      </div>
+    </section>
+  </div>
+
+  <div id="csrf"><input type="hidden" name="__RequestVerificationToken" value="@Model.CsrfToken" /></div>
+</div>
+
+@section Scripts {
+  <script>
+    const assignmentDetailData = @Html.Raw(Model.PageDataJson);
+    const assignmentSubmitUrl = "/bonus-quiz/submit";
+    const assignmentQuizConfig = {
+      mode: "bonus",
+      completeTitle: "Bonus quiz complete",
+      completeText: "Perfect run complete.",
+      backHref: "/assignments",
+      backLabel: "Back to assignments"
+    };
+    window.MathJax = window.MathJax ?? { tex: { inlineMath: [['`', '`']], displayMath: [['$$', '$$']] } };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@4.1.0/tex-chtml.min.js" integrity="sha512-OUE6LMU3sCcbrGuCJgFD7eUyCQ616tVd2BkntHCyKBu7FGDp35bZAwjSKXINYcjWN6MjCS+wdGbGWPG2vngzgA==" crossorigin="anonymous"></script>
+  <script src="/js/assignment-detail.js"></script>
+}

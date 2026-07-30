@@ -5,7 +5,7 @@
   var resolvedTitle = string.IsNullOrWhiteSpace(title) ? AppOptions.SchoolName : title;
   var metaDescription = $"Explore the curriculum at {AppOptions.SchoolName}, including courses, units, and revision quiz content.";
   var isCoursesSection = Context.Request.Path.StartsWithSegments("/courses");
-  var isAssignmentsSection = Context.Request.Path.StartsWithSegments("/assignments");
+  var isAssignmentsSection = Context.Request.Path.StartsWithSegments("/assignments") || Context.Request.Path.StartsWithSegments("/bonus-quiz");
   var bodyClass = isAssignmentsSection ? "assignments-layout" : string.Empty;
   var pageBodyClass = ViewData["BodyClass"] as string;
   if (!string.IsNullOrWhiteSpace(pageBodyClass))

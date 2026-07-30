@@ -12,12 +12,14 @@ public partial class AssignmentService
   private static readonly TimeSpan StaffAssignmentCacheLifetime = TimeSpan.FromDays(7);
   private readonly ConfigService _config;
   private readonly CourseService _courseService;
+  private readonly XpService _xpService;
+  private readonly BonusQuizService _bonusQuizService;
   private readonly BlobContainerClient _cacheClient;
   private readonly TableClient _assignmentsClient;
   private readonly TableClient _questionsClient;
   private readonly TableClient _submissionsClient;
 
-  public AssignmentService(BlobServiceClient blobServiceClient, TableServiceClient tableServiceClient, ConfigService config, CourseService courseService)
+  public AssignmentService(BlobServiceClient blobServiceClient, TableServiceClient tableServiceClient, ConfigService config, CourseService courseService, XpService xpService, BonusQuizService bonusQuizService)
   {
     ArgumentNullException.ThrowIfNull(blobServiceClient);
     ArgumentNullException.ThrowIfNull(tableServiceClient);
@@ -27,17 +29,19 @@ public partial class AssignmentService
     _submissionsClient = tableServiceClient.GetTableClient("submissions");
     _config = config;
     _courseService = courseService;
+    _xpService = xpService;
+    _bonusQuizService = bonusQuizService;
   }
 
-  public async Task<HashSet<string>> GenerateAssignmentsAsync(DateOnly dueDate)
+  public async Task<HashSet<string>> GenerateAssignmentsAsync(DateOnly dueDate, CancellationToken cancellationToken = default)
   {
     if (dueDate.DayOfWeek != DayOfWeek.Monday) throw new InvalidOperationException("Assignments must be due on Mondays");
     var assignmentPartitionKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     var dueDateText = FormatDate(dueDate);
-    var courses = await _courseService.ListCoursesAsync();
+    var courses = await _courseService.ListCoursesAsync(cancellationToken);
     foreach (var course in courses.Where(o => o.AssignmentLength > 0))
     {
-      var units = await _courseService.ListUnitsAsync(course.RowKey);
+      var units = await _courseService.ListUnitsAsync(course.RowKey, cancellationToken);
       var yearGroups = units.Select(u => u.YearGroup).Order().Distinct();
       foreach (var yearGroup in yearGroups)
       {
@@ -51,7 +55,7 @@ public partial class AssignmentService
           RowKey = BuildAssignmentRowKey(yearGroup, course.RowKey),
           Length = course.AssignmentLength
         };
-        var existing = await _assignmentsClient.GetEntityIfExistsAsync<AssignmentEntity>(assignment.PartitionKey, assignment.RowKey);
+        var existing = await _assignmentsClient.GetEntityIfExistsAsync<AssignmentEntity>(assignment.PartitionKey, assignment.RowKey, cancellationToken: cancellationToken);
         if (existing.HasValue)
         {
           assignmentPartitionKeys.Add($"{yearGroup:D2}{course.SubjectCode}");
@@ -61,14 +65,15 @@ public partial class AssignmentService
         var questions = new List<QuestionBankQuestionWithUnit>();
         foreach (var unit in pastUnits)
         {
-          var unitQuestionBank = await _courseService.GetBlobAsync<QuestionBank>(unit.RowKey);
+          var unitQuestionBank = await _courseService.GetBlobAsync<QuestionBank>(unit.RowKey, cancellationToken);
           questions.AddRange(unitQuestionBank.Questions.Select(q => new QuestionBankQuestionWithUnit(q, unit.RowKey, unit.Title)));
         }
 
         var questionPrefix = BuildQuestionRowKeyPrefix(yearGroup, course.RowKey);
         var pastQuestions = await _questionsClient.QueryAsync<AssignmentQuestionEntity>(
           filter: $"{BuildPartitionKeyLessThanFilter(dueDateText)} and {BuildRowKeyPrefixFilter(questionPrefix)}",
-          select: ["PartitionKey", "RowKey", "Question"]).ToListAsync();
+          select: ["PartitionKey", "RowKey", "Question"],
+          cancellationToken: cancellationToken).ToListAsync(cancellationToken);
         var pastQuestionCounts = pastQuestions
           .GroupBy(q => NormalizeQuestionText(q.Question), StringComparer.OrdinalIgnoreCase)
           .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
@@ -80,7 +85,7 @@ public partial class AssignmentService
           .OrderBy(o => o.Count).ThenBy(o => Random.Shared.Next()).Take(course.AssignmentLength).ToList();
 
         if (selectedQuestions.Count < course.AssignmentLength) continue;
-        await _assignmentsClient.AddEntityAsync(assignment);
+        await _assignmentsClient.AddEntityAsync(assignment, cancellationToken);
         assignmentPartitionKeys.Add($"{yearGroup:D2}{course.SubjectCode}");
 
         var questionEntities = new List<AssignmentQuestionEntity>(selectedQuestions.Count);
@@ -103,6 +108,7 @@ public partial class AssignmentService
         await _questionsClient.BatchAddAsync(questionEntities);
       }
     }
+    await _xpService.CreateWeeklyRowsAsync(dueDate, cancellationToken);
     return assignmentPartitionKeys;
   }
 
@@ -182,8 +188,12 @@ public partial class AssignmentService
     ArgumentNullException.ThrowIfNull(student);
 
     var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    var nowUtc = DateTimeOffset.UtcNow;
+    var gamificationTask = _xpService.GetProgressAsync(student.Id, nowUtc, CancellationToken.None);
+    var bonusQuizTask = _bonusQuizService.GetAvailabilityAsync(student, nowUtc, CancellationToken.None);
     var classes = ParseClasses(student.Classes);
-    if (classes.Count == 0) return new AssignmentsStudentData();
+    if (classes.Count == 0)
+      return new AssignmentsStudentData { BonusQuiz = await bonusQuizTask, Gamification = await gamificationTask };
 
     var coursesByKeyStageAndSubjectCode = (await _courseService.ListCoursesAsync())
       .Where(o => !string.IsNullOrWhiteSpace(o.SubjectCode))
@@ -223,7 +233,9 @@ public partial class AssignmentService
         .OrderByDescending(o => o.DueDate)
         .ThenBy(o => o.Card.CourseName, StringComparer.OrdinalIgnoreCase)
         .Select(o => o.Card)
-        .ToList()
+        .ToList(),
+      BonusQuiz = await bonusQuizTask,
+      Gamification = await gamificationTask
     };
   }
 
@@ -233,7 +245,10 @@ public partial class AssignmentService
     ArgumentNullException.ThrowIfNull(course);
     ArgumentException.ThrowIfNullOrWhiteSpace(className);
 
-    var context = await LoadStudentAssignmentContextAsync(student, course, yearGroup, dueDate, className);
+    var contextTask = LoadStudentAssignmentContextAsync(student, course, yearGroup, dueDate, className);
+    var gamificationTask = _xpService.GetProgressAsync(student.Id, DateTimeOffset.UtcNow, CancellationToken.None);
+    await Task.WhenAll(contextTask, gamificationTask);
+    var context = await contextTask;
     if (context is null) return null;
 
     var currentQuestion = LoadNextQuestion(context.Submission.Progress, context.Questions);
@@ -250,7 +265,8 @@ public partial class AssignmentService
       CompletedQuestions = completedQuestions,
       TotalQuestions = totalQuestions,
       IsComplete = currentQuestion is null,
-      CurrentQuestion = currentQuestion
+      CurrentQuestion = currentQuestion,
+      Gamification = await gamificationTask
     };
   }
 
@@ -268,6 +284,7 @@ public partial class AssignmentService
     if (context is null) return null;
 
     var submission = context.Submission;
+    var wasComplete = submission.CompletedAt.HasValue;
     EnsureSubmissionDelaySatisfied(submission);
     var entries = ParseProgress(submission.Progress, context.Questions.Count);
     var entry = GetCurrentQueueEntry(entries) ?? throw new InvalidOperationException("This assignment has already been completed.");
@@ -293,12 +310,26 @@ public partial class AssignmentService
       throw new InvalidOperationException("The submission was updated by another request. Please try again.", ex);
     }
 
+    XpAwardResult award = null;
+    if (!wasComplete && submission.CompletedAt.HasValue)
+    {
+      award = await _xpService.RecordAssignmentCompletionAsync(
+        student,
+        dueDate,
+        BuildAssignmentRowKey(yearGroup, course.RowKey),
+        submission.CompletedAt.Value,
+        context.Questions.Count,
+        CancellationToken.None);
+    }
+
     return new AssignmentAnswerResponse
     {
       CorrectAnswer = correctAnswer,
       CompletedQuestions = Math.Min(submission.Completed, context.Questions.Count),
       TotalQuestions = context.Questions.Count,
-      NextQuestion = LoadNextQuestion(submission.Progress, context.Questions)
+      NextQuestion = LoadNextQuestion(submission.Progress, context.Questions),
+      NewlyAwardedXp = award?.NewlyAwardedXp,
+      Gamification = award?.Progress
     };
   }
 

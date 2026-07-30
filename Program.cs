@@ -34,6 +34,8 @@ await configService.LoadAsync();
 builder.Services.AddSingleton(configService);
 RegisterBehaviourRecordService(builder.Services, appOptions);
 builder.Services.AddSingleton<CourseService>();
+builder.Services.AddSingleton<XpService>();
+builder.Services.AddSingleton<BonusQuizService>();
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<AITokenBudgetService>();
 builder.Services.AddSingleton<AIService>();

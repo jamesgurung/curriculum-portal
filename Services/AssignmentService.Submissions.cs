@@ -121,6 +121,7 @@ public partial class AssignmentService
     return new AssignmentQuestionDto
     {
       QuestionNumber = nextEntry.QuestionNumber,
+      CourseId = question.CourseId,
       UnitId = question.UnitId ?? string.Empty,
       UnitTitle = question.UnitTitle ?? string.Empty,
       QuestionText = question.Question,
@@ -255,4 +256,3 @@ public partial class AssignmentService
     }).ToArray();
   }
 }
-

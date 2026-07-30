@@ -77,7 +77,7 @@ public class AssignmentAutomationService(
         HashSet<string> assignmentPartitionKeys;
         try
         {
-          assignmentPartitionKeys = await assignmentService.GenerateAssignmentsAsync(dueDate);
+          assignmentPartitionKeys = await assignmentService.GenerateAssignmentsAsync(dueDate, stoppingToken);
           logger.LogInformation("Generated new assignments for due date {DueDate}.", dueDate);
         }
         catch (Exception ex)

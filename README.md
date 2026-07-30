@@ -8,7 +8,7 @@ Deploy effortlessly to Microsoft Azure.
 
 1. Create a general purpose v2 storage account in [Microsoft Azure](http://portal.azure.com), and within it create:
     * Blob containers: `cache`, `config` and `curriculum`
-    * Tables: `courses` and `units`
+    * Tables: `courses`, `units` and `xpledger`
 
 2. Within the `config` blob container:
 
