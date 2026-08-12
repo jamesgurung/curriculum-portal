@@ -22,7 +22,7 @@ public partial class AIService
         ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
         Model = ModelName
       };
-
+      options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
       options.InputItems.Add(images?.Count > 0
         ? ResponseItem.CreateUserMessageItem([ResponseContentPart.CreateInputTextPart(input), .. images.Select(o => ResponseContentPart.CreateInputImagePart(new Uri(o)))])
         : ResponseItem.CreateUserMessageItem(input));

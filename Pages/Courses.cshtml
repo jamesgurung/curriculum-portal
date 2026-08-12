@@ -156,9 +156,23 @@
     const isEditableStaff = @(Model.IsEditableStaff ? "true" : "false");
     const microsoftSharePointSubdomain = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MicrosoftSharePointSubdomain));
     const csrfToken = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CsrfToken));
-    window.MathJax = { tex: { inlineMath: [['`', '`'], ['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] } };
+    window.MathJax = {
+      tex: { inlineMath: [['`', '`'], ['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      output: {
+        displayOverflow: 'scroll',
+        font: 'mathjax-newcm',
+        fontPath: `${location.origin}/lib/mathjax-newcm-font`
+      },
+      options: {
+        worker: {
+          path: `${location.origin}/lib/mathjax/sre`,
+          maps: `${location.origin}/lib/mathjax/sre/mathmaps`,
+          worker: 'speech-worker.js'
+        }
+      }
+    };
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@4.1.0/tex-chtml.min.js" integrity="sha512-OUE6LMU3sCcbrGuCJgFD7eUyCQ616tVd2BkntHCyKBu7FGDp35bZAwjSKXINYcjWN6MjCS+wdGbGWPG2vngzgA==" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js" integrity="sha512-ri8dokds012Oxz+iFzMs4KNJXVc+h7J1zq6unM1NTtzBLj4jD1R5BWiK6QycK0TdSdkt7zYcIcv6sUPhmYkbdQ==" crossorigin="anonymous"></script>
+  <script src="/lib/mathjax/tex-chtml.min.js"></script>
+  <script src="/lib/sortablejs/Sortable.min.js"></script>
   <script src="/js/curriculum-home.js"></script>
 }

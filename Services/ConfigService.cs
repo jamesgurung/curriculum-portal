@@ -12,7 +12,7 @@ public class ConfigService(AppOptions options, BlobServiceClient blobServiceClie
 {
   private static readonly SemaphoreSlim LoadLock = new(1, 1);
   private readonly BlobContainerClient _configClient = blobServiceClient.GetBlobContainerClient("config");
-  private readonly ImmutableHashSet<string> _adminEmails = options.AdminEmails.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
+  private readonly ImmutableHashSet<string> _adminEmails = options.AdminEmails.Split(',').Select(o => o.Trim()).ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
   private volatile bool _isLoaded;
 
   public byte[] SchoolLogoBytes { get; private set; }

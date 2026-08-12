@@ -2,7 +2,7 @@ namespace CurriculumPortal;
 
 public sealed class AppOptions
 {
-  public string[] AdminEmails { get; set; }
+  public string AdminEmails { get; set; }
   public int AssignmentCompletionHighThreshold { get; set; }
   public int AssignmentCompletionLowThreshold { get; set; }
   public string BrandAccentColour { get; set; }
@@ -57,12 +57,15 @@ public sealed class AppOptions
     if (!string.IsNullOrWhiteSpace(MicrosoftFoundryEndpoint) && !Uri.TryCreate(MicrosoftFoundryEndpoint, UriKind.Absolute, out _))
       throw new InvalidOperationException($"{nameof(MicrosoftFoundryEndpoint)} is not a valid absolute URI.");
 
-    if (AdminEmails is null || AdminEmails.Length == 0 || AdminEmails.Any(email => string.IsNullOrWhiteSpace(email)))
+    if (string.IsNullOrWhiteSpace(AdminEmails))
       throw new InvalidOperationException($"{nameof(AdminEmails)} must contain at least one valid email address.");
+
     if (AssignmentCompletionLowThreshold > AssignmentCompletionHighThreshold)
       throw new InvalidOperationException($"{nameof(AssignmentCompletionLowThreshold)} must be less than or equal to {nameof(AssignmentCompletionHighThreshold)}.");
+
     if (DailyTokenLimit < 0)
       throw new InvalidOperationException($"{nameof(DailyTokenLimit)} must not be negative.");
+
     if (DailyTokenLimit > 0)
       EnsureValue(OpenAIAdminApiKey, nameof(OpenAIAdminApiKey));
   }

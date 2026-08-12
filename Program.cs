@@ -1,4 +1,5 @@
 using Azure.Data.Tables;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using CurriculumPortal;
 using Microsoft.AspNetCore.DataProtection;
@@ -8,11 +9,33 @@ using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var appConfigEndpoint = builder.Configuration["AppConfigurationEndpoint"];
+var appConfigConnectionString = builder.Configuration.GetConnectionString("AppConfiguration");
+if (appConfigEndpoint is not null || appConfigConnectionString is not null)
+{
+  builder.Configuration.AddAzureAppConfiguration(options =>
+  {
+    if (appConfigEndpoint is not null)
+    {
+      options.Connect(new Uri(appConfigEndpoint), new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned));
+    }
+    else
+    {
+      options.Connect(appConfigConnectionString);
+    }
+    options
+      .Select("Shared:*")
+      .Select("CurriculumPortal:*")
+      .TrimKeyPrefix("Shared:")
+      .TrimKeyPrefix("CurriculumPortal:");
+  });
+}
+
 var isProduction = !builder.Environment.IsDevelopment();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-  options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+  options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
   options.KnownIPNetworks.Clear();
   options.KnownProxies.Clear();
 });

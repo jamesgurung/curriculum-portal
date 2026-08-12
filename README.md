@@ -136,9 +136,20 @@ Deploy effortlessly to Microsoft Azure.
     * Port - 8080
     * Startup command: (blank)
 
-6. Configure the following environment variables for the web app:
+6. Configure the application settings as described below.
 
-    * `AdminEmails__0` - the email address of the first admin user, who has full administrative access (subsequent admins can be configured by adding items with incrementing indices)
+    #### Bootstrap settings
+
+    If you wish to load settings from Azure App Configuration, specify one of the following:
+
+    - `AppConfigurationEndpoint` - Azure App Configuration endpoint. The application authenticates using its system-assigned managed identity.
+    - `ConnectionStrings:AppConfiguration` - Azure App Configuration connection string.
+
+    #### Azure App Configuration
+
+    The remaining application settings are loaded from the `Shared:*` and `CurriculumPortal:*` keys in Azure App Configuration, or from your local configuration:
+
+    * `AdminEmails` - the email addresses of the admin users who have full administrative access (comma-separated list)
     * `AssignmentCompletionHighThreshold` - the integer percentage completion rate above which students due assignments today receive the positive behaviour event (set this above `100` to disable positive behaviours)
     * `AssignmentCompletionLowThreshold` - the integer percentage completion rate below which students due assignments today receive the negative behaviour event (set this below `0` to disable negative behaviours)
     * `BrandAccentColour` - the CSS colour used for the navbar bottom border

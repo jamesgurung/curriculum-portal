@@ -99,7 +99,7 @@ public sealed partial class AIService : IDisposable
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("assessment", schema, jsonSchemaIsStrict: true) },
       Model = ModelName
     };
-
+    options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
     options.InputItems.Add(userMessage);
     var response = await client.CreateResponseAsync(options, cancellationToken);
 
@@ -217,7 +217,7 @@ public sealed partial class AIService : IDisposable
         TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
         Model = ModelName
       };
-
+      options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
       options.InputItems.Add(ResponseItem.CreateUserMessageItem(CreateUserMessage(knowledgeItems)));
       return options;
     }
@@ -241,7 +241,7 @@ public sealed partial class AIService : IDisposable
         TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
         Model = ModelName
       };
-
+      options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
       options.InputItems.Add(ResponseItem.CreateUserMessageItem(JsonSerializer.Serialize(new QuestionBank { Questions = questions }, JsonDefaults.CamelCase)));
       var response = await client.CreateResponseAsync(options, cancellationToken);
       var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
@@ -420,7 +420,7 @@ public sealed partial class AIService : IDisposable
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("markScheme", schema, jsonSchemaIsStrict: true) },
       Model = ModelName
     };
-
+    options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
     options.InputItems.Add(userMessage);
     var response = await client.CreateResponseAsync(options, cancellationToken);
 
@@ -496,7 +496,7 @@ public sealed partial class AIService : IDisposable
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("keyKnowledge", schema, jsonSchemaIsStrict: true) },
       Model = ModelName
     };
-
+    options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
     options.InputItems.Add(userMessage);
     var response = await client.CreateResponseAsync(options, cancellationToken);
 
@@ -610,7 +610,7 @@ public sealed partial class AIService : IDisposable
       TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("questions", schema, jsonSchemaIsStrict: true) },
       Model = ModelName
     };
-
+    options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
     options.InputItems.Add(ResponseItem.CreateUserMessageItem(userMessage));
     var response = await client.CreateResponseAsync(options, cancellationToken);
 

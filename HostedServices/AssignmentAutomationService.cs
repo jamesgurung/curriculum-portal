@@ -142,7 +142,7 @@ public class AssignmentAutomationService(
     var expiry = await serviceAccountAuthService.GetRefreshTokenExpiryAsync();
     if (expiry is null || expiry.Value - DateTime.UtcNow > ReauthenticationReminderWindow) return;
 
-    var adminEmail = options.AdminEmails.First();
+    var adminEmail = options.AdminEmails.Split(',')[0];
     var expiryText = expiry.Value.ToString("dddd d MMMM yyyy 'at' HH:mm 'UTC'", CultureInfo.InvariantCulture);
     await mailService.SendAsync([new Email
     {
@@ -160,7 +160,7 @@ public class AssignmentAutomationService(
     var now = DateOnly.FromDateTime(DateTime.UtcNow);
     var dueDate = now.AddDays(((int)DayOfWeek.Monday - (int)now.DayOfWeek + 7) % 7);
     dueDate = assignmentService.ResolveDueDate(dueDate);
-    return SendCompletionEmailsAsync(dueDate, options.AdminEmails.First(), true, cancellationToken);
+    return SendCompletionEmailsAsync(dueDate, options.AdminEmails.Split(',')[0], true, cancellationToken);
   }
 
   private Task<(int TutorEmails, int TeacherEmails)> SendCompletionEmailsAsync(DateOnly dueDate, CancellationToken cancellationToken)
