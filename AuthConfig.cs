@@ -63,6 +63,7 @@ public static class AuthConfig
         options.ClientId = appOptions.MicrosoftClientId;
         options.ClientSecret = appOptions.MicrosoftClientSecret;
         options.ResponseType = OpenIdConnectResponseType.Code;
+        options.ResponseMode = OpenIdConnectResponseMode.Query;
         options.MapInboundClaims = false;
         options.Scope.Clear();
         options.Scope.Add("openid");

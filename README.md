@@ -1,50 +1,50 @@
 # Curriculum Portal
 
-Curriculum Portal is a free, open-source web application designed to help schools design their schemes and assessments.
+Curriculum Portal is a free, open-source web application designed to help schools design their schemes and assessments, and to assign students retrieval practice homeworks.
 
 Deploy effortlessly to Microsoft Azure.
 
 ### Setup
 
 1. Create a general purpose v2 storage account in [Microsoft Azure](http://portal.azure.com), and within it create:
-    * Blob containers: `cache`, `config` and `curriculum`
-    * Tables: `courses`, `units` and `xpledger`
+    - Blob containers: `cache`, `config` and `curriculum`
+    - Tables: `courses`, `units` and `xpledger`
 
 2. Within the `config` blob container:
 
-    * Upload a blank file `keys.xml`. Generate a SAS URL for this file with read/write permissions and a distant expiry. This will be used to store the application's data protection keys so that auth cookies persist across app restarts.
+    - Upload a blank file `keys.xml`. Generate a SAS URL for this file with read/write permissions and a distant expiry. This will be used to store the application's data protection keys so that auth cookies persist across app restarts.
 
-    * Upload a file `students.csv` with the following headers and populate it with all students in your school. "Id" can be any unique integer identifier, unless you are using Bromcom to record behaviour events, in which case it must be the Bromcom student ID. "PupilPremium" should be `true` or `false` for each student. The "Classes" field should contain a comma-separated list of classes, wrapped in double quotes. To correctly represent accented characters in student names, save the file in 'CSV UTF-8' format.
+    - Upload a file `students.csv` with the following headers and populate it with all students in your school. "Id" can be any unique integer identifier, unless you are using Bromcom to record behaviour events, in which case it must be the Bromcom student ID. "PupilPremium" should be `true` or `false` for each student. The "Classes" field should contain a comma-separated list of classes, wrapped in double quotes. To correctly represent accented characters in student names, save the file in 'CSV UTF-8' format.
 
         ```csv
         Id,Email,FirstName,LastName,TutorGroup,PupilPremium,Classes
         ```
 
-    * Upload a file `teachers.csv` with the following headers.
+    - Upload a file `teachers.csv` with the following headers.
 
         ```csv
         Id,Email,FirstName,LastName,Classes
         ```
 
-    * Upload a file `seniorleaders.csv` with the following header and one email address per row. Senior leaders can edit any course.
+    - Upload a file `seniorleaders.csv` with the following header and one email address per row. Senior leaders can edit any course.
 
       ```csv
       Email
       ```
 
-    * Upload a file `holidays.csv` with the following headers and dates in `yyyy-MM-dd` format. If an assignment due date lands within a holiday range, it will be pushed forward.
+    - Upload a file `holidays.csv` with the following headers and dates in `yyyy-MM-dd` format. If an assignment due date lands within a holiday range, it will be pushed forward.
 
         ```csv
         Start,End
         ```
 
-    * Upload `exemptions.csv` with the following header and one user ID per row for students who should not receive the negative Class Charts behaviour for incomplete homework. If there are no exemptions, this file can be left blank.
+    - Upload `exemptions.csv` with the following header and one user ID per row for students who should not receive the negative Class Charts behaviour for incomplete homework. If there are no exemptions, this file can be left blank.
 
       ```csv
       UserId
       ```
 
-    * If you are using Class Charts to record behaviour events, upload `classcharts-behaviours.json` containing the behaviour settings for KS3 aggregate homework and each KS4-5 subject code that should receive points. KS4-5 subjects without an entry are skipped.
+    - If you are using Class Charts to record behaviour events, upload `classcharts-behaviours.json` containing the behaviour settings for KS3 aggregate homework and each KS4-5 subject code that should receive points. KS4-5 subjects without an entry are skipped.
 
         ```json
         {
@@ -79,7 +79,7 @@ Deploy effortlessly to Microsoft Azure.
         }
         ```
 
-    * If you are using Bromcom to record behaviour events, upload `bromcom-behaviours.json` containing the staff owner and one positive and one negative behaviour event type. Bromcom uses these same two event types for all subjects.
+    - If you are using Bromcom to record behaviour events, upload `bromcom-behaviours.json` containing the staff owner and one positive and one negative behaviour event type. Bromcom uses these same two event types for all subjects.
 
         ```json
         {
@@ -95,7 +95,7 @@ Deploy effortlessly to Microsoft Azure.
         }
         ```
 
-    * Upload `checklist.json` containing the checklist items to show for each unit. Each `id` must be unique and may only contain letters, numbers, hyphens, and underscores.
+    - Upload `checklist.json` containing the checklist items to show for each unit. Each `id` must be unique and may only contain letters, numbers, hyphens, and underscores.
 
         ```json
         [
@@ -110,31 +110,31 @@ Deploy effortlessly to Microsoft Azure.
         ]
         ```
 
-    * Upload `school-logo.png`.
+    - Upload `school-logo.png`.
 
-    * Upload `school-logo-navbar.png`.
+    - Upload `school-logo-navbar.png`.
 
-3. If you are using [Microsoft Foundry](https://ai.azure.com/), create a project and deploy an OpenAI reasoning model (e.g. `gpt-5.5`). Set `MicrosoftFoundryEndpoint` to use Microsoft Foundry. If `MicrosoftFoundryEndpoint` is not set, the app uses the direct OpenAI API instead.
+3. If you are using [Microsoft Foundry](https://ai.azure.com/), create a project and deploy an OpenAI reasoning model (e.g. `gpt-5.6-sol`). Set `MicrosoftFoundryEndpoint` to use Microsoft Foundry. If `MicrosoftFoundryEndpoint` is not set, the app uses the direct OpenAI API instead.
 
 4. Create an Azure app registration.
-    * Name - `Curriculum Portal`
-    * Redirect URIs - `https://<app-website-domain>/signin-oidc` and `https://<app-website-domain>/serviceaccount`
-    * Implicit grant - ID tokens
-    * Supported account types - Accounts in this organizational directory only
-    * API permissions - `Microsoft Graph - User.Read` and delegated `Microsoft Graph - Mail.Send`
-    * Token configuration - add an optional claim of type ID: `upn`
-    * Certificates & secrets - create a new client secret
+    - Name - `Curriculum Portal`
+    - Redirect URIs - `https://<app-website-domain>/signin-oidc` and `https://<app-website-domain>/serviceaccount`
+    - Implicit grant - ID tokens
+    - Supported account types - Accounts in this organizational directory only
+    - API permissions - `Microsoft Graph - User.Read` and delegated `Microsoft Graph - Mail.Send`
+    - Token configuration - add an optional claim of type ID: `upn`
+    - Certificates & secrets - create a new client secret
 
 5. Create an Azure App Service web app.
-    * Publish mode - Container
-    * Operating system - Linux
-    * Image source - Other container registries
-    * Container name - `main`
-    * Access type - Public
-    * Registry server URL - `https://index.docker.io`
-    * Image and tag - `jamesgurung/curriculum-portal:latest`
-    * Port - 8080
-    * Startup command: (blank)
+    - Publish mode - Container
+    - Operating system - Linux
+    - Image source - Other container registries
+    - Container name - `main`
+    - Access type - Public
+    - Registry server URL - `https://index.docker.io`
+    - Image and tag - `jamesgurung/curriculum-portal:latest`
+    - Port - 8080
+    - Startup command: (blank)
 
 6. Configure the application settings as described below.
 
@@ -149,33 +149,33 @@ Deploy effortlessly to Microsoft Azure.
 
     The remaining application settings are loaded from the `Shared:*` and `CurriculumPortal:*` keys in Azure App Configuration, or from your local configuration:
 
-    * `AdminEmails` - the email addresses of the admin users who have full administrative access (comma-separated list)
-    * `AssignmentCompletionHighThreshold` - the integer percentage completion rate above which students due assignments today receive the positive behaviour event (set this above `100` to disable positive behaviours)
-    * `AssignmentCompletionLowThreshold` - the integer percentage completion rate below which students due assignments today receive the negative behaviour event (set this below `0` to disable negative behaviours)
-    * `BrandAccentColour` - the CSS colour used for the navbar bottom border
-    * `BrandColour` - the CSS colour used for the navbar background
-    * `BromcomApplicationId` - the Bromcom application ID used to issue behaviours (if you are using Bromcom to record behaviour events)
-    * `BromcomApplicationSecret` - the Bromcom application secret used to issue behaviours (if you are using Bromcom to record behaviour events)
-    * `BromcomSchoolId` - the Bromcom school ID used to issue behaviours (if you are using Bromcom to record behaviour events)
-    * `ClassChartsEmail` - the email address of the Class Charts account used to issue behaviours (if you are using Class Charts to record behaviour events)
-    * `ClassChartsPassword` - the password for the Class Charts account used to issue behaviours (if you are using Class Charts to record behaviour events)
-    * `DailyTokenLimit` - the maximum number of OpenAI tokens to use per UTC day (optional)
-    * `DataControllerName` - the name of the organisation acting as data controller for the privacy page
-    * `DataProtectionBlobUri` - the SAS URL for the keys file you created earlier
-    * `MicrosoftClientId` - the client ID of your Azure app registration
-    * `MicrosoftClientSecret` - the client secret of your Azure app registration
-    * `MicrosoftFoundryEndpoint` - the endpoint URL for your Microsoft Foundry deployment, e.g. `https://<project>.cognitiveservices.azure.com/` (optional; if set, this is used instead of the OpenAI API)
-    * `MicrosoftSharePointSubdomain` - your Microsoft 365 SharePoint subdomain (for example `contoso` in `https://contoso.sharepoint.com`)
-    * `MicrosoftTeamsPrefix` - the `externalName` prefix used to identify the relevant Microsoft Teams classes when publishing assignment tasks.
-    * `MicrosoftTenantId` - your Azure tenant ID
-    * `OpenAIAdminApiKey` - an OpenAI admin API key used to check daily token usage when `DailyTokenLimit` is set
-    * `OpenAIApiKey` - your OpenAI or Microsoft Foundry API key
-    * `OpenAIModel` - the OpenAI model name or Microsoft Foundry deployment name
-    * `PrivacyNoticeUrl` - the absolute URL of the school's official privacy notice
-    * `SchoolName` - the name of your school
-    * `StorageAccountConnectionString` - the connection string for the Azure Storage account
-    * `SyncApiKey` - the secret key to use if you update the `students.csv` and `teachers.csv` files with an automated script (optional)
-    * `Website` - the public base URL of your deployed Curriculum Portal, e.g. `https://example.com`
+    - `AdminEmails` - the email addresses of the admin users who have full administrative access (comma-separated list)
+    - `AssignmentCompletionHighThreshold` - the integer percentage completion rate above which students due assignments today receive the positive behaviour event (set this above `100` to disable positive behaviours)
+    - `AssignmentCompletionLowThreshold` - the integer percentage completion rate below which students due assignments today receive the negative behaviour event (set this below `0` to disable negative behaviours)
+    - `BrandAccentColour` - the CSS colour used for the navbar bottom border
+    - `BrandColour` - the CSS colour used for the navbar background
+    - `BromcomApplicationId` - the Bromcom application ID used to issue behaviours (if you are using Bromcom to record behaviour events)
+    - `BromcomApplicationSecret` - the Bromcom application secret used to issue behaviours (if you are using Bromcom to record behaviour events)
+    - `BromcomSchoolId` - the Bromcom school ID used to issue behaviours (if you are using Bromcom to record behaviour events)
+    - `ClassChartsEmail` - the email address of the Class Charts account used to issue behaviours (if you are using Class Charts to record behaviour events)
+    - `ClassChartsPassword` - the password for the Class Charts account used to issue behaviours (if you are using Class Charts to record behaviour events)
+    - `DailyTokenLimit` - the maximum number of OpenAI tokens to use per UTC day (optional)
+    - `DataControllerName` - the name of the organisation acting as data controller for the privacy page
+    - `DataProtectionBlobUri` - the SAS URL for the keys file you created earlier
+    - `MicrosoftClientId` - the client ID of your Azure app registration
+    - `MicrosoftClientSecret` - the client secret of your Azure app registration
+    - `MicrosoftFoundryEndpoint` - the endpoint URL for your Microsoft Foundry deployment, e.g. `https://<project>.cognitiveservices.azure.com/` (optional; if set, this is used instead of the OpenAI API)
+    - `MicrosoftSharePointSubdomain` - your Microsoft 365 SharePoint subdomain (for example `contoso` in `https://contoso.sharepoint.com`)
+    - `MicrosoftTeamsPrefix` - the `externalName` prefix used to identify the relevant Microsoft Teams classes when publishing assignment tasks.
+    - `MicrosoftTenantId` - your Azure tenant ID
+    - `OpenAIAdminApiKey` - an OpenAI admin API key used to check daily token usage when `DailyTokenLimit` is set
+    - `OpenAIApiKey` - your OpenAI or Microsoft Foundry API key
+    - `OpenAIModel` - the OpenAI model name or Microsoft Foundry deployment name
+    - `PrivacyNoticeUrl` - the absolute URL of the school's official privacy notice
+    - `SchoolName` - the name of your school
+    - `StorageAccountConnectionString` - the connection string for the Azure Storage account
+    - `SyncApiKey` - the secret key to use if you update the `students.csv` and `teachers.csv` files with an automated script (optional)
+    - `Website` - the public base URL of your deployed Curriculum Portal, e.g. `https://example.com`
 
     Configure exactly one behaviour recording provider. If all Bromcom settings are present the app uses Bromcom; if both Class Charts settings are present the app uses Class Charts; if neither provider is configured no behaviour events are recorded. Partial provider settings, or configuring both providers, causes startup to fail.
 
