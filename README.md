@@ -142,7 +142,7 @@ Deploy effortlessly to Microsoft Azure.
 
     If you wish to load settings from Azure App Configuration, specify one of the following:
 
-    - `AppConfigurationEndpoint` - Azure App Configuration endpoint. The application authenticates using its system-assigned managed identity.
+    - `AppConfigurationEndpoint` - Azure App Configuration endpoint. Enable the App Service's system-assigned managed identity and grant it the App Configuration Data Reader role.
     - `ConnectionStrings:AppConfiguration` - Azure App Configuration connection string.
 
     #### Azure App Configuration
