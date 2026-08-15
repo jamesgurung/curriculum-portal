@@ -1,34 +1,24 @@
 using Azure;
 using BromcomEssentials;
-using System.Globalization;
 using System.Text.Json;
 
 namespace CurriculumPortal;
 
 public sealed class BromcomService : IBehaviourRecordService
 {
-  private readonly string _applicationId;
-  private readonly string _applicationSecret;
-  private readonly int _schoolId;
   private readonly ConfigService _config;
   private readonly CourseService _courseService;
-  private readonly IHttpClientFactory _httpClientFactory;
+  private readonly SchoolBromcomClient _client;
 
-  public BromcomService(AppOptions options, ConfigService config, CourseService courseService, IHttpClientFactory httpClientFactory)
+  public BromcomService(ConfigService config, CourseService courseService, SchoolBromcomClient client)
   {
-    ArgumentNullException.ThrowIfNull(options);
     ArgumentNullException.ThrowIfNull(config);
     ArgumentNullException.ThrowIfNull(courseService);
-    ArgumentNullException.ThrowIfNull(httpClientFactory);
-
-    _applicationId = options.BromcomApplicationId;
-    _applicationSecret = options.BromcomApplicationSecret;
-    if (!int.TryParse(options.BromcomSchoolId, NumberStyles.Integer, CultureInfo.InvariantCulture, out _schoolId))
-      throw new InvalidOperationException("Bromcom school ID must be a valid integer before issuing behaviours.");
+    ArgumentNullException.ThrowIfNull(client);
 
     _config = config;
     _courseService = courseService;
-    _httpClientFactory = httpClientFactory;
+    _client = client;
   }
 
   public async Task<(int Positive, int Negative)> IssueBehavioursAsync(Dictionary<string, List<User>> positiveStudentsByBehaviour, Dictionary<string, List<User>> negativeStudentsByBehaviour)
@@ -37,24 +27,19 @@ public sealed class BromcomService : IBehaviourRecordService
     ArgumentNullException.ThrowIfNull(negativeStudentsByBehaviour);
 
     if (positiveStudentsByBehaviour.Values.Sum(o => o.Count) == 0 && negativeStudentsByBehaviour.Values.Sum(o => o.Count) == 0) return (0, 0);
-    if (string.IsNullOrWhiteSpace(_applicationId) || string.IsNullOrWhiteSpace(_applicationSecret))
-      throw new InvalidOperationException("Bromcom application ID and secret must be configured before issuing behaviours.");
 
     var behaviours = await GetBromcomBehavioursAsync();
-    using var httpClient = _httpClientFactory.CreateClient();
-    using var client = new BromcomClient(_applicationId, _applicationSecret, httpClient);
-
     var subjectNames = await GetSubjectNamesByCodeAsync();
     var positiveCount = 0;
     foreach (var group in positiveStudentsByBehaviour.Where(o => o.Value.Count > 0))
     {
-      positiveCount += await IssueBehaviourAsync(client, group.Value, behaviours.StaffId, behaviours.Positive, GetComment(group.Key, subjectNames, false));
+      positiveCount += await IssueBehaviourAsync(group.Value, behaviours.StaffId, behaviours.Positive, GetComment(group.Key, subjectNames, false));
     }
 
     var negativeCount = 0;
     foreach (var group in negativeStudentsByBehaviour.Where(o => o.Value.Count > 0))
     {
-      negativeCount += await IssueBehaviourAsync(client, group.Value, behaviours.StaffId, behaviours.Negative, GetComment(group.Key, subjectNames, true));
+      negativeCount += await IssueBehaviourAsync(group.Value, behaviours.StaffId, behaviours.Negative, GetComment(group.Key, subjectNames, true));
     }
 
     return (positiveCount, negativeCount);
@@ -84,12 +69,12 @@ public sealed class BromcomService : IBehaviourRecordService
       .ToDictionary(g => g.Key, g => g.First().Name.Trim(), StringComparer.OrdinalIgnoreCase);
   }
 
-  private async Task<int> IssueBehaviourAsync(BromcomClient client, IEnumerable<User> students, int staffId, BromcomBehaviourConfig behaviour, string comment)
+  private async Task<int> IssueBehaviourAsync(IEnumerable<User> students, int staffId, BromcomBehaviourConfig behaviour, string comment)
   {
     var count = 0;
     foreach (var student in students.DistinctBy(o => o.Id))
     {
-      await client.SetBehaviourEventAsync(_schoolId, new BehaviourEvent
+      await _client.SetBehaviourEventAsync(new BehaviourEvent
       {
         StudentId = student.Id,
         EventTypeId = behaviour.EventTypeId,

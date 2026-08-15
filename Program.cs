@@ -1,10 +1,12 @@
 using Azure.Data.Tables;
 using Azure.Identity;
 using Azure.Storage.Blobs;
+using BromcomEssentials;
 using CurriculumPortal;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Globalization;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,8 +27,10 @@ if (appConfigEndpoint is not null || appConfigConnectionString is not null)
     }
     options
       .Select("Shared:*")
+      .Select("Bromcom:*")
       .Select("CurriculumPortal:*")
       .TrimKeyPrefix("Shared:")
+      .TrimKeyPrefix("Bromcom:")
       .TrimKeyPrefix("CurriculumPortal:");
   });
 }
@@ -43,6 +47,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 var appOptions = builder.Configuration.Get<AppOptions>();
 appOptions.Validate();
 builder.Services.AddSingleton(appOptions);
+
+AppContext.SetSwitch("OpenAI.DisableTelemetry", true);
 
 builder.Services.AddHttpClient();
 var blobServiceClient = new BlobServiceClient(appOptions.StorageAccountConnectionString);
@@ -133,6 +139,9 @@ static void RegisterBehaviourRecordService(IServiceCollection services, AppOptio
 
   if (bromcomConfigured)
   {
+    if (!int.TryParse(options.BromcomSchoolId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bromcomSchoolId))
+      throw new InvalidOperationException("Bromcom school ID must be a valid integer.");
+    services.AddHttpClient<SchoolBromcomClient, SchoolBromcomClient>(httpClient => new(options.BromcomApplicationId, options.BromcomApplicationSecret, bromcomSchoolId, httpClient));
     services.AddSingleton<IBehaviourRecordService, BromcomService>();
     return;
   }
