@@ -105,6 +105,19 @@ public partial class AssignmentService
 
   private static AssignmentsProgressCell BuildAggregateCell(
     IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
+    string assignmentKey,
+    IReadOnlyList<int> studentIds,
+    StaffDateColumn date,
+    Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), AssignmentProgressTotals> progressCache,
+    IReadOnlyList<int> pupilPremiumStudentIds = null)
+  {
+    return assignmentKey is not null && partitionData.TryGetValue(assignmentKey, out var data)
+      ? BuildAggregateCell(data, studentIds, date, progressCache, pupilPremiumStudentIds)
+      : new AssignmentsProgressCell { DueDate = date.Value };
+  }
+
+  private static AssignmentsProgressCell BuildAggregateCell(
+    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
     IReadOnlyDictionary<string, List<int>> studentIdsByPartition,
     string dueDate,
     IReadOnlyDictionary<string, List<int>> pupilPremiumStudentIdsByPartition = null)
@@ -233,8 +246,10 @@ public partial class AssignmentService
 
   private static List<AssignmentsStaffRow> BuildClassStudentRows(
     IEnumerable<User> students,
-    PartitionAssignmentData data,
+    SubjectClass cls,
+    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
     IReadOnlyList<StaffDateColumn> dateColumns,
+    IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
     Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), AssignmentProgressTotals> progressCache)
   {
     return students
@@ -244,7 +259,13 @@ public partial class AssignmentService
       {
         Title = $"{student.LastName}, {student.FirstName}",
         PupilPremium = student.PupilPremium,
-        Cells = dateColumns.Select(date => BuildStudentCell(data, student.Id, date, progressCache)).ToList()
+        Cells = dateColumns.Select(date =>
+        {
+          var assignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode, date.YearGroupOffset);
+          return assignmentKey is not null && partitionData.TryGetValue(assignmentKey, out var data)
+            ? BuildStudentCell(data, student.Id, date, progressCache)
+            : new AssignmentsProgressCell { DueDate = date.Value };
+        }).ToList()
       })
       .ToList();
   }
@@ -263,12 +284,15 @@ public partial class AssignmentService
       .ThenBy(o => o.FirstName, StringComparer.OrdinalIgnoreCase)
       .Select(student =>
       {
-        var partitionKeys = GetStudentPartitionKeys(student, coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup);
         return new AssignmentsStaffRow
         {
           Title = $"{student.LastName}, {student.FirstName}",
           PupilPremium = student.PupilPremium,
-          Cells = dateColumns.Select(date => BuildAggregateStudentCell(partitionData, partitionKeys, student.Id, date, progressCache)).ToList()
+          Cells = dateColumns.Select(date =>
+          {
+            var partitionKeys = GetStudentPartitionKeys(student, coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup, date.YearGroupOffset);
+            return BuildAggregateStudentCell(partitionData, partitionKeys, student.Id, date, progressCache);
+          }).ToList()
         };
       })
       .Where(o => o.Cells.Any(cell => cell.HasAssignment))
@@ -299,10 +323,11 @@ public partial class AssignmentService
     IEnumerable<User> students,
     IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
     IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
-    int yearGroup = 0)
+    int yearGroup = 0,
+    int yearGroupOffset = 0)
   {
     return students
-      .SelectMany(student => GetStudentPartitionKeys(student, coursesByKeyStageAndSubjectCode, partitionData, yearGroup)
+      .SelectMany(student => GetStudentPartitionKeys(student, coursesByKeyStageAndSubjectCode, partitionData, yearGroup, yearGroupOffset)
         .Select(partitionKey => new { partitionKey, student.Id }))
       .GroupBy(o => o.partitionKey, StringComparer.OrdinalIgnoreCase)
       .ToDictionary(
@@ -316,10 +341,11 @@ public partial class AssignmentService
     IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
     IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
     IReadOnlyDictionary<int, List<SubjectClass>> studentClassesById,
-    int yearGroup = 0)
+    int yearGroup = 0,
+    int yearGroupOffset = 0)
   {
     return students
-      .SelectMany(student => GetStudentPartitionKeys(student, coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup)
+      .SelectMany(student => GetStudentPartitionKeys(student, coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup, yearGroupOffset)
         .Select(partitionKey => new { partitionKey, student.Id }))
       .GroupBy(o => o.partitionKey, StringComparer.OrdinalIgnoreCase)
       .ToDictionary(
@@ -332,11 +358,12 @@ public partial class AssignmentService
     User student,
     IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
     IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
-    int yearGroup = 0)
+    int yearGroup = 0,
+    int yearGroupOffset = 0)
   {
     return ParseClasses(student.Classes)
       .Where(o => yearGroup <= 0 || o.YearGroup == yearGroup)
-      .Select(o => GetAssignmentKey(o, coursesByKeyStageAndSubjectCode))
+      .Select(o => GetAssignmentKey(o, coursesByKeyStageAndSubjectCode, yearGroupOffset))
       .Where(o => o is not null && partitionData.ContainsKey(o))
       .Distinct(StringComparer.OrdinalIgnoreCase)
       .ToList();
@@ -347,13 +374,14 @@ public partial class AssignmentService
     IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
     IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
     IReadOnlyDictionary<int, List<SubjectClass>> studentClassesById,
-    int yearGroup = 0)
+    int yearGroup = 0,
+    int yearGroupOffset = 0)
   {
     if (!studentClassesById.TryGetValue(student.Id, out var classes)) return [];
 
     return classes
       .Where(o => yearGroup <= 0 || o.YearGroup == yearGroup)
-      .Select(o => GetAssignmentKey(o, coursesByKeyStageAndSubjectCode))
+      .Select(o => GetAssignmentKey(o, coursesByKeyStageAndSubjectCode, yearGroupOffset))
       .Where(o => o is not null && partitionData.ContainsKey(o))
       .Distinct(StringComparer.OrdinalIgnoreCase)
       .ToList();

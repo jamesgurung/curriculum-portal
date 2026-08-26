@@ -57,7 +57,7 @@ public static partial class Api
       }
 
       var partitionKey = $"{year:D2}{course.SubjectCode}";
-      var className = currentUser.Classes.FindMatchingClassName(partitionKey);
+      var className = currentUser.Classes.FindMatchingClassName(partitionKey, parsedDueDate, DateOnly.FromDateTime(DateTime.UtcNow));
       if (className is null)
       {
         return Results.Forbid();

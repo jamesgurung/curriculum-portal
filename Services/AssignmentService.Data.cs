@@ -44,11 +44,12 @@ public partial class AssignmentService
   private async Task<(Dictionary<string, List<AssignmentEntity>> Assignments, Dictionary<string, List<AssignmentSubmissionEntity>> Submissions)> LoadStaffCompletionDataAsync(
     List<string> assignmentKeys,
     IEnumerable<DateOnly> dueDates,
-    DateOnly upcomingDueDate)
+    DateOnly upcomingDueDate,
+    int academicYear)
   {
     var assignments = CreateBuckets<AssignmentEntity>(assignmentKeys);
     var submissions = CreateBuckets<AssignmentSubmissionEntity>(assignmentKeys);
-    var results = await Task.WhenAll(dueDates.Distinct().Select(dueDate => LoadStaffCompletionDateDataAsync(assignmentKeys, dueDate, upcomingDueDate)));
+    var results = await Task.WhenAll(dueDates.Distinct().Select(dueDate => LoadStaffCompletionDateDataAsync(assignmentKeys, dueDate, upcomingDueDate, academicYear)));
 
     foreach (var result in results.OrderBy(o => o.DueDate))
     {
@@ -62,9 +63,10 @@ public partial class AssignmentService
   private async Task<(DateOnly DueDate, Dictionary<string, List<AssignmentEntity>> Assignments, Dictionary<string, List<AssignmentSubmissionEntity>> Submissions)> LoadStaffCompletionDateDataAsync(
     List<string> assignmentKeys,
     DateOnly dueDate,
-    DateOnly upcomingDueDate)
+    DateOnly upcomingDueDate,
+    int academicYear)
   {
-    var cached = dueDate == upcomingDueDate ? null : await TryDownloadAssignmentCacheAsync<AssignmentCompletionCache>(BuildCompletionCacheBlobName(dueDate));
+    var cached = dueDate == upcomingDueDate ? null : await TryDownloadAssignmentCacheAsync<AssignmentCompletionCache>(BuildCompletionCacheBlobName(dueDate, academicYear));
     if (cached is not null)
     {
       var assignments = CreateBuckets<AssignmentEntity>(assignmentKeys);
@@ -80,7 +82,7 @@ public partial class AssignmentService
     var dateSubmissions = await submissionsTask;
     if (dueDate != upcomingDueDate)
     {
-      await UploadAssignmentCacheAsync(BuildCompletionCacheBlobName(dueDate), BuildCompletionCache(dueDate, dateAssignments, dateSubmissions));
+      await UploadAssignmentCacheAsync(BuildCompletionCacheBlobName(dueDate, academicYear), BuildCompletionCache(dueDate, dateAssignments, dateSubmissions));
     }
 
     return (dueDate, dateAssignments, dateSubmissions);
@@ -95,9 +97,11 @@ public partial class AssignmentService
     IReadOnlyList<CourseEntity> assignmentCourses,
     IReadOnlyDictionary<string, HashSet<int>> assignmentCourseYearGroups,
     IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
-    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData)
+    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
+    DateOnly currentDate)
   {
-    var cached = dueDate == upcomingDueDate ? null : await TryDownloadAssignmentCacheAsync<AssignmentQuestionsCache>(BuildQuestionsCacheBlobName(dueDate));
+    var academicYear = ClassNameParser.GetAcademicYear(currentDate);
+    var cached = dueDate == upcomingDueDate ? null : await TryDownloadAssignmentCacheAsync<AssignmentQuestionsCache>(BuildQuestionsCacheBlobName(dueDate, academicYear));
     if (cached is not null)
     {
       return new Dictionary<string, List<AssignmentsStaffQuestion>>(cached.Contexts, StringComparer.OrdinalIgnoreCase);
@@ -111,11 +115,12 @@ public partial class AssignmentService
       assignmentCourses,
       assignmentCourseYearGroups,
       coursesByKeyStageAndSubjectCode,
-      partitionData);
+      partitionData,
+      currentDate);
 
     if (dueDate != upcomingDueDate)
     {
-      await UploadAssignmentCacheAsync(BuildQuestionsCacheBlobName(dueDate), liveCache);
+      await UploadAssignmentCacheAsync(BuildQuestionsCacheBlobName(dueDate, academicYear), liveCache);
     }
 
     return new Dictionary<string, List<AssignmentsStaffQuestion>>(liveCache.Contexts, StringComparer.OrdinalIgnoreCase);
@@ -129,7 +134,8 @@ public partial class AssignmentService
     IReadOnlyList<CourseEntity> assignmentCourses,
     IReadOnlyDictionary<string, HashSet<int>> assignmentCourseYearGroups,
     IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
-    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData)
+    IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
+    DateOnly currentDate)
   {
     var questionsByPartitionTask = LoadQuestionsByDueDateAsync(partitionKeys, dueDate);
     var submissionsByPartitionTask = LoadSubmissionsByDueDatesAsync(partitionKeys, [dueDate], true);
@@ -147,7 +153,7 @@ public partial class AssignmentService
     }
 
     var questionData = BuildPartitionData(partitionKeys, assignmentsByPartition, submissionsByPartition, questionsByPartition);
-    var contexts = BuildQuestionContexts(schoolClasses, classRosters, assignmentCourses, assignmentCourseYearGroups, coursesByKeyStageAndSubjectCode, partitionData, dueDate);
+    var contexts = BuildQuestionContexts(schoolClasses, classRosters, assignmentCourses, assignmentCourseYearGroups, coursesByKeyStageAndSubjectCode, partitionData, dueDate, currentDate);
     var progressCache = new Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), List<AssignmentProgressEntry>>();
     var generatedAt = RoundedNow();
     var cache = new AssignmentQuestionsCache
@@ -174,13 +180,15 @@ public partial class AssignmentService
     IReadOnlyDictionary<string, HashSet<int>> assignmentCourseYearGroups,
     IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode,
     IReadOnlyDictionary<string, PartitionAssignmentData> partitionData,
-    DateOnly dueDate)
+    DateOnly dueDate,
+    DateOnly currentDate)
   {
     var contexts = new List<AssignmentQuestionContext>();
+    var yearGroupOffset = ClassNameParser.GetAcademicYear(dueDate) - ClassNameParser.GetAcademicYear(currentDate);
 
     foreach (var cls in schoolClasses)
     {
-      var assignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode);
+      var assignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode, yearGroupOffset);
       if (assignmentKey is null
         || !partitionData.TryGetValue(assignmentKey, out var data)
         || !data.AssignmentsByDate.ContainsKey(dueDate)) continue;
@@ -200,7 +208,7 @@ public partial class AssignmentService
         if (!partitionData.TryGetValue(partitionKey, out var data) || !data.AssignmentsByDate.ContainsKey(dueDate)) continue;
 
         var studentIds = schoolClasses
-          .Where(o => o.YearGroup == yearGroup && o.SubjectCode.Equals(course.SubjectCode, StringComparison.OrdinalIgnoreCase))
+          .Where(o => o.YearGroup + yearGroupOffset == yearGroup && o.SubjectCode.Equals(course.SubjectCode, StringComparison.OrdinalIgnoreCase))
           .SelectMany(cls => classRosters.TryGetValue(cls.Name, out var roster) ? roster : [])
           .Select(o => o.Id)
           .Distinct()
@@ -317,9 +325,9 @@ public partial class AssignmentService
   private static List<AssignmentsStaffQuestion> GetQuestionSummaries(Dictionary<string, List<AssignmentsStaffQuestion>> summariesByContext, string key)
     => summariesByContext.TryGetValue(key, out var summaries) ? summaries : [];
 
-  private static string BuildCompletionCacheBlobName(DateOnly dueDate) => $"{FormatDate(dueDate)}-completion.json";
+  private static string BuildCompletionCacheBlobName(DateOnly dueDate, int academicYear) => $"{FormatDate(dueDate)}-{academicYear}-completion.json";
 
-  private static string BuildQuestionsCacheBlobName(DateOnly dueDate) => $"{FormatDate(dueDate)}-questions.json";
+  private static string BuildQuestionsCacheBlobName(DateOnly dueDate, int academicYear) => $"{FormatDate(dueDate)}-{academicYear}-questions.json";
 
   private static string BuildClassQuestionCacheKey(string className) => $"class:{className}";
 
@@ -459,4 +467,3 @@ public partial class AssignmentService
 
   private static string EscapeODataValue(string value) => value.Replace("'", "''", StringComparison.Ordinal);
 }
-

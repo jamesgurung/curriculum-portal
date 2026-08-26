@@ -34,7 +34,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=block" />
-  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/layout.css" asp-append-version="true" />
   @RenderSection("Head", required: false)
 </head>
 
@@ -98,6 +98,7 @@
     <a href="/privacy">Privacy Policy</a>
   </footer>
 
+  <script src="/js/layout.js"></script>
   @RenderSection("Scripts", required: false)
 </body>
 

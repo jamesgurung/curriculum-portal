@@ -123,6 +123,7 @@ public partial class AssignmentService
 
   public async Task<List<StudentWithCompletion>> GetStudentsWithCompletionAsync(DateOnly deadline)
   {
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
     var studentsWithClasses = _config.Students
       .Select(student => new { Student = student, Classes = ParseClasses(student.Classes) })
       .Where(o => o.Classes.Count > 0)
@@ -135,7 +136,7 @@ public partial class AssignmentService
     var coursesByKeyStageAndSubjectCode = BuildCoursesByKeyStageAndSubjectCode(assignmentCourses);
     var assignmentKeys = NormalizeKeys(studentsWithClasses
       .SelectMany(o => o.Classes)
-      .Select(cls => GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode))
+      .Select(cls => GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode, deadline, today))
       .Where(o => o is not null));
     if (assignmentKeys.Count == 0) return [];
 
@@ -149,10 +150,14 @@ public partial class AssignmentService
     foreach (var studentWithClasses in studentsWithClasses)
     {
       var completionGroups = studentWithClasses.Classes
-        .Select(cls => new
+        .Select(cls =>
         {
-          BehaviourCode = cls.YearGroup is >= 7 and <= 9 ? "KS3" : cls.YearGroup is >= 10 and <= 13 ? cls.SubjectCode : null,
-          AssignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode)
+          var yearGroup = ClassNameParser.GetCohortYearGroup(cls.YearGroup, deadline, today);
+          return new
+          {
+            BehaviourCode = yearGroup is >= 7 and <= 9 ? "KS3" : yearGroup is >= 10 and <= 13 ? cls.SubjectCode : null,
+            AssignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode, deadline, today)
+          };
         })
         .Where(o => o.BehaviourCode is not null && o.AssignmentKey is not null && partitionData.TryGetValue(o.AssignmentKey, out var data) && data.AssignmentsByDate.ContainsKey(deadline))
         .DistinctBy(o => o.AssignmentKey, StringComparer.OrdinalIgnoreCase)
@@ -200,7 +205,9 @@ public partial class AssignmentService
       .GroupBy(o => BuildCourseLookupKey(o.KeyStage, o.SubjectCode), StringComparer.OrdinalIgnoreCase)
       .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
     var visibleDueDates = GetVisibleDueDates(today);
-    var assignmentKeys = NormalizeKeys(classes.Select(cls => GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode)).Where(o => o is not null));
+    var assignmentKeys = NormalizeKeys(classes
+      .SelectMany(cls => visibleDueDates.Select(dueDate => GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode, dueDate, today)))
+      .Where(o => o is not null));
     var assignmentsByPartitionTask = LoadAssignmentsByDueDatesAsync(assignmentKeys, visibleDueDates);
     var submissionsByPartitionTask = LoadStudentSubmissionsAsync(assignmentKeys, visibleDueDates, student.Id);
     await Task.WhenAll(assignmentsByPartitionTask, submissionsByPartitionTask);
@@ -208,18 +215,24 @@ public partial class AssignmentService
     var submissionsByPartition = await submissionsByPartitionTask;
     var partitionData = BuildPartitionData(assignmentKeys, assignmentsByPartition, submissionsByPartition);
     var cards = classes
-      .SelectMany(cls =>
+      .SelectMany(cls => visibleDueDates.Select(dueDate =>
       {
-        var assignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode);
-        if (assignmentKey is null || !partitionData.TryGetValue(assignmentKey, out var data)) return [];
-
-        return data.AssignmentsByDate.Values.Select(o => new
+        var yearGroup = ClassNameParser.GetCohortYearGroup(cls.YearGroup, dueDate, today);
+        var course = coursesByKeyStageAndSubjectCode.GetValueOrDefault(BuildCourseLookupKey(GetKeyStage(yearGroup), cls.SubjectCode));
+        var assignmentKey = course is null ? null : BuildAssignmentRowKey(yearGroup, course.RowKey);
+        partitionData.TryGetValue(assignmentKey ?? string.Empty, out var data);
+        AssignmentEntity assignment = null;
+        data?.AssignmentsByDate.TryGetValue(dueDate, out assignment);
+        return new
         {
-          o.DueDate,
-          Card = CreateStudentCard(o, data, student.Id,
-            coursesByKeyStageAndSubjectCode.GetValueOrDefault(BuildCourseLookupKey(GetKeyStage(o.YearGroup), cls.SubjectCode)))
-        });
-      })
+          DueDate = dueDate,
+          Course = course,
+          Data = data,
+          Assignment = assignment
+        };
+      }))
+      .Where(o => o.Course is not null && o.Data is not null && o.Assignment is not null)
+      .Select(o => new { o.DueDate, Card = CreateStudentCard(o.Assignment, o.Data, student.Id, o.Course) })
       .DistinctBy(o => (o.Card.CourseId, o.Card.DueDate))
       .OrderBy(o => o.DueDate)
       .ThenBy(o => o.Card.CourseName, StringComparer.OrdinalIgnoreCase)
@@ -394,13 +407,17 @@ public partial class AssignmentService
       .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
   }
 
-  private static string GetAssignmentKey(SubjectClass cls, IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode)
+  private static string GetAssignmentKey(SubjectClass cls, IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode, int yearGroupOffset = 0)
   {
     if (cls is null) return null;
-    return coursesByKeyStageAndSubjectCode.TryGetValue(BuildCourseLookupKey(GetKeyStage(cls.YearGroup), cls.SubjectCode), out var course)
-      ? BuildAssignmentRowKey(cls.YearGroup, course.RowKey)
+    var yearGroup = cls.YearGroup + yearGroupOffset;
+    return coursesByKeyStageAndSubjectCode.TryGetValue(BuildCourseLookupKey(GetKeyStage(yearGroup), cls.SubjectCode), out var course)
+      ? BuildAssignmentRowKey(yearGroup, course.RowKey)
       : null;
   }
+
+  private static string GetAssignmentKey(SubjectClass cls, IReadOnlyDictionary<string, CourseEntity> coursesByKeyStageAndSubjectCode, DateOnly dueDate, DateOnly currentDate)
+    => GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode, ClassNameParser.GetAcademicYear(dueDate) - ClassNameParser.GetAcademicYear(currentDate));
 
   private static string BuildAssignmentRowKey(int yearGroup, string courseId) => $"{yearGroup:D2}_{courseId}";
 
@@ -450,7 +467,7 @@ public partial class AssignmentService
 
   private sealed record AssignmentQuestionContext(string Key, string AssignmentKey, List<int> StudentIds);
 
-  private sealed record StaffDateColumn(DateOnly DueDate, string Value, AssignmentsDateColumn Column);
+  private sealed record StaffDateColumn(DateOnly DueDate, string Value, AssignmentsDateColumn Column, int YearGroupOffset);
 
   private sealed class PartitionAssignmentData
   {

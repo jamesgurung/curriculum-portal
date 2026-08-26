@@ -30,7 +30,7 @@ public static class ExtensionMethods
     return user.FindFirst(ClaimTypes.GivenName)?.Value;
   }
 
-  public static string FindMatchingClassName(this IEnumerable<string> classes, string expectedPartitionKey)
+  public static string FindMatchingClassName(this IEnumerable<string> classes, string expectedPartitionKey, DateOnly dueDate, DateOnly currentDate)
   {
     ArgumentException.ThrowIfNullOrWhiteSpace(expectedPartitionKey);
     if (classes is null)
@@ -38,7 +38,7 @@ public static class ExtensionMethods
 
     foreach (var className in classes)
     {
-      var partitionKey = ClassNameParser.GetAssignmentPartitionKey(className);
+      var partitionKey = ClassNameParser.GetAssignmentPartitionKey(className, dueDate, currentDate);
       if (string.Equals(partitionKey, expectedPartitionKey, StringComparison.OrdinalIgnoreCase))
         return className.Trim();
     }

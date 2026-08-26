@@ -8,6 +8,17 @@ internal static class ClassNameParser
   public static string GetAssignmentPartitionKey(string className)
     => TryParseSubjectClass(className, out var parsed) ? parsed.PartitionKey : null;
 
+  public static string GetAssignmentPartitionKey(string className, DateOnly dueDate, DateOnly currentDate)
+  {
+    if (!TryParseSubjectClass(className, out var parsed)) return null;
+    return $"{GetCohortYearGroup(parsed.YearGroup, dueDate, currentDate):D2}{parsed.SubjectCode}";
+  }
+
+  public static int GetCohortYearGroup(int currentYearGroup, DateOnly dueDate, DateOnly currentDate)
+    => currentYearGroup + GetAcademicYear(dueDate) - GetAcademicYear(currentDate);
+
+  public static int GetAcademicYear(DateOnly date) => date.Month >= 8 ? date.Year : date.Year - 1;
+
   public static bool TryParseSubjectClass(string className, out SubjectClass parsed)
   {
     parsed = null;

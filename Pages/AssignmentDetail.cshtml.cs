@@ -42,7 +42,7 @@ public class AssignmentDetailModel(ConfigService config, AssignmentService assig
     }
 
     var partitionKey = $"{year:D2}{course.SubjectCode}";
-    var className = currentUser.Classes.FindMatchingClassName(partitionKey);
+    var className = currentUser.Classes.FindMatchingClassName(partitionKey, parsedDueDate, DateOnly.FromDateTime(DateTime.UtcNow));
     if (className is null)
     {
       return NotFound();

@@ -141,6 +141,30 @@ public static class AuthConfig
       return Results.Challenge(authProperties, authenticationSchemes);
     });
 
+#if DEBUG
+    app.MapGet("/debug/signin", [AllowAnonymous] async (HttpContext context, AppOptions options, ConfigService config) =>
+    {
+      var email = options.AdminEmails.Split(',')[0].Trim().ToLowerInvariant();
+      if (!TryCreatePrincipal(email, config, out var principal))
+      {
+        return Results.NotFound("User not found.");
+      }
+
+      await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+      return Results.Redirect("/");
+    });
+
+    app.MapGet("/debug/signinstudent", [AllowAnonymous] async (HttpContext context, ConfigService config) =>
+    {
+      var student = config.Students.FirstOrDefault(o => ClassNameParser.GetLeadingNumber(o.TutorGroup) == 8);
+      if (student is null || !TryCreatePrincipal(student.Email, config, out var principal))
+        return Results.NotFound("Year 8 student not found.");
+
+      await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+      return Results.Redirect("/");
+    });
+#endif
+
     app.MapGet("/impersonate/{email}", [Authorize(Roles = Roles.Admin)] async (HttpContext context, string email, ConfigService config) =>
     {
       if (!TryCreatePrincipal(email?.Trim().ToLowerInvariant(), config, out var principal))

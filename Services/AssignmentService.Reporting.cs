@@ -51,16 +51,6 @@ public partial class AssignmentService
       .ThenBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
       .ToList();
 
-    var relevantPartitions = teacherClasses
-      .Concat(schoolClasses)
-      .Select(o => GetAssignmentKey(o, coursesByKeyStageAndSubjectCode))
-      .Where(o => o is not null)
-      .Distinct(StringComparer.OrdinalIgnoreCase)
-      .ToList();
-
-    if (relevantPartitions.Count == 0) return new AssignmentsStaffData();
-
-    var partitionKeys = NormalizeKeys(relevantPartitions);
     var today = DateOnly.FromDateTime(DateTime.UtcNow);
     var visibleDueDates = GetVisibleDueDates(today);
     var upcomingDueDate = visibleDueDates.First();
@@ -75,10 +65,21 @@ public partial class AssignmentService
         {
           Value = value,
           Label = FormatShortDate(date)
-        });
+        }, ClassNameParser.GetAcademicYear(date) - ClassNameParser.GetAcademicYear(today));
       }).ToList();
+    var relevantPartitions = teacherClasses
+      .Concat(schoolClasses)
+      .SelectMany(cls => staffDateColumns.Select(date => GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode, date.YearGroupOffset)))
+      .Where(o => o is not null)
+      .Distinct(StringComparer.OrdinalIgnoreCase)
+      .ToList();
+
+    if (relevantPartitions.Count == 0) return new AssignmentsStaffData();
+
+    var partitionKeys = NormalizeKeys(relevantPartitions);
     var dateColumns = staffDateColumns.Select(o => o.Column).ToList();
-    var completionData = await LoadStaffCompletionDataAsync(partitionKeys, visibleDueDates, upcomingDueDate);
+    var academicYear = ClassNameParser.GetAcademicYear(today);
+    var completionData = await LoadStaffCompletionDataAsync(partitionKeys, visibleDueDates, upcomingDueDate, academicYear);
     var partitionData = BuildPartitionData(partitionKeys, completionData.Assignments, completionData.Submissions);
     var questionSummariesByContext = await LoadStaffQuestionSummariesAsync(
       partitionKeys,
@@ -89,7 +90,8 @@ public partial class AssignmentService
       assignmentCourses,
       assignmentCourseYearGroups,
       coursesByKeyStageAndSubjectCode,
-      partitionData);
+      partitionData,
+      today);
     var progressCache = new Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), AssignmentProgressTotals>();
 
     var details = new List<AssignmentsStaffDetail>();
@@ -97,14 +99,17 @@ public partial class AssignmentService
     var classDetailIndex = 0;
     foreach (var cls in schoolClasses)
     {
-      var assignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode);
-      if (assignmentKey is null || !partitionData.TryGetValue(assignmentKey, out var data)) continue;
-
       classRosters.TryGetValue(cls.Name, out var roster);
       roster ??= [];
       var studentIds = roster.Select(o => o.Id).ToList();
       var pupilPremiumStudentIds = roster.Where(o => o.PupilPremium).Select(o => o.Id).ToList();
-      var cells = staffDateColumns.Select(date => BuildAggregateCell(data, studentIds, date, progressCache, pupilPremiumStudentIds)).ToList();
+      var cells = staffDateColumns.Select(date => BuildAggregateCell(
+        partitionData,
+        GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode, date.YearGroupOffset),
+        studentIds,
+        date,
+        progressCache,
+        pupilPremiumStudentIds)).ToList();
       if (!cells.Any(o => o.HasAssignment)) continue;
 
       var detailId = $"class-{++classDetailIndex}";
@@ -121,7 +126,7 @@ public partial class AssignmentService
         Id = detailId,
         Title = cls.Name,
         FirstColumnTitle = "Student",
-        Rows = BuildClassStudentRows(roster, data, staffDateColumns, progressCache),
+        Rows = BuildClassStudentRows(roster, cls, partitionData, staffDateColumns, coursesByKeyStageAndSubjectCode, progressCache),
         QuestionsTitle = questionsTitle,
         Questions = GetQuestionSummaries(questionSummariesByContext, BuildClassQuestionCacheKey(cls.Name))
       });
@@ -144,22 +149,24 @@ public partial class AssignmentService
         .SelectMany(o => o.Value)
         .DistinctBy(o => o.Id)
         .ToList();
-      var yearStudentIdsByPartition = BuildStudentIdsByPartition(yearStudents, coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup.Key);
-      var yearPupilPremiumStudentIdsByPartition = BuildStudentIdsByPartition(yearStudents.Where(o => o.PupilPremium), coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup.Key);
-      if (yearStudentIdsByPartition.Count == 0) continue;
-
-      var yearCells = staffDateColumns.Select(date => BuildAggregateCell(partitionData, yearStudentIdsByPartition, date, progressCache, yearPupilPremiumStudentIdsByPartition)).ToList();
+      var yearCells = staffDateColumns.Select(date =>
+      {
+        var studentIdsByPartition = BuildStudentIdsByPartition(yearStudents, coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup.Key, date.YearGroupOffset);
+        var pupilPremiumStudentIdsByPartition = BuildStudentIdsByPartition(yearStudents.Where(o => o.PupilPremium), coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup.Key, date.YearGroupOffset);
+        return BuildAggregateCell(partitionData, studentIdsByPartition, date, progressCache, pupilPremiumStudentIdsByPartition);
+      }).ToList();
       if (!yearCells.Any(o => o.HasAssignment)) continue;
 
       var tutorGroupRows = new List<AssignmentsStaffRow>();
       foreach (var tutorGroup in yearGroup.OrderBy(o => o.Key, StringComparer.OrdinalIgnoreCase))
       {
         var tutorStudents = tutorGroup.Value;
-        var tutorStudentIdsByPartition = BuildStudentIdsByPartition(tutorStudents, coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup.Key);
-        var tutorPupilPremiumStudentIdsByPartition = BuildStudentIdsByPartition(tutorStudents.Where(o => o.PupilPremium), coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup.Key);
-        if (tutorStudentIdsByPartition.Count == 0) continue;
-
-        var tutorCells = staffDateColumns.Select(date => BuildAggregateCell(partitionData, tutorStudentIdsByPartition, date, progressCache, tutorPupilPremiumStudentIdsByPartition)).ToList();
+        var tutorCells = staffDateColumns.Select(date =>
+        {
+          var studentIdsByPartition = BuildStudentIdsByPartition(tutorStudents, coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup.Key, date.YearGroupOffset);
+          var pupilPremiumStudentIdsByPartition = BuildStudentIdsByPartition(tutorStudents.Where(o => o.PupilPremium), coursesByKeyStageAndSubjectCode, partitionData, studentClassesById, yearGroup.Key, date.YearGroupOffset);
+          return BuildAggregateCell(partitionData, studentIdsByPartition, date, progressCache, pupilPremiumStudentIdsByPartition);
+        }).ToList();
         if (!tutorCells.Any(o => o.HasAssignment)) continue;
 
         var tutorDetailId = $"tutor-{++tutorGroupDetailIndex}";
@@ -211,18 +218,26 @@ public partial class AssignmentService
         if (!partitionData.TryGetValue(partitionKey, out var data)) continue;
 
         var courseClasses = schoolClasses
-          .Where(o => o.YearGroup == yearGroup && o.SubjectCode.Equals(course.SubjectCode, StringComparison.OrdinalIgnoreCase))
+          .Where(o => o.SubjectCode.Equals(course.SubjectCode, StringComparison.OrdinalIgnoreCase))
+          .Where(o => staffDateColumns.Any(date => o.YearGroup + date.YearGroupOffset == yearGroup))
           .Where(o => classRowsByName.ContainsKey(o.Name))
           .ToList();
         if (courseClasses.Count == 0) continue;
 
-        var students = courseClasses
-          .SelectMany(cls => classRosters.TryGetValue(cls.Name, out var roster) ? roster : [])
-          .DistinctBy(o => o.Id)
-          .ToList();
-        var studentIds = students.Select(o => o.Id).ToList();
-        var pupilPremiumStudentIds = students.Where(o => o.PupilPremium).Select(o => o.Id).ToList();
-        var cells = staffDateColumns.Select(date => BuildAggregateCell(data, studentIds, date, progressCache, pupilPremiumStudentIds)).ToList();
+        var cells = staffDateColumns.Select(date =>
+        {
+          var students = courseClasses
+            .Where(cls => cls.YearGroup + date.YearGroupOffset == yearGroup)
+            .SelectMany(cls => classRosters.TryGetValue(cls.Name, out var roster) ? roster : [])
+            .DistinctBy(o => o.Id)
+            .ToList();
+          return BuildAggregateCell(
+            data,
+            students.Select(o => o.Id).ToList(),
+            date,
+            progressCache,
+            students.Where(o => o.PupilPremium).Select(o => o.Id).ToList());
+        }).ToList();
         if (!cells.Any(o => o.HasAssignment)) continue;
 
         var title = $"{course.Name} – Year {yearGroup}";
@@ -240,7 +255,20 @@ public partial class AssignmentService
           Title = title,
           FirstColumnTitle = "Class",
           ClickableRows = true,
-          Rows = courseClasses.Select(o => classRowsByName[o.Name]).ToList(),
+          Rows = courseClasses.Select(cls =>
+          {
+            classRosters.TryGetValue(cls.Name, out var roster);
+            roster ??= [];
+            var classRow = classRowsByName[cls.Name];
+            return new AssignmentsStaffRow
+            {
+              Title = classRow.Title,
+              DetailId = classRow.DetailId,
+              Cells = staffDateColumns.Select(date => cls.YearGroup + date.YearGroupOffset == yearGroup
+                ? BuildAggregateCell(data, roster.Select(o => o.Id).ToList(), date, progressCache, roster.Where(o => o.PupilPremium).Select(o => o.Id).ToList())
+                : new AssignmentsProgressCell { DueDate = date.Value }).ToList()
+            };
+          }).ToList(),
           QuestionsTitle = questionsTitle,
           Questions = GetQuestionSummaries(questionSummariesByContext, BuildCourseQuestionCacheKey(partitionKey))
         });
@@ -259,6 +287,8 @@ public partial class AssignmentService
 
   public async Task<WeeklyCompletionReports> GetWeeklyCompletionReportsAsync(DateOnly dueDate)
   {
+    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    var yearGroupOffset = ClassNameParser.GetAcademicYear(dueDate) - ClassNameParser.GetAcademicYear(today);
     var reports = new WeeklyCompletionReports
     {
       DueDate = dueDate,
@@ -279,7 +309,7 @@ public partial class AssignmentService
     var schoolClasses = ParseClasses(classRosters.Keys)
       .Where(o => assignmentSubjectCodes.Contains(o.SubjectCode))
       .ToList();
-    var partitionKeys = NormalizeKeys(schoolClasses.Select(o => GetAssignmentKey(o, coursesByKeyStageAndSubjectCode)).Where(o => o is not null));
+    var partitionKeys = NormalizeKeys(schoolClasses.Select(o => GetAssignmentKey(o, coursesByKeyStageAndSubjectCode, yearGroupOffset)).Where(o => o is not null));
     if (partitionKeys.Count == 0) return reports;
 
     var assignmentsByPartition = await LoadAssignmentsByDueDateAsync(partitionKeys, dueDate);
@@ -293,7 +323,7 @@ public partial class AssignmentService
 
     foreach (var cls in schoolClasses)
     {
-      var assignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode);
+      var assignmentKey = GetAssignmentKey(cls, coursesByKeyStageAndSubjectCode, yearGroupOffset);
       if (assignmentKey is null || !partitionData.TryGetValue(assignmentKey, out var data) || !data.AssignmentsByDate.ContainsKey(dueDate)) continue;
 
       classRosters.TryGetValue(cls.Name, out var roster);
@@ -305,7 +335,7 @@ public partial class AssignmentService
       classReportsByName[cls.Name] = new ClassCompletionReport
       {
         ClassName = cls.Name,
-        CourseName = coursesByKeyStageAndSubjectCode.TryGetValue(BuildCourseLookupKey(GetKeyStage(cls.YearGroup), cls.SubjectCode), out var course)
+        CourseName = coursesByKeyStageAndSubjectCode.TryGetValue(BuildCourseLookupKey(GetKeyStage(cls.YearGroup + yearGroupOffset), cls.SubjectCode), out var course)
           ? course.Name
           : cls.SubjectCode,
         CompletedQuestions = students.Sum(o => o.CompletedQuestions),
@@ -335,7 +365,7 @@ public partial class AssignmentService
     var tutorGroupRowsByYear = tutorGroupRosters
       .Select(tutorGroup =>
       {
-        var studentIdsByPartition = BuildStudentIdsByPartition(tutorGroup.Value, coursesByKeyStageAndSubjectCode, partitionData);
+        var studentIdsByPartition = BuildStudentIdsByPartition(tutorGroup.Value, coursesByKeyStageAndSubjectCode, partitionData, yearGroupOffset: yearGroupOffset);
         var cell = BuildAggregateCell(partitionData, studentIdsByPartition, dueDateText);
         return new TutorGroupCompletionRow
         {
@@ -369,7 +399,7 @@ public partial class AssignmentService
 
       var students = BuildCompletionStudentRows(roster, student =>
       {
-        var partitionKeysForStudent = GetStudentPartitionKeys(student, coursesByKeyStageAndSubjectCode, partitionData);
+        var partitionKeysForStudent = GetStudentPartitionKeys(student, coursesByKeyStageAndSubjectCode, partitionData, yearGroupOffset: yearGroupOffset);
         return BuildAggregateStudentCell(partitionData, partitionKeysForStudent, student.Id, dueDateText);
       });
       var totalQuestions = students.Sum(o => o.TotalQuestions);
