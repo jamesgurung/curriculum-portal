@@ -36,6 +36,20 @@ public static partial class Api
       await config.ReloadAsync();
       return Results.NoContent();
     });
+
+    app.MapGet("/api/completion/{dueDate}", [AllowAnonymous] async (DateOnly dueDate, [FromHeader(Name = "X-Api-Key")] string auth, AssignmentService assignmentService, AppOptions options) =>
+    {
+      if (string.IsNullOrEmpty(options.SyncApiKey)) return Results.Conflict("An sync API key is not configured.");
+      if (auth != options.SyncApiKey) return Results.Unauthorized();
+      if (dueDate >= DateOnly.FromDateTime(DateTime.UtcNow)) return Results.BadRequest("Due date must be in the past.");
+
+      var students = await assignmentService.GetStudentsWithCompletionAsync(dueDate);
+      return Results.Json(new
+      {
+        dueDate,
+        completedQuestions = students.Sum(o => o.CompletedQuestions),
+        totalQuestions = students.Sum(o => o.TotalQuestions)
+      });
+    });
   }
 }
-
