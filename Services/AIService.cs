@@ -538,6 +538,7 @@ public sealed partial class AIService : IDisposable
       Do not accept vague or generic statements or abbreviated sentence forms.
       Items must be specific enough to be assessed in a knowledge quiz. However, avoid adding detail not present in the original statements unless it is required to act on the provided feedback or meet other requirements.
       Each item may be information-dense as long as it remains clear and accessible and is written as a single sentence.
+      For mathematics in particular, avoid overly formal wording or notation. Prefer student-friendly language and do not always require full mathematical precision and qualification. For example, it is better to say "The sum of the angles in a triangle is 180 degrees." rather than "The sum of the interior angles of a Euclidean triangle is 180 degrees."
 
       # Procedural knowledge
       Procedural knowledge items are specific, knowledge-rich skills and techniques that students need to develop.

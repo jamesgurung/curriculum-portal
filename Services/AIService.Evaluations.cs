@@ -162,6 +162,7 @@ public partial class AIService
       - Be mindful that the scheme fits within a wider curriculum. Focus on this specific unit and its level of challenge. If key knowledge is absent but might reasonably be included in an earlier or later unit, do not penalise the curriculum for this. However, if substantial knowledge is missing and it does not seem reasonable for it to be covered elsewhere in the curriculum, then this should be highlighted.
       - Avoid significantly expanding the scope of the knowledge content to completely new areas; balance ambition with consideration of constraints on curriculum time.
       - Key knowledge statements are not intended to be overly technical and it is usually acceptable for them to be simplified for clarity and accessibility.
+      - For mathematics in particular, penalise formal wording or notation that is not appropriate for Key Stage 3. Prefer student-friendly language and do not always require full mathematical precision and qualification. For example, it is better to say "The sum of the angles in a triangle is 180 degrees." rather than "The sum of the interior angles of a Euclidean triangle is 180 degrees."
       - Provide one short overview paragraph which evaluates the overall quality of the key knowledge.
       - Provide recommended actions in priority order, with the most important first, in a structured array of concise, plain-English strings (up to 10 actions but typically fewer).
       - Write each recommended action in the imperative mood.

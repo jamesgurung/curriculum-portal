@@ -37,6 +37,8 @@ if (appConfigEndpoint is not null || appConfigConnectionString is not null)
 
 var isProduction = !builder.Environment.IsDevelopment();
 
+if (!isProduction) builder.Configuration.AddUserSecrets<Program>();
+
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
   options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
