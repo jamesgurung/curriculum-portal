@@ -118,7 +118,8 @@ const elements = {
   modalSave: document.getElementById('modal-save'),
   modalClose: document.getElementById('modal-close'),
   textBoxContainer: document.getElementById('modal-text-container'),
-  selectContainer: document.getElementById('modal-select-container')
+  selectContainer: document.getElementById('modal-select-container'),
+  aiModal: document.getElementById('ai-modal')
 };
 
 const state = { courseId: null, unitId: null, courseEditable: false, editMode: false, quizQuestions: [], remainingQuestions: [], activeQuizQuestionCount: 0 };
@@ -338,6 +339,14 @@ function showCourse(courseId, options = {}) {
       window.location.href = `/courses/${encodeSegment(courseId)}/evaluation`;
     });
 
+    const enhanceRationalesButton = document.createElement('button');
+    enhanceRationalesButton.type = 'button';
+    enhanceRationalesButton.className = 'enhance-rationales-button material-symbols-outlined';
+    enhanceRationalesButton.title = 'Enhance unit rationales with AI';
+    enhanceRationalesButton.setAttribute('aria-label', 'Enhance unit rationales with AI');
+    enhanceRationalesButton.textContent = 'auto_fix_high';
+    enhanceRationalesButton.addEventListener('click', () => enhanceCourseRationales(courseId, enhanceRationalesButton));
+
     const editToggleButton = document.createElement('button');
     editToggleButton.type = 'button';
     editToggleButton.className = 'edit-toggle-button material-symbols-outlined';
@@ -355,6 +364,10 @@ function showCourse(courseId, options = {}) {
 
     if (course.keyStage === 3) {
       actions.appendChild(evaluateButton);
+    }
+
+    if (isAdmin && inEditMode) {
+      actions.appendChild(enhanceRationalesButton);
     }
 
     actions.appendChild(editToggleButton);
@@ -1545,6 +1558,88 @@ async function sortUnits(event) {
     alert(`Failed to sort units: ${error.message}`);
     showCourse(state.courseId, { keepEditMode: true, skipHistory: true });
   }
+}
+
+async function enhanceCourseRationales(courseId, button) {
+  const course = courseById(courseId);
+  if (!window.confirm(`Are you sure you want to enhance every "Why this?" and "Why now?" statement for ${course?.name || 'this course'}? All existing statements will be replaced, and this cannot be undone.`)) return;
+
+  button.disabled = true;
+  elements.aiModal.setAttribute('aria-busy', 'true');
+  elements.aiModal.classList.add('active');
+  elements.aiModal.focus();
+
+  try {
+    await postSse(`/courses/${encodeSegment(courseId)}/build/ai/enhancerationales`);
+    window.location.reload();
+  } catch (error) {
+    elements.aiModal.classList.remove('active');
+    elements.aiModal.removeAttribute('aria-busy');
+    window.alert(error.message || 'The unit rationales could not be enhanced. No changes were made.');
+    button.disabled = false;
+    if (button.isConnected) button.focus();
+  }
+}
+
+async function postSse(url) {
+  if (!csrfToken) throw new Error('Missing anti-forgery token.');
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'X-CSRF-TOKEN': csrfToken }
+  });
+  if (!response.ok) {
+    const message = (await response.text()).trim();
+    if (response.status === 429) throw new Error(message || 'The daily AI token limit has been reached. Please try again later.');
+    throw new Error(message || 'The unit rationales could not be enhanced. No changes were made.');
+  }
+  if (!response.body) throw new Error('No response stream received.');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  function processEvent(frame) {
+    if (!frame.trim()) return undefined;
+    let event = 'message';
+    const data = [];
+    frame.split(/\r?\n/).forEach(line => {
+      if (line.startsWith('event:')) event = line.slice(6).trimStart();
+      if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+    });
+
+    const value = data.join('\n');
+    if (event === 'heartbeat') return undefined;
+    if (event === 'result') return JSON.parse(value);
+    if (event === 'error') {
+      let message = value;
+      try {
+        message = JSON.parse(value).message ?? message;
+      } catch {
+      }
+      throw new Error(message || 'The unit rationales could not be enhanced. No changes were made.');
+    }
+    return undefined;
+  }
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+
+    while (true) {
+      const separator = buffer.match(/\r?\n\r?\n/);
+      if (!separator) break;
+      const result = processEvent(buffer.slice(0, separator.index));
+      if (result !== undefined) return result;
+      buffer = buffer.slice(separator.index + separator[0].length);
+    }
+
+    if (done) break;
+  }
+
+  const result = processEvent(buffer);
+  if (result !== undefined) return result;
+  throw new Error('The response stream ended before a result was received.');
 }
 
 async function request(url, method, value) {

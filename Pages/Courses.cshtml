@@ -68,6 +68,15 @@
   </div>
 </div>
 
+<div id="ai-modal" class="evaluation-modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title" aria-describedby="ai-modal-note" tabindex="-1">
+  <div class="modal-content">
+    <div class="modal-body">
+      <h2 id="ai-modal-title"><span class="spinner" aria-hidden="true"></span><span>Enhancing unit rationales...</span></h2>
+      <p id="ai-modal-note" class="evaluation-progress-note">This may take several minutes. Do not close the page.</p>
+    </div>
+  </div>
+</div>
+
 <div id="csrf"><input type="hidden" name="__RequestVerificationToken" value="@Model.CsrfToken" /></div>
 
 <template id="tpl-course-item">

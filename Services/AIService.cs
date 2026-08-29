@@ -508,9 +508,10 @@ public sealed partial class AIService : IDisposable
     return JsonSerializer.Deserialize<KeyKnowledge>(json, JsonDefaults.CamelCase) ?? new KeyKnowledge();
   }
 
-  public async Task<KeyKnowledge> EnhanceKeyKnowledgeAsync(UnitEntity unit, IReadOnlyList<UnitEntity> units, EnhanceKeyKnowledgeRequest model,
+  public async Task<KeyKnowledge> EnhanceKeyKnowledgeAsync(CourseEntity course, UnitEntity unit, IReadOnlyList<UnitEntity> units, EnhanceKeyKnowledgeRequest model,
     CancellationToken cancellationToken = default)
   {
+    ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(unit);
     ArgumentNullException.ThrowIfNull(units);
     ArgumentNullException.ThrowIfNull(model);
@@ -551,7 +552,7 @@ public sealed partial class AIService : IDisposable
       Use British English spelling and terminology.
       Use the Oxford comma in lists.
       All statements must begin with a capital letter and end with a full stop.
-      All statements must be individually self-contained, without relying on the context of previous items.
+      All statements must be individually self-contained, without relying on the context of previous items. To avoid repetition, the context of the subject name and unit title may be assumed.
       For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted. Fix any malformed LaTeX expressions. Do not use backticks for code blocks or any other reason.
       If there are any existing [img:n] image references, preserve them. Do not add any new image references.
 
@@ -566,7 +567,7 @@ public sealed partial class AIService : IDisposable
       ProceduralKnowledge = (model.ProceduralKnowledge ?? []).Where(o => !string.IsNullOrWhiteSpace(o)).ToList()
     };
     var input = new StringBuilder();
-    input.Append(CultureInfo.InvariantCulture, $"# {unit.Title} (Year {unit.YearGroup})\n\n");
+    input.Append(CultureInfo.InvariantCulture, $"# Year {unit.YearGroup} {course.Name}: {unit.Title}\n\n");
     AppendKeyKnowledgeEvaluationSection(input, keyKnowledge);
     input.Append("\n\n## Feedback to incorporate\n\n");
     var feedback = (model.Feedback ?? []).Where(o => !string.IsNullOrWhiteSpace(o)).ToList();
@@ -604,6 +605,153 @@ public sealed partial class AIService : IDisposable
 
     var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
     return JsonSerializer.Deserialize<KeyKnowledge>(json, JsonDefaults.CamelCase) ?? new KeyKnowledge();
+  }
+
+  public async Task<List<UnitRationaleResponse>> EnhanceCourseRationalesAsync(CourseEntity course, IReadOnlyList<UnitEntity> units,
+    CancellationToken cancellationToken = default)
+  {
+    ArgumentNullException.ThrowIfNull(course);
+    ArgumentNullException.ThrowIfNull(units);
+
+    using var tokenReservation = await _tokenBudget.ReserveAsync(Math.Max(32000, units.Count * 4000), cancellationToken);
+    var client = _aiClient.GetResponsesClient();
+    var systemMessage = """
+      You are an experienced secondary school teacher and expert curriculum designer. The user will provide a course and all its units. Your task is to enhance the "Why this?" and "Why now?" statements for every unit.
+
+      # Requirements
+      - "Why this?" must explain the curricular purpose and benefits of learning the content in its own right. It must not justify inclusion by referring to an examination or specification.
+      - "Why now?" must explain why the unit is taught at this point, which might include meaningful prerequisites, progression, or connections with earlier and later units where the supplied curriculum supports them.
+      - Use the course name, curriculum intent, unit titles, existing rationales, and key knowledge to understand the curriculum as a whole.
+      - Preserve accurate meaning and intentional curriculum choices. Improve clarity, specificity, coherence, and sequencing explanations without inventing unsupported facts or relationships.
+      - If an existing statement is already strong, preserve its meaning and make only necessary improvements. If it is missing, write an appropriate statement from the supplied context.
+      - If an existing statement is inaccurate or misleading, correct it. If it is accurate but weak, improve and expand upon it.
+      - Keep each statement concise and information-dense, normally 1-3 sentences.
+      - Write complete sentences with correct grammar, punctuation, and spelling. Avoid sentence fragments.
+      - Prefer the Oxford comma in lists.
+      - Prefer "we"/"us" instead of "you" or "students".
+      - Vary the structures of the statements to avoid repetition. For example, do not start them all in the same way or use the same sentence patterns.
+      - Use British English spelling and terminology.
+
+      # Response format
+      - Return every supplied unit exactly once, in the same order, using its unit ID exactly as provided.
+      - Return the units in the rationales array.
+      - Do not include any new lines or paragraphs, Markdown formatting, code fences, or LaTeX.
+      - If there are any issues in the unit titles or knowledge statements, do not comment on them. Write the Why this? and Why now? statements as best you can from the supplied context.
+      """.Trim();
+
+    var knowledgeTasks = units.Select(unit => _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey, cancellationToken));
+    var keyKnowledge = await Task.WhenAll(knowledgeTasks);
+    var input = new StringBuilder();
+    input.Append(CultureInfo.InvariantCulture, $"# Course\n\n## Course name\n\n{course.Name}\n\n## Curriculum intent\n\n{(string.IsNullOrWhiteSpace(course.Intent) ? "(Not provided.)" : course.Intent)}\n\n# Units\n\n");
+
+    for (var i = 0; i < units.Count; i++)
+    {
+      var unit = units[i];
+      input.Append(CultureInfo.InvariantCulture, $"## Unit {i + 1}\n\n### Unit ID\n\n{unit.RowKey}\n\n### Unit title\n\n{unit.Title}\n\n### Schedule\n\nYear {unit.YearGroup}{(string.IsNullOrWhiteSpace(unit.Term) ? string.Empty : $" {unit.Term} Term")}\n\n### Existing Why this?\n\n{(string.IsNullOrWhiteSpace(unit.WhyThis) ? "(Not provided.)" : unit.WhyThis)}\n\n### Existing Why now?\n\n{(string.IsNullOrWhiteSpace(unit.WhyNow) ? "(Not provided.)" : unit.WhyNow)}\n\n");
+      AppendRationaleKnowledge(input, "Declarative knowledge", "declarative", keyKnowledge[i].DeclarativeKnowledge ?? []);
+      AppendRationaleKnowledge(input, "Procedural knowledge", "procedural", keyKnowledge[i].ProceduralKnowledge ?? []);
+      input.Append("---\n\n");
+    }
+
+    var schema = BinaryData.FromBytes("""
+      {
+        "type": "object",
+        "properties": {
+          "rationales": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "unitId": { "type": "string" },
+                "whyThis": { "type": "string" },
+                "whyNow": { "type": "string" }
+              },
+              "required": ["unitId", "whyThis", "whyNow"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["rationales"],
+        "additionalProperties": false
+      }
+      """u8.ToArray());
+
+    var options = new CreateResponseOptions
+    {
+      Instructions = systemMessage,
+      ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
+      StoredOutputEnabled = false,
+      TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("courseRationales", schema, jsonSchemaIsStrict: true) },
+      Model = ModelName
+    };
+    options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
+    options.InputItems.Add(ResponseItem.CreateUserMessageItem(input.ToString()));
+    var response = await client.CreateResponseAsync(options, cancellationToken);
+    var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
+
+    try
+    {
+      using var document = JsonDocument.Parse(json);
+      if (document.RootElement.ValueKind != JsonValueKind.Object
+        || !document.RootElement.TryGetProperty("rationales", out var rationalesElement)
+        || rationalesElement.ValueKind != JsonValueKind.Array)
+        throw new InvalidOperationException("The AI returned an invalid unit rationale response. No changes were made.");
+
+      var rationales = new List<UnitRationaleResponse>();
+      foreach (var item in rationalesElement.EnumerateArray())
+      {
+        if (item.ValueKind != JsonValueKind.Object)
+          throw new InvalidOperationException("The AI returned an invalid unit rationale response. No changes were made.");
+
+        var properties = item.EnumerateObject().ToList();
+        if (properties.Count != 3
+          || properties.Select(property => property.Name).Distinct(StringComparer.Ordinal).Count() != 3
+          || properties.Any(property => property.Name is not "unitId" and not "whyThis" and not "whyNow"))
+          throw new InvalidOperationException("The AI returned an invalid unit rationale response. No changes were made.");
+
+        var unitId = item.GetProperty("unitId");
+        var whyThis = item.GetProperty("whyThis");
+        var whyNow = item.GetProperty("whyNow");
+        if (unitId.ValueKind != JsonValueKind.String || whyThis.ValueKind != JsonValueKind.String || whyNow.ValueKind != JsonValueKind.String)
+          throw new InvalidOperationException("The AI returned an invalid unit rationale response. No changes were made.");
+
+        var rationale = new UnitRationaleResponse
+        {
+          UnitId = unitId.GetString(),
+          WhyThis = whyThis.GetString()?.Trim(),
+          WhyNow = whyNow.GetString()?.Trim()
+        };
+        if (string.IsNullOrWhiteSpace(rationale.UnitId) || string.IsNullOrWhiteSpace(rationale.WhyThis) || string.IsNullOrWhiteSpace(rationale.WhyNow))
+          throw new InvalidOperationException("The AI returned an invalid unit rationale response. No changes were made.");
+
+        rationales.Add(rationale);
+      }
+
+      return rationales;
+    }
+    catch (JsonException ex)
+    {
+      throw new InvalidOperationException("The AI returned an invalid unit rationale response. No changes were made.", ex);
+    }
+  }
+
+  private static void AppendRationaleKnowledge(StringBuilder input, string heading, string label, List<string> items)
+  {
+    input.Append(CultureInfo.InvariantCulture, $"### {heading}\n\n");
+    if (items.Count == 0)
+    {
+      input.Append(CultureInfo.InvariantCulture, $"(No {label} knowledge provided.)\n\n");
+      return;
+    }
+
+    input.Append(string.Join("\n", items.Take(30).Select(item => $"- {item}")) + "\n");
+    if (items.Count > 30)
+    {
+      var omitted = items.Count - 30;
+      input.Append(CultureInfo.InvariantCulture, $"\n_{omitted} additional {label} knowledge {(omitted == 1 ? "item" : "items")} omitted._\n");
+    }
+
+    input.Append('\n');
   }
 
   public async Task<List<AssessmentQuestion>> GenerateQuestionsAsync(GenerateQuestionsRequest model, CancellationToken cancellationToken = default)

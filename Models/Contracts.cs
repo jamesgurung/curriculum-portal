@@ -74,6 +74,13 @@ public class EnhanceKeyKnowledgeRequest
   public List<string> Feedback { get; set; } = [];
 }
 
+public class UnitRationaleResponse
+{
+  public string UnitId { get; set; } = string.Empty;
+  public string WhyThis { get; set; } = string.Empty;
+  public string WhyNow { get; set; } = string.Empty;
+}
+
 public class GenerateQuestionsResponse
 {
   public List<MultipleChoiceQuestion> MultipleChoiceQuestions { get; set; } = [];

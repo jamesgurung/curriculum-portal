@@ -130,7 +130,65 @@ public static partial class Api
       }
 
       var units = await courseService.ListUnitsAsync(courseId, context.RequestAborted);
-      return StreamAiOperation(ct => ai.EnhanceKeyKnowledgeAsync(unit, units, model, ct), context.RequestAborted);
+      return StreamAiOperation(ct => ai.EnhanceKeyKnowledgeAsync(course, unit, units, model, ct), context.RequestAborted);
+    });
+
+    app.MapPost("/courses/{courseId}/build/ai/enhancerationales", [Authorize(Roles = Roles.Admin)] async (HttpContext context, IAntiforgery antiforgery, string courseId, CourseService courseService, CacheService cache, AIService ai) =>
+    {
+      var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
+      if (csrfError is not null)
+      {
+        return csrfError;
+      }
+
+      if (string.IsNullOrWhiteSpace(courseId))
+      {
+        return Results.BadRequest("Course ID is required.");
+      }
+
+      var course = await courseService.TryGetCourseAsync(courseId, context.RequestAborted);
+      if (course is null)
+      {
+        return Results.NotFound("Course not found.");
+      }
+
+      var units = await courseService.ListUnitsAsync(courseId, context.RequestAborted);
+      if (units.Count == 0)
+      {
+        return Results.BadRequest("This course has no units to enhance.");
+      }
+
+      if (units.Count > 100)
+      {
+        return Results.BadRequest("This course has too many units to update safely in one transaction.");
+      }
+
+      var expectedUnitIds = units.Select(unit => unit.RowKey).ToHashSet(StringComparer.Ordinal);
+      return StreamAiOperation(async ct =>
+      {
+        var rationales = await ai.EnhanceCourseRationalesAsync(course, units, ct);
+        if (rationales.Count != units.Count)
+          throw new InvalidOperationException("The AI did not return every unit exactly once. No changes were made.");
+
+        var rationalesById = new Dictionary<string, UnitRationaleResponse>(StringComparer.Ordinal);
+        foreach (var rationale in rationales)
+        {
+          if (string.IsNullOrWhiteSpace(rationale.UnitId) || string.IsNullOrWhiteSpace(rationale.WhyThis) || string.IsNullOrWhiteSpace(rationale.WhyNow)
+            || !rationalesById.TryAdd(rationale.UnitId, rationale))
+            throw new InvalidOperationException("The AI returned duplicate or incomplete unit rationales. No changes were made.");
+        }
+
+        if (!expectedUnitIds.SetEquals(rationalesById.Keys))
+          throw new InvalidOperationException("The AI returned incorrect unit IDs. No changes were made.");
+
+        var currentUnits = await courseService.ListUnitsAsync(courseId, ct);
+        if (currentUnits.Count != units.Count || !expectedUnitIds.SetEquals(currentUnits.Select(unit => unit.RowKey)))
+          throw new InvalidOperationException("The course units changed while the rationales were being enhanced. No changes were made.");
+
+        await courseService.UpdateUnitRationalesAsync(units, rationalesById, ct);
+        cache.Invalidate("units");
+        return new { updated = units.Count };
+      }, context.RequestAborted);
     });
 
     app.MapPost("/courses/build/ai/generatequestions", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, GenerateQuestionsRequest model, CourseService courseService, ConfigService config, AIService ai) =>

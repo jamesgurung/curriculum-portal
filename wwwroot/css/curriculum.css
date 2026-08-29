@@ -456,6 +456,7 @@ h3 {
 
 .staff-course-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem;
   margin-bottom: 0.8rem;
@@ -527,7 +528,7 @@ h3 {
   border-color: var(--border-standard);
 }
 
-.handle {
+.handle.material-symbols-outlined {
   grid-area: handle;
   display: inline-flex;
   align-items: center;
@@ -584,6 +585,7 @@ h3 {
 }
 
 .edit-button {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.78rem;
@@ -591,6 +593,7 @@ h3 {
   border: 1px solid var(--border-standard);
   border-radius: 7px;
   font-size: 1.04rem;
+  vertical-align: middle;
 }
 
 .back-button:hover,
@@ -756,6 +759,10 @@ h3 {
     color: var(--ink-strong);
     font-weight: 650;
   }
+}
+
+.unit-why .edit-button {
+  margin-block: -0.22rem;
 }
 
 .drop-highlight {
@@ -1414,7 +1421,8 @@ body.evaluation-layout .app-footer {
   transition: width 0.24s ease;
 }
 
-#modal {
+#modal,
+#ai-modal {
   position: fixed;
   inset: 0;
   background-color: rgba(10, 17, 27, 0.54);
@@ -1429,7 +1437,8 @@ body.evaluation-layout .app-footer {
   }
 }
 
-#modal-content {
+#modal-content,
+#ai-modal .modal-content {
   margin: 98px 0 0;
   background: var(--panel-elevated);
   border: 1px solid var(--border-subtle);
@@ -1477,19 +1486,22 @@ body.evaluation-layout .app-footer {
   color: var(--ink-primary);
 }
 
-#modal.evaluation-modal #modal-body {
+#modal.evaluation-modal #modal-body,
+#ai-modal.evaluation-modal .modal-body {
   padding: 1.45rem 1.5rem 1.35rem;
   overflow: visible;
 }
 
-#modal.evaluation-modal #modal-title {
+#modal.evaluation-modal #modal-title,
+#ai-modal.evaluation-modal #ai-modal-title {
   display: flex;
   align-items: center;
   margin-bottom: 1.35rem;
   gap: 0.2rem;
 }
 
-#modal.evaluation-modal .spinner {
+#modal.evaluation-modal .spinner,
+#ai-modal.evaluation-modal .spinner {
   width: 1em;
   height: 1em;
   border: 2px solid #ccc;
@@ -1503,7 +1515,8 @@ body.evaluation-layout .app-footer {
   flex: 0 0 auto;
 }
 
-#modal.evaluation-modal .evaluation-progress-note {
+#modal.evaluation-modal .evaluation-progress-note,
+#ai-modal.evaluation-modal .evaluation-progress-note {
   margin: -0.45rem 0 1rem;
   color: var(--ink-muted);
 }

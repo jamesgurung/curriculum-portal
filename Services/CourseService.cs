@@ -61,6 +61,38 @@ public class CourseService
   public Task UpdateUnitAsync(UnitEntity unit, CancellationToken cancellationToken = default) =>
     _unitsClient.UpsertEntityAsync(unit, TableUpdateMode.Replace, cancellationToken);
 
+  public async Task UpdateUnitRationalesAsync(IReadOnlyList<UnitEntity> units, IReadOnlyDictionary<string, UnitRationaleResponse> rationales,
+    CancellationToken cancellationToken = default)
+  {
+    ArgumentNullException.ThrowIfNull(units);
+    ArgumentNullException.ThrowIfNull(rationales);
+    if (units.Count is 0 or > 100 || rationales.Count != units.Count)
+      throw new InvalidOperationException("The unit rationales could not be updated safely.");
+
+    var partitionKey = units[0].PartitionKey;
+    if (units.Any(unit => unit.PartitionKey != partitionKey || !rationales.ContainsKey(unit.RowKey)))
+      throw new InvalidOperationException("The unit rationales could not be updated safely.");
+
+    var actions = units.Select(unit =>
+    {
+      var rationale = rationales[unit.RowKey];
+      var entity = new TableEntity(unit.PartitionKey, unit.RowKey)
+      {
+        [nameof(UnitEntity.WhyThis)] = rationale.WhyThis,
+        [nameof(UnitEntity.WhyNow)] = rationale.WhyNow
+      };
+      return new TableTransactionAction(TableTransactionActionType.UpdateMerge, entity, unit.ETag);
+    }).ToList();
+    try
+    {
+      await _unitsClient.SubmitTransactionAsync(actions, cancellationToken);
+    }
+    catch (RequestFailedException ex) when (ex.Status is 404 or 409 or 412)
+    {
+      throw new InvalidOperationException("A unit changed while the rationales were being enhanced. No changes were made.", ex);
+    }
+  }
+
   public async Task DeleteUnitAsync(string courseId, string unitId)
   {
     await _unitsClient.DeleteEntityAsync(courseId, unitId);
