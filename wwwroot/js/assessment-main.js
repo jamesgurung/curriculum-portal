@@ -1,5 +1,8 @@
 let tab = null;
+let keyKnowledgeFeedbackHiddenUntilSave = false;
 const csrf = document.querySelector('input[name="__RequestVerificationToken"]').value;
+const keyKnowledgeFeedbackStale = document.querySelector('.key-knowledge-feedback-stale');
+const keyKnowledgeFeedbackCheckboxes = [...document.querySelectorAll('.key-knowledge-feedback-checkbox')];
 
 window.addEventListener('load', () => { document.querySelector('.body-container').scrollTop = 0; });
 document.addEventListener('DOMContentLoaded', async function() {
@@ -23,6 +26,7 @@ function setupHeader() {
   const keyKnowledgeSheet = document.getElementById('key-knowledge-sheet');
   const assessmentElement = document.getElementById('assessment');
   const quizElement = document.getElementById('quiz');
+  const keyKnowledgeFeedback = document.getElementById('key-knowledge-feedback');
   const bodyContainer = document.querySelector('.body-container');
   const pageContainer = document.querySelector('.page-container');
 
@@ -55,6 +59,9 @@ function setupHeader() {
     keyKnowledgeSheet.classList.toggle('section-hidden', visibleSection !== 'key-knowledge');
     assessmentElement.classList.toggle('section-hidden', visibleSection !== 'assessment');
     quizElement.classList.toggle('section-hidden', visibleSection !== 'quiz');
+    const showKeyKnowledgeFeedback = visibleSection === 'key-knowledge' && keyKnowledgeFeedback !== null && !keyKnowledgeFeedbackHiddenUntilSave;
+    keyKnowledgeFeedback?.classList.toggle('section-hidden', !showKeyKnowledgeFeedback);
+    bodyContainer.classList.toggle('key-knowledge-feedback-visible', showKeyKnowledgeFeedback);
     pageContainer.classList.toggle('landscape-page', visibleSection === 'scheme');
 
     if (visibleSection === 'assessment')
@@ -169,5 +176,13 @@ async function save() {
   if (!resp.ok) {
     const error = await resp.text();
     alert(`Unable to save: ${error}`);
+    return;
+  }
+  if (part === 'key-knowledge') {
+    keyKnowledgeFeedbackHiddenUntilSave = false;
+    document.getElementById('key-knowledge-feedback')?.classList.remove('section-hidden');
+    document.querySelector('.body-container').classList.add('key-knowledge-feedback-visible');
+    keyKnowledgeFeedbackStale?.classList.remove('hide');
+    keyKnowledgeFeedbackCheckboxes.forEach(checkbox => checkbox.checked = false);
   }
 }

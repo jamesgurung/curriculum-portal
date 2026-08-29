@@ -2,6 +2,13 @@
 @model CurriculumPortal.BuildModel
 @{
   ViewData["Title"] = Model.PageTitle;
+  static string PriorityText(int priority) => priority switch
+  {
+    1 => "Priority",
+    2 => "Essential",
+    3 => "Recommended",
+    _ => "Suggested"
+  };
 }
 
 @section Head {
@@ -165,6 +172,41 @@
       <button id="import-assessment" class="ai-button"><span class="material-symbols-outlined">upload</span>Import existing assessment</button>
       <button id="import-keyknowledge" class="ai-button"><span class="material-symbols-outlined">graph_3</span>Generate key knowledge from scheme</button>
     </div>
+    @if (Model.IsEditor)
+    {
+      <section id="key-knowledge-feedback" class="key-knowledge-feedback section-hidden" aria-labelledby="key-knowledge-feedback-title">
+        <div class="key-knowledge-feedback-header">
+          <div>
+            <h2 id="key-knowledge-feedback-title">AI enhancement</h2>
+            <p>@(Model.KeyKnowledgeFeedback.Count == 0 ? "Use AI to refine the wording of the key knowledge statements." : "Use AI to refine the key knowledge, optionally incorporating selected evaluation feedback.")</p>
+          </div>
+          <button id="enhance-keyknowledge" class="key-knowledge-enhance" type="button">
+            <span class="material-symbols-outlined" aria-hidden="true">neurology</span>
+            Enhance key knowledge
+          </button>
+        </div>
+        @if (Model.KeyKnowledgeFeedback.Count > 0)
+        {
+          <div class="key-knowledge-feedback-stale @(Model.IsKeyKnowledgeFeedbackStale ? "" : "hide")">
+            <span class="material-symbols-outlined" aria-hidden="true">history</span>
+            <p><strong>Feedback may be out of date.</strong> It may no longer reflect the current unit. Review each item before selecting it.</p>
+          </div>
+          <ul class="key-knowledge-feedback-list">
+            @for (var i = 0; i < Model.KeyKnowledgeFeedback.Count; i++)
+            {
+              var feedback = Model.KeyKnowledgeFeedback[i];
+              <li>
+                <label for="key-knowledge-feedback-@i">
+                  <input id="key-knowledge-feedback-@i" class="key-knowledge-feedback-checkbox" type="checkbox" value="@feedback.Action" checked="@(!Model.IsKeyKnowledgeFeedbackStale && feedback.Priority <= 2)" />
+                  <span class="key-knowledge-feedback-action">@feedback.Action</span>
+                  <span class="key-knowledge-feedback-priority priority-@feedback.Priority" role="img" aria-label="@PriorityText(feedback.Priority)"></span>
+                </label>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
   </div>
 
   <div id="modal">

@@ -1,6 +1,7 @@
 using OpenAI;
 using OpenAI.Responses;
 using System.ClientModel;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
@@ -131,6 +132,7 @@ public sealed partial class AIService : IDisposable
       - Before finalising each question, reject and rewrite any answer options that a student could eliminate without knowing the lesson content. If it proves difficult to find suitable options that meet these criteria, consider changing the question.
       - Design the questions to draw out common misconceptions where appropriate.
       - Ensure each question is worded so that it makes sense and is self-contained and answerable in its own right, without relying on previous questions or any other context. The questions will be presented to students out of sequence and alongside questions from other units.
+      - Avoid asking multiple questions in one, for example by combining several related concepts into a single question. Similarly, avoid questions where the answer options require lists of three or more items each, as this can be confusing and make the question harder to answer.
       - Before returning the final JSON, silently reject and rewrite any question with ambiguous wording, multiple defensible answers, clueing, or answer options that are obviously implausible using common sense. Before finalising each question, apply this test: "Could a student with no lesson knowledge eliminate this option using common sense alone?" If yes, rewrite the option.
     
       # Style
@@ -141,6 +143,7 @@ public sealed partial class AIService : IDisposable
       - Avoid the trap of the correct answers being noticeably longer than the incorrect answers.
       - During quizzing, the question will be shown for a few seconds before the options appear. Therefore, make sure the question text is answerable in its own right without seeing the options. For example, do not ask "Which of these...".
       - Use British English spelling and terminology.
+      - Typically, start each answer option with a capital letter and do not use a full stop at the end.
       - For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted. Do not use backticks for code blocks or any other reason.
       """;
 
@@ -171,6 +174,7 @@ public sealed partial class AIService : IDisposable
       If a question or its answer options do not fully meet the criteria, make changes to improve it.
       Typically, you should only make minor changes (for example, modifying one or more answer options), but if needed you can rewrite the whole question.
       A new or amended question must assess the same core knowledge as the original.
+      Condone questions that assess simplified knowledge or lack technical precision and specificity, as this may be intentional for students' current level.
       If a question is not salvageable, remove it.
 
       {criteria}
@@ -461,7 +465,7 @@ public sealed partial class AIService : IDisposable
     Use Tier 3 vocabulary and student-friendly language that is clear and accessible. Avoid long, complex sentences.
     Prefer plain English instead of technical notation.
     Use British English spelling and terminology.
-    For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted.
+    For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted. Do not use backticks for code blocks or any other reason.
     """.Trim();
 
     var userMessage = ResponseItem.CreateUserMessageItem(value);
@@ -498,6 +502,104 @@ public sealed partial class AIService : IDisposable
     };
     options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
     options.InputItems.Add(userMessage);
+    var response = await client.CreateResponseAsync(options, cancellationToken);
+
+    var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
+    return JsonSerializer.Deserialize<KeyKnowledge>(json, JsonDefaults.CamelCase) ?? new KeyKnowledge();
+  }
+
+  public async Task<KeyKnowledge> EnhanceKeyKnowledgeAsync(UnitEntity unit, IReadOnlyList<UnitEntity> units, EnhanceKeyKnowledgeRequest model,
+    CancellationToken cancellationToken = default)
+  {
+    ArgumentNullException.ThrowIfNull(unit);
+    ArgumentNullException.ThrowIfNull(units);
+    ArgumentNullException.ThrowIfNull(model);
+
+    using var tokenReservation = await _tokenBudget.ReserveAsync(20000, cancellationToken);
+    var client = _aiClient.GetResponsesClient();
+    var systemMessage = """
+      You are an experienced secondary school teacher with exceptional pedagogical subject knowledge.
+      The user will provide the existing key knowledge statements for a unit of work. Your task is to enhance these statements if required to meet the stated expectations. When specific feedback is provided, also incorporate it by adding, removing, or adapting statements as required. Do not make any other changes.
+
+      # Scope
+      All finalised statements must meet the requirements in these instructions.
+      If necessary, statements may be reworded, restructured, combined, or split into multiple statements.
+      Items listed in the wrong category (declarative or procedural) must be moved.
+      Preserve existing statements verbatim when they are already suitable.
+      Beyond changes required by the feedback provided, do not make any other substantive modifications, such as adding new knowledge items, removing items, adding non-essential detail, or significantly changing the scope of an existing item.
+      The only exception is if a statement is factually incorrect, in which case it should be corrected. However, do not modify any statements that may have been intentionally simplified for students' current level, such as "An event with probability 0 will never happen.".
+      Be mindful that the unit fits within a wider curriculum, so the omission of prior and subsequent knowledge may be intentional.
+      If any statements are borderline acceptable, have a bias towards preserving the current wording or making only minor changes.
+
+      # Declarative knowledge
+      Declarative knowledge items are the core facts that are essential to a rigorous understanding of the subject matter.
+      Facts must be stated in full sentences, not just signposted. For example, instead of "Know the houses of Hogwarts.", the correct statement would be "The houses of Hogwarts are Gryffindor, Hufflepuff, Ravenclaw, and Slytherin."
+      Do not accept vague or generic statements or abbreviated sentence forms.
+      Items must be specific enough to be assessed in a knowledge quiz. However, avoid adding detail not present in the original statements unless it is required to act on the provided feedback or meet other requirements.
+      Each item may be information-dense as long as it remains clear and accessible and is written as a single sentence.
+
+      # Procedural knowledge
+      Procedural knowledge items are specific, knowledge-rich skills and techniques that students need to develop.
+      They must be written as clear, observable actions, each starting with a verb (e.g. "Evaluate...", "Solder...").
+      Skills must be precise enough to be assessed through performance, demonstration, or worked responses.
+      Do not accept generic study skills and vague verbs like "know" or "understand".
+      Where appropriate, the most essential brief, succinct success criteria can be included within the sentence. For example, instead of "Bowl a cricket ball", a statement might say "Bowl a cricket ball with a smooth run-up, releasing it overarm so it bounces on the pitch and aims accurately at the stumps."
+
+      # Style
+      Use Tier 3 vocabulary and straightforward, student-friendly language that is clear and accessible. Avoid long, complex sentences.
+      Prefer plain English instead of technical notation.
+      Use British English spelling and terminology.
+      Use the Oxford comma in lists.
+      All statements must begin with a capital letter and end with a full stop.
+      All statements must be individually self-contained, without relying on the context of previous items.
+      For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted. Fix any malformed LaTeX expressions. Do not use backticks for code blocks or any other reason.
+      If there are any existing [img:n] image references, preserve them. Do not add any new image references.
+
+      # Response
+      Respond with a JSON object containing two arrays: declarativeKnowledge and proceduralKnowledge. Both final lists must be returned in full.
+      If there are no changes, echo back the original statements.
+      """.Trim();
+
+    var keyKnowledge = new KeyKnowledge
+    {
+      DeclarativeKnowledge = (model.DeclarativeKnowledge ?? []).Where(o => !string.IsNullOrWhiteSpace(o)).ToList(),
+      ProceduralKnowledge = (model.ProceduralKnowledge ?? []).Where(o => !string.IsNullOrWhiteSpace(o)).ToList()
+    };
+    var input = new StringBuilder();
+    input.Append(CultureInfo.InvariantCulture, $"# {unit.Title} (Year {unit.YearGroup})\n\n");
+    AppendKeyKnowledgeEvaluationSection(input, keyKnowledge);
+    input.Append("\n\n## Feedback to incorporate\n\n");
+    var feedback = (model.Feedback ?? []).Where(o => !string.IsNullOrWhiteSpace(o)).ToList();
+    input.Append(feedback.Count == 0 ? "(None - do not make substantive changes.)" : string.Join("\n", feedback.Select(o => $"- {o}")));
+
+    var schema = BinaryData.FromBytes("""
+      {
+        "type": "object",
+        "properties": {
+          "declarativeKnowledge": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "proceduralKnowledge": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["declarativeKnowledge", "proceduralKnowledge"],
+        "additionalProperties": false
+      }
+      """u8.ToArray());
+
+    var options = new CreateResponseOptions
+    {
+      Instructions = systemMessage,
+      ReasoningOptions = new ResponseReasoningOptions { ReasoningEffortLevel = ResponseReasoningEffortLevel.High },
+      StoredOutputEnabled = false,
+      TextOptions = new ResponseTextOptions { TextFormat = ResponseTextFormat.CreateJsonSchemaFormat("enhancedKeyKnowledge", schema, jsonSchemaIsStrict: true) },
+      Model = ModelName
+    };
+    options.Patch.Set("$.prompt_cache_options.mode"u8, "explicit");
+    options.InputItems.Add(ResponseItem.CreateUserMessageItem(input.ToString()));
     var response = await client.CreateResponseAsync(options, cancellationToken);
 
     var json = response.Value.OutputItems.OfType<MessageResponseItem>().First().Content.First().Text;
@@ -544,7 +646,7 @@ public sealed partial class AIService : IDisposable
     - Respond with a JSON object containing two arrays: multipleChoiceQuestions and shortAnswerQuestions.
     - Use Tier 3 vocabulary and student-friendly language that is clear and accessible. Avoid long, complex sentences and prefer plain English instead of technical notation.
     - Use British English spelling and terminology.
-    - For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted.
+    - For mathematical expressions (but not just numbers), always use LaTeX within backticks `...` for inline or within double dollar signs $$...$$ for display. Do NOT use \(...\) or \[...\] as these are not accepted. Do not use backticks for code blocks or any other reason.
     """.Trim();
 
     var userMessage = $"""

@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace CurriculumPortal;
 
 [Authorize(Roles = Roles.Teacher)]
-public class BuildModel(CourseService courseService, ConfigService config, IAntiforgery antiforgery) : PageModel
+public class BuildModel(CourseService courseService, CourseEvaluationService evaluationService, ConfigService config, IAntiforgery antiforgery) : PageModel
 {
   public string PageTitle { get; private set; } = string.Empty;
   public string CourseIdJson { get; private set; } = "\"\"";
@@ -24,6 +24,8 @@ public class BuildModel(CourseService courseService, ConfigService config, IAnti
   public string CourseId { get; private set; } = string.Empty;
   public string CourseTitle { get; private set; } = string.Empty;
   public string UnitTitle { get; private set; } = string.Empty;
+  public IReadOnlyList<CourseEvaluationRecommendedAction> KeyKnowledgeFeedback { get; private set; } = [];
+  public bool IsKeyKnowledgeFeedbackStale { get; private set; }
   public bool IsEditor { get; private set; }
   public string CsrfToken { get; private set; } = string.Empty;
 
@@ -46,6 +48,21 @@ public class BuildModel(CourseService courseService, ConfigService config, IAnti
     var questionBank = await courseService.GetBlobAsync<QuestionBank>(unitId);
 
     var editable = User.CanEditCourse(course, config);
+    if (editable)
+    {
+      var evaluation = await courseService.TryGetCourseEvaluationAsync(courseId, HttpContext.RequestAborted);
+      if (evaluation is not null)
+      {
+        var units = await courseService.ListUnitsAsync(courseId, HttpContext.RequestAborted);
+        var status = await evaluationService.GetStatusAsync(course, units, evaluation, HttpContext.RequestAborted);
+        var unitEvaluation = status.UnitEvaluations.GetValueOrDefault(unitId);
+        IsKeyKnowledgeFeedbackStale = status.OutdatedUnitIds.Contains(unitId);
+        KeyKnowledgeFeedback = (unitEvaluation?.KeyKnowledge?.RecommendedActions ?? [])
+          .Where(o => o is not null && !string.IsNullOrWhiteSpace(o.Action))
+          .OrderBy(o => o.Priority)
+          .ToList();
+      }
+    }
 
     CourseId = courseId;
     CourseTitle = BuildCourseTitle(course, unit);

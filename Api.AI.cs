@@ -101,6 +101,38 @@ public static partial class Api
       return StreamAiOperation(ct => ai.GenerateKeyKnowledgeAsync(model.Value, ct), context.RequestAborted);
     });
 
+    app.MapPost("/courses/{courseId}/{unitId}/build/ai/enhancekeyknowledge", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, EnhanceKeyKnowledgeRequest model, CourseService courseService, ConfigService config, AIService ai) =>
+    {
+      var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
+      if (csrfError is not null)
+      {
+        return csrfError;
+      }
+
+      var hasStatements = model is not null
+        && ((model.DeclarativeKnowledge?.Any(o => !string.IsNullOrWhiteSpace(o)) ?? false)
+          || (model.ProceduralKnowledge?.Any(o => !string.IsNullOrWhiteSpace(o)) ?? false));
+      if (string.IsNullOrWhiteSpace(courseId) || string.IsNullOrWhiteSpace(unitId) || !hasStatements)
+      {
+        return Results.BadRequest("Add key knowledge statements before enhancing them.");
+      }
+
+      var course = await courseService.TryGetCourseAsync(courseId, context.RequestAborted);
+      var unit = await courseService.TryGetUnitAsync(courseId, unitId, context.RequestAborted);
+      if (course is null || unit is null)
+      {
+        return Results.NotFound("Assessment not found.");
+      }
+
+      if (!context.User.CanEditCourse(course, config))
+      {
+        return Results.Forbid();
+      }
+
+      var units = await courseService.ListUnitsAsync(courseId, context.RequestAborted);
+      return StreamAiOperation(ct => ai.EnhanceKeyKnowledgeAsync(unit, units, model, ct), context.RequestAborted);
+    });
+
     app.MapPost("/courses/build/ai/generatequestions", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, GenerateQuestionsRequest model, CourseService courseService, ConfigService config, AIService ai) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);

@@ -12,7 +12,7 @@ public class CourseEvaluationAutomationService(
     {
       var utcNow = DateTime.UtcNow;
       var now = TimeZoneInfo.ConvertTimeFromUtc(utcNow, UkTime);
-      var nextRun = now.Date.AddHours(5);
+      var nextRun = now.Date.AddHours(23);
       if (now >= nextRun)
         nextRun = nextRun.AddDays(1);
 

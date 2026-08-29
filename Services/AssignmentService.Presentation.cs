@@ -19,6 +19,7 @@ public partial class AssignmentService
       DueDateLabel = FormatShortDate(assignment.DueDate),
       Completed = progress.Completed,
       TotalQuestions = progress.Total,
+      AwardsXp = XpService.IsXpEligible(assignment.DueDate, assignment.YearGroup),
       IsComplete = progress.Total > 0 && progress.Completed >= progress.Total,
       Href = $"/assignments/{Uri.EscapeDataString(courseId)}/year-{assignment.YearGroup}/{assignment.DueDate:yyyy-MM-dd}"
     };

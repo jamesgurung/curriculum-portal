@@ -12,6 +12,9 @@ public sealed class CourseEvaluationService(
 
   internal static string GetModelName(string model) => string.IsNullOrWhiteSpace(model) ? LegacyModelName : model;
 
+  internal static CourseEvaluationUnitResult ResolveUnitEvaluation(IReadOnlyList<UnitEntity> units, CourseEvaluation evaluation, string unitId) =>
+    ResolveUnitEvaluations(units, evaluation).GetValueOrDefault(unitId)?.Evaluation;
+
   internal async Task<CourseEvaluationStatus> GetStatusAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, CourseEvaluation evaluation,
     CancellationToken cancellationToken = default)
   {
@@ -197,7 +200,7 @@ public sealed class CourseEvaluationService(
     if (options.DailyTokenLimit > 0 && candidates.Count > 0)
     {
       var availableTokens = await aiTokenBudget.GetAvailableTokensAsync(cancellationToken);
-      tokenBudget = Math.Min(options.DailyTokenLimit / 2, availableTokens);
+      tokenBudget = availableTokens;
     }
 
     var selected = new List<CourseEvaluationRefreshWorkItem>();

@@ -67,6 +67,13 @@ public class GenerateQuestionsRequest
   public List<string> ExistingQuestions { get; set; } = [];
 }
 
+public class EnhanceKeyKnowledgeRequest
+{
+  public List<string> DeclarativeKnowledge { get; set; } = [];
+  public List<string> ProceduralKnowledge { get; set; } = [];
+  public List<string> Feedback { get; set; } = [];
+}
+
 public class GenerateQuestionsResponse
 {
   public List<MultipleChoiceQuestion> MultipleChoiceQuestions { get; set; } = [];
@@ -223,6 +230,7 @@ public class AssignmentsStudentCard
   public string DueDateLabel { get; set; } = string.Empty;
   public int Completed { get; set; }
   public int TotalQuestions { get; set; }
+  public bool AwardsXp { get; set; }
   public bool IsComplete { get; set; }
   public string Href { get; set; } = string.Empty;
 }

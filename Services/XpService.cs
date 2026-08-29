@@ -9,6 +9,7 @@ public class XpService
 {
   private const int MaxUpdateAttempts = 5;
   private const int WeeklyRowConcurrency = 8;
+  private static readonly DateOnly FirstEligibleDueDate = new(2026, 9, 1);
   private static readonly TimeZoneInfo UkTime = TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time");
   private static readonly (string Name, int Threshold)[] Ranks =
   [
@@ -50,7 +51,7 @@ public class XpService
 
   public async Task CreateWeeklyRowsAsync(DateOnly dueDate, CancellationToken cancellationToken)
   {
-    if (_config.Holidays.Any(holiday => dueDate >= holiday.Start && dueDate <= holiday.End)) return;
+    if (!IsXpEligible(dueDate) || _config.Holidays.Any(holiday => dueDate >= holiday.Start && dueDate <= holiday.End)) return;
 
     var context = await LoadRequirementContextAsync(dueDate, cancellationToken);
     var eligibleStudents = _config.Students
@@ -87,6 +88,9 @@ public class XpService
 
     try
     {
+      if (!IsXpEligible(dueDate))
+        return new XpAwardResult(0, await GetProgressAsync(student.Id, DateTimeOffset.UtcNow, cancellationToken));
+
       var partitionKey = FormatStudentId(student.Id);
       var rowKey = FormatDate(dueDate);
       for (var attempt = 0; attempt < MaxUpdateAttempts; attempt++)
@@ -209,7 +213,7 @@ public class XpService
   public async Task<BonusQuizLedgerSnapshot> GetCurrentBonusQuizLedgerAsync(int studentId, DateTimeOffset nowUtc, CancellationToken cancellationToken)
   {
     var dueDate = GetCurrentBonusQuizDueDate(nowUtc);
-    if (nowUtc > GetDeadlineUtc(dueDate)) return null;
+    if (!IsXpEligible(dueDate) || nowUtc > GetDeadlineUtc(dueDate)) return null;
 
     var existing = await _ledgerClient.GetEntityIfExistsAsync<XpLedgerEntity>(
       FormatStudentId(studentId),
@@ -247,7 +251,7 @@ public class XpService
     expectedStateJson ??= string.Empty;
     nextStateJson ??= string.Empty;
 
-    if (dueDate != GetCurrentBonusQuizDueDate(nowUtc) || nowUtc > GetDeadlineUtc(dueDate)) return false;
+    if (!IsXpEligible(dueDate) || dueDate != GetCurrentBonusQuizDueDate(nowUtc) || nowUtc > GetDeadlineUtc(dueDate)) return false;
 
     var partitionKey = FormatStudentId(studentId);
     var rowKey = FormatDate(dueDate);
@@ -402,6 +406,10 @@ public class XpService
 
   private static bool IsExamYearExempt(int yearGroup, DateOnly dueDate)
     => dueDate.Month is >= 4 and <= 8 && yearGroup is 11 or 13;
+
+  internal static bool IsXpEligible(DateOnly dueDate) => dueDate >= FirstEligibleDueDate;
+
+  internal static bool IsXpEligible(DateOnly dueDate, int yearGroup) => IsXpEligible(dueDate) && !IsExamYearExempt(yearGroup, dueDate);
 
   private static int GetKeyStage(int yearGroup) => yearGroup >= 12 ? 5 : yearGroup >= 10 ? 4 : 3;
 

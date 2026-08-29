@@ -180,7 +180,7 @@ function buildStudentCard(card, highlightIncomplete) {
     createElement('p', 'assignment-card-title', card.courseName),
     createElement('p', 'assignment-card-meta', `Due ${card.dueDateLabel}`)
   );
-  if (!card.isComplete)
+  if (!card.isComplete && card.awardsXp)
     titleBlock.appendChild(createElement('p', 'assignment-card-xp', `+${card.totalQuestions} XP`));
 
   const progress = buildProgressBadge(card.completed, card.totalQuestions, false);

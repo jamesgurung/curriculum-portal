@@ -92,6 +92,7 @@ window.addEventListener('beforeunload', function (event) { if (editMode) event.p
 document.getElementById('kki-add').addEventListener('click', uploadKeyKnowledgeImage);
 document.getElementById('import-assessment').addEventListener('click', showModal);
 document.getElementById('import-keyknowledge').addEventListener('click', showModal);
+document.getElementById('enhance-keyknowledge')?.addEventListener('click', showModal);
 modalElements.close.addEventListener('click', closeModal);
 
 function initMode(root) {
@@ -758,6 +759,34 @@ function showModal(event) {
         document.getElementById('btn-key-knowledge').click();
       } catch (error) {
         alert(`Error importing key knowledge: ${error.message}`);
+      }
+      closeModal();
+    };
+  } else if (target.id === 'enhance-keyknowledge') {
+    if (keyKnowledge.declarativeKnowledge.length === 0 && keyKnowledge.proceduralKnowledge.length === 0) {
+      alert('Add or generate key knowledge statements before enhancing them.');
+      return;
+    }
+    const feedback = [...document.querySelectorAll('.key-knowledge-feedback-checkbox:checked')].map(checkbox => checkbox.value);
+    openModal('Enhance key knowledge', 'Suitable statements will be preserved, while selected feedback and the key knowledge guidance will be applied where needed. Review the result and select Save to keep it.', 'Enhance');
+    modalElements.text.classList.add('hide');
+    modalElements.submit.onclick = async () => {
+      setModalLoading('Enhancing...');
+      try {
+        const data = await postSseJson(`/courses/${courseId}/${unitId}/build/ai/enhancekeyknowledge`, {
+          declarativeKnowledge: keyKnowledge.declarativeKnowledge,
+          proceduralKnowledge: keyKnowledge.proceduralKnowledge,
+          feedback
+        });
+        keyKnowledge.declarativeKnowledge = data.declarativeKnowledge ?? [];
+        keyKnowledge.proceduralKnowledge = data.proceduralKnowledge ?? [];
+        isKeyKnowledgeComplete = false;
+        editMode = true;
+        renderKeyKnowledge();
+        keyKnowledgeFeedbackHiddenUntilSave = true;
+        document.getElementById('btn-key-knowledge').click();
+      } catch (error) {
+        alert(`Error enhancing key knowledge: ${error.message}`);
       }
       closeModal();
     };
