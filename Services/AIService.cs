@@ -413,7 +413,9 @@ public sealed partial class AIService : IDisposable
     * Respond with the final mark scheme in the markScheme field, and nothing else.
     """.Trim();
 
-    var userMessage = ResponseItem.CreateUserMessageItem(questionText);
+    var userMessage = string.IsNullOrWhiteSpace(question.Image)
+      ? ResponseItem.CreateUserMessageItem(questionText)
+      : ResponseItem.CreateUserMessageItem([ResponseContentPart.CreateInputTextPart(questionText), ResponseContentPart.CreateInputImagePart(new Uri(question.Image))]);
     var schema = BinaryData.FromBytes("""{"type": "object", "properties": { "markScheme": { "type": "string" } }, "required": ["markScheme"], "additionalProperties": false}"""u8.ToArray());
 
     var options = new CreateResponseOptions
