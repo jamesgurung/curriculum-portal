@@ -1039,6 +1039,10 @@ body.evaluation-layout .app-footer {
   margin-bottom: 1.15rem;
 }
 
+.evaluation-header-static {
+  grid-template-columns: 1fr;
+}
+
 .evaluation-header .back-button {
   width: auto;
   min-height: 2rem;
@@ -1126,6 +1130,7 @@ body.evaluation-layout .app-footer {
   font-size: 2.4rem;
 }
 
+.evaluation-empty h2,
 .evaluation-empty h3,
 .evaluation-section-header h3,
 .evaluation-unit h3,
@@ -1306,7 +1311,8 @@ body.evaluation-layout .app-footer {
   gap: 0.7rem;
 }
 
-.evaluation-rating-box {
+.evaluation-rating-box,
+.evaluation-rating-item {
   display: flex;
   align-items: center;
   gap: 0.42rem;
@@ -1317,9 +1323,12 @@ body.evaluation-layout .app-footer {
   border-radius: 0;
   background: var(--panel-elevated);
   color: var(--ink-strong);
-  cursor: pointer;
   font: inherit;
   text-align: left;
+}
+
+.evaluation-rating-box {
+  cursor: pointer;
 }
 
 .evaluation-rating-box:hover {
@@ -1336,7 +1345,8 @@ body.evaluation-layout .app-footer {
   outline: 2px solid var(--border-strong);
 }
 
-.evaluation-rating-box span:first-child {
+.evaluation-rating-box span:first-child,
+.evaluation-rating-item span:first-child {
   font-weight: 700;
 }
 

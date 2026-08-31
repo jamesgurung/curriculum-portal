@@ -1,25 +1,42 @@
-@page "/followup"
+@page "/courses/audit"
 @using CurriculumPortal
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = Roles.Admin)]
-@model FollowupModel
+@model AuditModel
 @{
-  ViewData["Title"] = "Curriculum Follow-Up";
+  Layout = null;
 }
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Curriculum Follow-Up</title>
+  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/css/layout.css" asp-append-version="true" />
 <style>
   @@page {
     size: A4 portrait;
     margin: 8mm;
   }
 
+  body {
+    display: block;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
   .followup-page {
     box-sizing: border-box;
-    max-width: var(--layout-max-width);
-    margin: 0 auto;
-    padding: 24px 16px;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
     font-family: Arial, sans-serif;
-    font-size: 9pt;
+    font-size: 8pt;
     color: #202124;
   }
 
@@ -31,22 +48,18 @@
   .followup-department {
     margin: 0;
     padding: 0;
-    break-after: page;
-    page-break-after: always;
   }
 
-  .followup-department:last-child {
-    break-after: auto;
-    page-break-after: auto;
+  .followup-department + .followup-department {
+    break-before: right;
   }
 
   .followup-page-title {
-    font-size: 22px;
-    margin-bottom: 24px;
+    display: none;
   }
 
   .followup-title {
-    break-after: avoid;
+    break-after: avoid-page;
     font-size: 18px;
     margin-bottom: 16px;
     page-break-after: avoid;
@@ -61,7 +74,7 @@
   }
 
   .followup-course-title {
-    break-after: avoid;
+    break-after: avoid-page;
     font-size: 14px;
     margin-bottom: 8px;
     page-break-after: avoid;
@@ -69,13 +82,13 @@
 
   .followup-table-wrapper {
     break-before: avoid;
-    overflow-x: auto;
+    overflow: visible;
     page-break-before: avoid;
   }
 
   .followup-table {
     width: 100%;
-    min-width: 760px;
+    min-width: 0;
     border-collapse: collapse;
     table-layout: fixed;
     margin: 0;
@@ -84,7 +97,7 @@
   .followup-table th,
   .followup-table td {
     border: 1px solid #dadce0;
-    padding: 3px 0;
+    padding: 0;
     vertical-align: middle;
     overflow-wrap: anywhere;
     word-break: break-word;
@@ -99,8 +112,8 @@
   }
 
   .followup-row-heading {
-    padding-left: 6px !important;
-    padding-right: 6px !important;
+    padding-left: 1px !important;
+    padding-right: 1px !important;
     width: 28%;
     text-align: left;
   }
@@ -116,6 +129,7 @@
 
   .followup-criterion-heading {
     padding: 0 !important;
+    font-size: 7pt;
     text-align: center;
     vertical-align: bottom !important;
   }
@@ -123,9 +137,9 @@
   .followup-criterion-heading-content {
     align-items: flex-end;
     display: flex;
-    height: 190px;
+    height: 52mm;
     justify-content: center;
-    padding-bottom: 3px;
+    padding-bottom: 0;
   }
 
   .followup-criterion-heading-text {
@@ -143,7 +157,7 @@
   }
 
   .followup-status-symbol {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: bold;
   }
 
@@ -173,168 +187,34 @@
     text-align: left;
   }
 
-  @@media screen {
-    body {
-      background: #f4f7fb;
-    }
-
-    .followup-page {
-      color: #1c2a3e;
-    }
-
-    .followup-department + .followup-department {
-      margin-top: 32px;
-    }
-
-    .followup-table {
-      background: #fff;
-    }
-
-    .followup-table th,
-    .followup-table td {
-      border-color: #cfd9e6;
-    }
-
-    .followup-table th {
-      background: #edf2f8;
-      color: #0d1a2d;
-    }
-
-    .followup-table tbody tr:nth-child(even) {
-      background: #f8fafc;
-    }
+  .followup-table col:first-child {
+    width: 22% !important;
   }
 
-  @@media screen and (prefers-color-scheme: dark) {
-    body {
-      background: #141519;
-    }
-
-    .followup-page {
-      color: #d8dce3;
-    }
-
-    .followup-table {
-      background: #1a1c22;
-    }
-
-    .followup-table th,
-    .followup-table td {
-      border-color: #3d434f;
-    }
-
-    .followup-table th {
-      background: #20242b;
-      color: #f3f5f8;
-    }
-
-    .followup-table tbody tr:nth-child(even) {
-      background: #17191f;
-    }
-
-    .followup-table tbody .followup-row-heading {
-      color: #d8dce3;
-    }
-
-    .followup-status-secondary,
-    .followup-status-count,
-    .followup-not-applicable {
-      color: #737b87;
-    }
+  .followup-table thead {
+    break-after: avoid-page;
+    display: table-header-group;
+    page-break-after: avoid;
   }
 
-  @@media print {
-    .app-header,
-    .app-footer,
-    .followup-page-title {
-      display: none !important;
-    }
-
-    body {
-      display: block;
-      height: auto;
-      min-height: 0;
-      overflow: visible;
-    }
-
-    .app-body {
-      display: block;
-    }
-
-    .followup-page {
-      max-width: none;
-      padding: 0;
-      width: 100%;
-      font-size: 8pt;
-    }
-
-    .followup-table-wrapper {
-      overflow: visible;
-    }
-
-    .followup-table {
-      min-width: 0;
-      width: 100%;
-    }
-
-    .followup-table th,
-    .followup-table td {
-      padding: 0;
-    }
-
-    .followup-table col:first-child {
-      width: 22% !important;
-    }
-
-    .followup-row-heading {
-      padding-left: 1px !important;
-      padding-right: 1px !important;
-    }
-
-    .followup-table thead {
-      break-after: avoid-page;
-      display: table-header-group;
-      page-break-after: avoid;
-    }
-
-    .followup-table tbody tr:first-child {
-      break-before: avoid-page;
-      page-break-before: avoid;
-    }
-
-    .followup-table tr {
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .followup-title,
-    .followup-course-title {
-      break-after: avoid-page;
-      page-break-after: avoid;
-    }
-
-    .followup-criterion-heading {
-      padding: 0 !important;
-      font-size: 7pt;
-    }
-
-    .followup-criterion-heading-content {
-      height: 52mm;
-      padding-bottom: 0;
-    }
-
-    .followup-status-symbol {
-      font-size: 12px;
-    }
-
-    .followup-page,
-    .followup-page * {
-      print-color-adjust: exact;
-      -webkit-print-color-adjust: exact;
-    }
+  .followup-table tbody tr:first-child {
+    break-before: avoid-page;
+    page-break-before: avoid;
   }
 
+  .followup-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .followup-page,
+  .followup-page * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 </style>
+</head>
+<body>
 
 <main class="followup-page">
   <h1 class="followup-page-title">Curriculum Follow-Up</h1>
@@ -418,3 +298,23 @@
     </section>
   }
 </main>
+
+<script>
+  window.PagedConfig = {
+    auto: false
+  };
+</script>
+<script src="/lib/pagedjs/dist/paged.polyfill.js"></script>
+<script>
+  window.addEventListener('load', async () => {
+    try {
+      await document.fonts.ready;
+      await window.PagedPolyfill.preview();
+      window.print();
+    } catch (error) {
+      console.error('The curriculum follow-up print layout could not be prepared.', error);
+    }
+  }, { once: true });
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace CurriculumPortal;
 
 [Authorize(Roles = Roles.Admin)]
-public class FollowupModel(CourseService storage, ConfigService config) : PageModel
+public class AuditModel(CourseService storage, ConfigService config) : PageModel
 {
   public IReadOnlyList<FollowupDepartment> Departments { get; private set; } = [];
 

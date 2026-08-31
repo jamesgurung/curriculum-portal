@@ -1,0 +1,273 @@
+@model CurriculumPortal.CourseEvaluationReport
+@using CurriculumPortal
+@using System.Collections.Generic
+@using System.Linq
+
+@functions {
+  static IEnumerable<CourseEvaluationRecommendedAction> Clean(IEnumerable<CourseEvaluationRecommendedAction> items, int maximumPriority) =>
+    (items ?? Enumerable.Empty<CourseEvaluationRecommendedAction>())
+      .Where(o => o.Priority >= 1 && o.Priority <= maximumPriority && !string.IsNullOrWhiteSpace(o.Action));
+
+  static bool HasItems(IEnumerable<CourseEvaluationRecommendedAction> items, int maximumPriority) => Clean(items, maximumPriority).Any();
+
+  static string PriorityText(int priority) => priority switch
+  {
+    1 => "Priority",
+    2 => "Essential",
+    3 => "Recommended",
+    4 => "Suggested",
+    _ => "None"
+  };
+}
+
+<article class="evaluation-report">
+  <div class="evaluation-header @(!Model.ShowBackButton && !Model.ShowControls ? "evaluation-header-static" : string.Empty)">
+    @if (Model.ShowBackButton)
+    {
+      <a class="back-button" href="/courses/@Uri.EscapeDataString(Model.CourseId)" title="Back to course" aria-label="Back to course">
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+      </a>
+    }
+    <div class="evaluation-heading">
+      <span class="evaluation-kicker">Course evaluation</span>
+      <h2>@Model.Course.Name</h2>
+    </div>
+    @if (Model.ShowControls && Model.CanEvaluateCourse)
+    {
+      <button id="evaluate-course" class="evaluation-action">
+        <span class="material-symbols-outlined">emoji_objects</span>
+        <span>Evaluate this course</span>
+      </button>
+    }
+  </div>
+
+  @if (Model.Evaluation is null)
+  {
+    <section class="evaluation-empty">
+      <span class="material-symbols-outlined">draft</span>
+      <h3>No evaluation is available.</h3>
+      <p>Run an evaluation to generate feedback on the quality of this course.</p>
+    </section>
+  }
+  else
+  {
+    var priorities = new[] { 1, 2, 3, 4 }.Where(o => o <= Model.MaximumPriority).ToArray();
+    var priorityCounts = priorities.ToDictionary(p => p, _ => 0);
+    var evaluationActions = Clean(Model.Evaluation.Overall.SequencingRecommendedActions, Model.MaximumPriority)
+      .Concat(Clean(Model.Evaluation.Overall.CoverageBalanceRecommendedActions, Model.MaximumPriority))
+      .Concat(Clean(Model.Evaluation.Overall.AssessmentRecapRecommendedActions, Model.MaximumPriority))
+      .Concat(Model.Evaluation.Units.SelectMany(unit =>
+        Clean(unit.KeyKnowledge.RecommendedActions, Model.MaximumPriority)
+          .Concat(Clean(unit.Assessment.AlignmentRecommendedActions, Model.MaximumPriority))
+          .Concat(Clean(unit.Assessment.DesignRecommendedActions, Model.MaximumPriority))));
+
+    foreach (var priority in evaluationActions.Select(o => o.Priority).Where(priority => priorityCounts.ContainsKey(priority)))
+    {
+      priorityCounts[priority]++;
+    }
+
+    <section class="evaluation-summary-section">
+      <div class="evaluation-section-header">
+        <h3>Summary</h3>
+      </div>
+      <p class="evaluation-summary">These actions have been suggested by AI to support ongoing curriculum development work. Use your own judgement when reviewing the feedback.</p>
+      <div class="evaluation-rating-summary">
+        @foreach (var priority in priorities)
+        {
+          @if (Model.ShowControls)
+          {
+            <button type="button" class="evaluation-rating-box" data-priority="@priority" aria-pressed="false">
+              <span>@priorityCounts[priority]</span>
+              <span aria-hidden="true">&times;</span>
+              <span class="evaluation-rating action-priority-@priority" role="img" aria-label="@PriorityText(priority)"></span>
+              <span>@PriorityText(priority)</span>
+            </button>
+          }
+          else
+          {
+            <div class="evaluation-rating-item">
+              <span>@priorityCounts[priority]</span>
+              <span class="evaluation-rating action-priority-@priority" role="img" aria-label="@PriorityText(priority)"></span>
+              <span>@PriorityText(priority)</span>
+            </div>
+          }
+        }
+      </div>
+    </section>
+
+    <section class="evaluation-overview">
+      <div class="evaluation-section-header">
+        <div class="evaluation-section-heading">
+          <h3>Curriculum Overview</h3>
+          @if (Model.ShowGenerationDetails)
+          {
+            <p>@Model.GetGenerationText(Model.Evaluation.Overall.Model, Model.Evaluation.Overall.GeneratedAt)</p>
+          }
+        </div>
+        @if (Model.ShowControls)
+        {
+          <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/overview" data-evaluation-label="the curriculum overview" data-evaluation-title="curriculum overview" aria-label="@(Model.IsOverviewStale ? "Re-evaluate overview; the feedback may be out of date" : "Re-evaluate overview")">
+            <span class="material-symbols-outlined">refresh</span>
+            <span>Re-evaluate overview</span>
+            @if (Model.IsOverviewStale)
+            {
+              <span class="evaluation-stale-dot" aria-hidden="true"></span>
+            }
+          </button>
+        }
+      </div>
+      <div class="evaluation-grid">
+        <article class="evaluation-panel">
+          <div class="evaluation-title-row">
+            <h4>Coverage and balance</h4>
+          </div>
+          @if (!string.IsNullOrWhiteSpace(Model.Evaluation.Overall.CoverageBalanceOverview))
+          {
+            <h5>Overview</h5>
+            <p>@Model.Evaluation.Overall.CoverageBalanceOverview</p>
+          }
+          @if (HasItems(Model.Evaluation.Overall.CoverageBalanceRecommendedActions, Model.MaximumPriority))
+          {
+            <h5>Next steps</h5>
+            <ul>
+              @foreach (var item in Clean(Model.Evaluation.Overall.CoverageBalanceRecommendedActions, Model.MaximumPriority))
+              {
+                <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
+              }
+            </ul>
+          }
+        </article>
+        <article class="evaluation-panel">
+          <div class="evaluation-title-row">
+            <h4>Sequencing</h4>
+          </div>
+          @if (!string.IsNullOrWhiteSpace(Model.Evaluation.Overall.SequencingOverview))
+          {
+            <h5>Overview</h5>
+            <p>@Model.Evaluation.Overall.SequencingOverview</p>
+          }
+          @if (HasItems(Model.Evaluation.Overall.SequencingRecommendedActions, Model.MaximumPriority))
+          {
+            <h5>Next steps</h5>
+            <ul>
+              @foreach (var item in Clean(Model.Evaluation.Overall.SequencingRecommendedActions, Model.MaximumPriority))
+              {
+                <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
+              }
+            </ul>
+          }
+        </article>
+        <article class="evaluation-panel">
+          <div class="evaluation-title-row">
+            <h4>Assessment recap questions</h4>
+          </div>
+          @if (!string.IsNullOrWhiteSpace(Model.Evaluation.Overall.AssessmentRecapOverview))
+          {
+            <h5>Overview</h5>
+            <p>@Model.Evaluation.Overall.AssessmentRecapOverview</p>
+          }
+          @if (HasItems(Model.Evaluation.Overall.AssessmentRecapRecommendedActions, Model.MaximumPriority))
+          {
+            <h5>Next steps</h5>
+            <ul>
+              @foreach (var item in Clean(Model.Evaluation.Overall.AssessmentRecapRecommendedActions, Model.MaximumPriority))
+              {
+                <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
+              }
+            </ul>
+          }
+        </article>
+      </div>
+    </section>
+
+    <div class="evaluation-units">
+      @for (var unitIndex = 0; unitIndex < Model.Evaluation.Units.Count; unitIndex++)
+      {
+        var unit = Model.Evaluation.Units[unitIndex];
+        var currentUnit = Model.Units.ElementAtOrDefault(unitIndex);
+        var unitId = !string.IsNullOrWhiteSpace(unit.UnitId) ? unit.UnitId : currentUnit?.RowKey;
+        var unitIsStale = Model.IsUnitStale(unitId);
+
+        <section class="evaluation-unit">
+          <div class="evaluation-section-header evaluation-unit-header">
+            <div class="evaluation-section-heading">
+              <h3>@unit.Title</h3>
+              @if (Model.ShowGenerationDetails)
+              {
+                <p>@Model.GetGenerationText(unit.Model, unit.GeneratedAt)</p>
+              }
+            </div>
+            @if (Model.ShowControls && !string.IsNullOrWhiteSpace(unitId))
+            {
+              <button type="button" class="evaluation-section-action" data-evaluation-url="/courses/@Uri.EscapeDataString(Model.CourseId)/evaluate/units/@Uri.EscapeDataString(unitId)" data-evaluation-label="@unit.Title" aria-label="@(unitIsStale ? "Re-evaluate unit; the feedback may be out of date" : "Re-evaluate unit")">
+                <span class="material-symbols-outlined">refresh</span>
+                <span>Re-evaluate unit</span>
+                @if (unitIsStale)
+                {
+                  <span class="evaluation-stale-dot" aria-hidden="true"></span>
+                }
+              </button>
+            }
+          </div>
+          <div class="evaluation-criteria">
+            <article class="evaluation-criterion">
+              <div class="evaluation-criterion-header">
+                <div class="evaluation-title-row">
+                  <h4>Key knowledge</h4>
+                </div>
+              </div>
+              @if (!string.IsNullOrWhiteSpace(unit.KeyKnowledge.Overview))
+              {
+                <h5>Overview</h5>
+                <p>@unit.KeyKnowledge.Overview</p>
+              }
+              @if (HasItems(unit.KeyKnowledge.RecommendedActions, Model.MaximumPriority))
+              {
+                <h5>Next steps</h5>
+                <ul>
+                  @foreach (var item in Clean(unit.KeyKnowledge.RecommendedActions, Model.MaximumPriority))
+                  {
+                    <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
+                  }
+                </ul>
+              }
+            </article>
+
+            <article class="evaluation-criterion">
+              <div class="evaluation-criterion-header">
+                <div class="evaluation-title-row">
+                  <h4>Assessment</h4>
+                </div>
+              </div>
+              @if (!string.IsNullOrWhiteSpace(unit.Assessment.Overview))
+              {
+                <h5>Overview</h5>
+                <p>@unit.Assessment.Overview</p>
+              }
+              @if (HasItems(unit.Assessment.AlignmentRecommendedActions, Model.MaximumPriority))
+              {
+                <h5>Next steps for alignment</h5>
+                <ul>
+                  @foreach (var item in Clean(unit.Assessment.AlignmentRecommendedActions, Model.MaximumPriority))
+                  {
+                    <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
+                  }
+                </ul>
+              }
+              @if (HasItems(unit.Assessment.DesignRecommendedActions, Model.MaximumPriority))
+              {
+                <h5>Next steps for design</h5>
+                <ul>
+                  @foreach (var item in Clean(unit.Assessment.DesignRecommendedActions, Model.MaximumPriority))
+                  {
+                    <li data-priority="@item.Priority"><span class="evaluation-action-priority action-priority-@item.Priority" role="img" aria-label="@PriorityText(item.Priority)"></span><span>@item.Action</span></li>
+                  }
+                </ul>
+              }
+            </article>
+          </div>
+        </section>
+      }
+    </div>
+  }
+</article>

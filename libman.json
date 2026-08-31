@@ -34,6 +34,13 @@
       "files": [
         "Sortable.min.js"
       ]
+    },
+    {
+      "library": "pagedjs@0.4.3",
+      "destination": "wwwroot/lib/pagedjs/",
+      "files": [
+        "dist/paged.polyfill.js"
+      ]
     }
   ]
 }
