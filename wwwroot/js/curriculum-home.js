@@ -139,12 +139,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   elements.courseList.addEventListener('click', event => {
     const li = event.target.closest('.course-item');
-    if (li) {
+    if (li && isClientNavigationClick(event)) {
+      event.preventDefault();
       showCourse(li.dataset.courseId);
     }
   });
 
-  $$('header h1').forEach(element => element.addEventListener('click', event => showCourseList(event, { scrollCourseListToTop: true })));
+  $$('header h1').forEach(element => element.addEventListener('click', event => {
+    if (isClientNavigationClick(event)) {
+      showCourseList(event, { scrollCourseListToTop: true });
+    }
+  }));
   elements.answer1.addEventListener('click', () => answer(elements.answer1));
   elements.answer2.addEventListener('click', () => answer(elements.answer2));
   elements.quizBack.addEventListener('click', backToUnit);
@@ -173,6 +178,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function encodeSegment(value) {
   return encodeURIComponent(value);
+}
+
+function isClientNavigationClick(event) {
+  return !event.defaultPrevented
+    && event.button === 0
+    && !event.ctrlKey
+    && !event.metaKey
+    && !event.shiftKey
+    && !event.altKey;
 }
 
 function decodeSegment(value) {
@@ -233,6 +247,7 @@ function renderCourseList() {
   for (const course of courses) {
     const li = clone('tpl-course-item');
     li.dataset.courseId = course.id;
+    qs('a', li).href = buildCurriculumPath(course.id);
     qs('.material-symbols-outlined', li).textContent = course.icon || 'book';
     qs('.course-name', li).textContent = course.name;
     fragment.appendChild(li);
@@ -323,7 +338,11 @@ function showCourse(courseId, options = {}) {
   const container = document.createDocumentFragment();
 
   const back = clone('tpl-back-course');
-  back.addEventListener('click', showCourseList);
+  back.addEventListener('click', event => {
+    if (isClientNavigationClick(event)) {
+      showCourseList(event);
+    }
+  });
 
   if (state.courseEditable) {
     const actions = document.createElement('div');
@@ -516,9 +535,15 @@ function renderUnit(courseId, unit) {
   if (!isStaff) {
     const li = clone('tpl-unit-item');
     li.dataset.id = unit.id;
+    qs('a', li).href = buildCurriculumPath(courseId, unit.id);
     qs('.unit-title', li).textContent = unit.title;
     qs('.term-text', li).textContent = `Year ${unit.yearGroup} ${unit.term ? `${unit.term} Term` : ''}`;
-    li.addEventListener('click', () => showUnit(unit.id));
+    li.addEventListener('click', event => {
+      if (isClientNavigationClick(event)) {
+        event.preventDefault();
+        showUnit(unit.id);
+      }
+    });
     return li;
   }
 
@@ -935,7 +960,14 @@ async function showUnit(unitId, options = {}) {
 
   const header = clone('tpl-unit-header');
   qs('.unit-title', header).textContent = unit.title;
-  qs('[data-action="back-to-course"]', header).addEventListener('click', () => showCourse(state.courseId, { keepEditMode: state.editMode }));
+  const back = qs('[data-action="back-to-course"]', header);
+  back.href = buildCurriculumPath(state.courseId);
+  back.addEventListener('click', event => {
+    if (isClientNavigationClick(event)) {
+      event.preventDefault();
+      showCourse(state.courseId, { keepEditMode: state.editMode });
+    }
+  });
   fragment.appendChild(header);
 
   if (unit.whyThis || unit.whyNow) {

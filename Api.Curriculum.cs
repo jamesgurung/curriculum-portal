@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
+using System.Globalization;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace CurriculumPortal;
 
@@ -31,9 +33,53 @@ public static partial class Api
 
     app.MapGet("/assessments", [Authorize(Roles = Roles.Teacher)] () => Results.Redirect("/"));
 
-    app.MapGet("/courses/{courseId}", [AllowAnonymous] (string courseId) => Results.Redirect($"/courses#/{Uri.EscapeDataString(courseId)}"));
-    app.MapGet("/courses/{courseId}/{unitId}", [AllowAnonymous] (string courseId, string unitId) => Results.Redirect($"/courses#/{Uri.EscapeDataString(courseId)}/{Uri.EscapeDataString(unitId)}"));
-    app.MapGet("/courses/{courseId}/{unitId}/quiz", [AllowAnonymous] (string courseId, string unitId) => Results.Redirect($"/courses#/{Uri.EscapeDataString(courseId)}/{Uri.EscapeDataString(unitId)}/quiz"));
+    app.MapGet("/sitemap.xml", [AllowAnonymous] async (CourseService courseService, AppOptions options) =>
+    {
+      var courses = await courseService.ListCoursesAsync();
+      var courseIds = courses.Select(course => course.RowKey).ToHashSet(StringComparer.Ordinal);
+      var units = (await courseService.ListUnitsAsync()).Where(unit => courseIds.Contains(unit.PartitionKey)).ToList();
+      var website = options.Website.TrimEnd('/');
+      var ns = XNamespace.Get("http://www.sitemaps.org/schemas/sitemap/0.9");
+
+      XElement CreateUrl(string path, DateTimeOffset? lastModified, string priority)
+      {
+        return new(ns + "url",
+          new XElement(ns + "loc", website + path),
+          lastModified is null ? null : new XElement(ns + "lastmod", lastModified.Value.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)),
+          new XElement(ns + "priority", priority));
+      }
+
+      var urls = new List<XElement>
+      {
+        CreateUrl("/courses", courses.Select(course => course.Timestamp).Concat(units.Select(unit => unit.Timestamp)).DefaultIfEmpty().Max(), "1")
+      };
+
+      foreach (var course in courses)
+      {
+        var courseUnits = units.Where(unit => unit.PartitionKey == course.RowKey).ToList();
+        urls.Add(CreateUrl($"/courses/{Uri.EscapeDataString(course.RowKey)}", courseUnits.Select(unit => unit.Timestamp).Append(course.Timestamp).Max(), "0.6"));
+        urls.AddRange(courseUnits.Select(unit => CreateUrl(
+          $"/courses/{Uri.EscapeDataString(course.RowKey)}/{Uri.EscapeDataString(unit.RowKey)}", unit.Timestamp, "0.2")));
+      }
+
+      return Results.Text(new XDocument(new XDeclaration("1.0", "utf-8", null), new XElement(ns + "urlset", urls)).ToString(), "application/xml; charset=utf-8");
+    });
+
+    app.MapGet("/robots.txt", [AllowAnonymous] (AppOptions options) => Results.Text($"""
+      User-agent: *
+      Allow: /courses
+      Allow: /sitemap.xml
+      Disallow: /courses/*/*/quiz
+      Disallow: /courses/*/*/build
+      Disallow: /courses/*/evaluation
+      Disallow: /courses/*/evaluate
+      Disallow: /courses/audit
+      Disallow: /courses/evaluations
+      Disallow: /courses/build
+      Disallow: /
+
+      Sitemap: {options.Website.TrimEnd('/')}/sitemap.xml
+      """, "text/plain; charset=utf-8"));
 
     app.MapDelete("/courses/{courseId}/{unitId}/build", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, CourseService courseService, ConfigService config, CacheService cache) =>
     {

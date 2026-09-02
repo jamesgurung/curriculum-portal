@@ -38,6 +38,8 @@ public class NewUnitModel
 
 public class PublicFacingUnit(UnitEntity unit)
 {
+  public PublicFacingUnit() : this(new()) { }
+
   public string CourseId { get; set; } = unit.PartitionKey;
   public string Id { get; set; } = unit.RowKey;
   public string Title { get; set; } = unit.Title;

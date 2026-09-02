@@ -17,12 +17,23 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
   public string CsrfToken { get; private set; }
   public string MicrosoftSharePointSubdomain { get; private set; } = options.MicrosoftSharePointSubdomain;
   public string SchoolName { get; private set; } = options.SchoolName;
+  public string PageTitle { get; private set; } = $"Curriculum - {options.SchoolName}";
+  public string MetaDescription { get; private set; } = $"Explore the curriculum at {options.SchoolName}, including courses, units, and revision quiz content.";
+  public string CanonicalUrl { get; private set; } = $"{options.Website.TrimEnd('/')}/courses";
+  public List<CourseEntity> PublicCourses { get; private set; } = [];
+  public List<PublicFacingUnit> PublicUnits { get; private set; } = [];
+  public CourseEntity SelectedCourse { get; private set; }
+  public PublicFacingUnit SelectedUnit { get; private set; }
+  public KeyKnowledge KeyKnowledge { get; private set; }
   public bool IsStaff { get; private set; }
   public bool IsEditableStaff { get; private set; }
+  public bool ServerRender { get; private set; }
+  public bool IsQuiz { get; private set; }
 
-  public async Task<IActionResult> OnGetAsync()
+  public async Task<IActionResult> OnGetAsync(string courseId, string unitId, string action)
   {
-    IsStaff = User.Identity?.IsAuthenticated == true && User.IsInRole(Roles.Teacher);
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    IsStaff = isAuthenticated && User.IsInRole(Roles.Teacher);
     if (IsStaff)
     {
       var courses = await courseService.ListCoursesAsync();
@@ -46,6 +57,43 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
 
     CoursesJson = cachedCourses.Data;
     UnitsJson = cachedUnits.Data;
+
+    if (isAuthenticated)
+      return Page();
+
+    ServerRender = true;
+    PublicCourses = JsonSerializer.Deserialize<List<CourseEntity>>(CoursesJson, JsonDefaults.CamelCase) ?? [];
+    PublicUnits = JsonSerializer.Deserialize<List<PublicFacingUnit>>(UnitsJson, JsonDefaults.CamelCase) ?? [];
+
+    if (string.IsNullOrWhiteSpace(courseId))
+      return string.IsNullOrWhiteSpace(unitId) && string.IsNullOrWhiteSpace(action) ? Page() : NotFound();
+
+    SelectedCourse = PublicCourses.SingleOrDefault(course => course.RowKey == courseId);
+    if (SelectedCourse is null)
+      return NotFound();
+
+    PageTitle = $"{SelectedCourse.Name} curriculum - {SchoolName}";
+    MetaDescription = string.IsNullOrWhiteSpace(SelectedCourse.Intent) ? MetaDescription : SelectedCourse.Intent;
+    CanonicalUrl = $"{options.Website.TrimEnd('/')}/courses/{Uri.EscapeDataString(courseId)}";
+
+    if (string.IsNullOrWhiteSpace(unitId))
+      return string.IsNullOrWhiteSpace(action) ? Page() : NotFound();
+
+    SelectedUnit = PublicUnits.SingleOrDefault(unit => unit.CourseId == courseId && unit.Id == unitId);
+    if (SelectedUnit is null || (action is not null && action != "quiz"))
+      return NotFound();
+
+    PageTitle = $"{SelectedUnit.Title} - {SelectedCourse.Name} - {SchoolName}";
+    MetaDescription = !string.IsNullOrWhiteSpace(SelectedUnit.WhyThis)
+      ? SelectedUnit.WhyThis
+      : !string.IsNullOrWhiteSpace(SelectedUnit.WhyNow) ? SelectedUnit.WhyNow : MetaDescription;
+    CanonicalUrl += $"/{Uri.EscapeDataString(unitId)}";
+    IsQuiz = action == "quiz";
+    if (!IsQuiz && SelectedUnit.HasKeyKnowledge)
+    {
+      var cachedKeyKnowledge = await cache.GetCachedDataAsync(unitId, () => courseService.GetBlobAsync<KeyKnowledge>(unitId));
+      KeyKnowledge = JsonSerializer.Deserialize<KeyKnowledge>(cachedKeyKnowledge.Data, JsonDefaults.CamelCase) ?? new();
+    }
 
     return Page();
   }

@@ -3,7 +3,9 @@
 @{
   var title = ViewData["Title"] as string;
   var resolvedTitle = string.IsNullOrWhiteSpace(title) ? AppOptions.SchoolName : title;
-  var metaDescription = $"Explore the curriculum at {AppOptions.SchoolName}, including courses, units, and revision quiz content.";
+  var metaDescription = ViewData["MetaDescription"] as string;
+  var canonicalUrl = ViewData["CanonicalUrl"] as string;
+  var robots = ViewData["Robots"] as string;
   var isCoursesSection = Context.Request.Path.StartsWithSegments("/courses");
   var isAssignmentsSection = Context.Request.Path.StartsWithSegments("/assignments") || Context.Request.Path.StartsWithSegments("/bonus-quiz");
   var bodyClass = isAssignmentsSection ? "assignments-layout" : string.Empty;
@@ -19,7 +21,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>@resolvedTitle</title>
-  @if (Context.Request.Path == "/" || Context.Request.Path == "/courses")
+  @if (!string.IsNullOrWhiteSpace(metaDescription))
   {
     <meta name="description" content="@metaDescription" />
     <meta property="og:type" content="website" />
@@ -28,6 +30,14 @@
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="@resolvedTitle" />
     <meta name="twitter:description" content="@metaDescription" />
+  }
+  @if (!string.IsNullOrWhiteSpace(canonicalUrl))
+  {
+    <link rel="canonical" href="@canonicalUrl" />
+  }
+  @if (!string.IsNullOrWhiteSpace(robots))
+  {
+    <meta name="robots" content="@robots" />
   }
   <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
   <link rel="shortcut icon" href="/favicon.ico" />
