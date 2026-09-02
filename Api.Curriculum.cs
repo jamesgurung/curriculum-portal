@@ -67,15 +67,10 @@ public static partial class Api
 
     app.MapGet("/robots.txt", [AllowAnonymous] (AppOptions options) => Results.Text($"""
       User-agent: *
+      Allow: /$
       Allow: /courses
       Allow: /sitemap.xml
       Disallow: /courses/*/*/quiz
-      Disallow: /courses/*/*/build
-      Disallow: /courses/*/evaluation
-      Disallow: /courses/*/evaluate
-      Disallow: /courses/audit
-      Disallow: /courses/evaluations
-      Disallow: /courses/build
       Disallow: /
 
       Sitemap: {options.Website.TrimEnd('/')}/sitemap.xml
