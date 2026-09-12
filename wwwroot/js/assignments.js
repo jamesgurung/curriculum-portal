@@ -128,7 +128,7 @@ function buildGamificationSummary(progress, bonusQuiz) {
     action.append(
       icon,
       createElement('strong', '', bonusQuiz.inProgress ? 'Resume bonus quiz' : 'Start bonus quiz'),
-      createElement('span', '', `${bonusQuiz.quizXp} XP this run · ${bonusQuiz.remainingBonusXp} XP remaining`)
+      createElement('span', 'assignment-bonus-quiz-xp', `+${bonusQuiz.quizXp} XP`)
     );
     summary.appendChild(action);
   }

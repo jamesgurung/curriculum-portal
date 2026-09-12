@@ -220,9 +220,15 @@ body.assignments-layout .assignments-page {
   font-size: 1.2rem;
 }
 
-.assignment-bonus-quiz > span:last-child {
-  color: var(--assignments-muted);
+.assignment-bonus-quiz-xp {
+  flex-shrink: 0;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: var(--assignments-xp);
+  color: var(--assignments-xp-soft);
   font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .assignment-pp-toggle {
