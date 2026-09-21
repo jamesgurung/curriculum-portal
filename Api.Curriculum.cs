@@ -356,7 +356,7 @@ public static partial class Api
       return Results.NoContent();
     });
 
-    app.MapPut("/courses/{courseId}/build/{property}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string property, SingleValueModel model, CourseService courseService, ConfigService config, CacheService cache) =>
+    app.MapPut("/courses/{courseId}/build/{property}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string property, SingleValueModel model, CourseService courseService, ConfigService config, CacheService cache, BromcomAssessmentService bromcomCache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -388,6 +388,18 @@ public static partial class Api
           break;
         case "specification":
           course.Specification = value;
+          break;
+        case "bromcom-subject":
+          if (!context.User.IsInRole(Roles.Admin))
+          {
+            return Results.Forbid();
+          }
+          var bromcomSubject = bromcomCache.Subjects.FirstOrDefault(subject => string.Equals(subject, value, StringComparison.OrdinalIgnoreCase));
+          if (value.Length > 0 && bromcomSubject is null)
+          {
+            return Results.BadRequest("Invalid Bromcom subject specified.");
+          }
+          course.BromcomSubject = bromcomSubject ?? string.Empty;
           break;
         case "icon":
           if (!context.User.IsInRole(Roles.Admin))

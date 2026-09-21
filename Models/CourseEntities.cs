@@ -25,6 +25,7 @@ public class CourseEntity : ITableEntity
   public string Icon { get; set; }
   public string Intent { get; set; }
   public string Specification { get; set; }
+  public string BromcomSubject { get; set; }
   public int AssignmentLength { get; set; }
 
   [JsonIgnore]

@@ -7,12 +7,13 @@ using System.Text.Json;
 namespace CurriculumPortal;
 
 [AllowAnonymous]
-public class CoursesModel(CourseService courseService, CacheService cache, ConfigService config, AppOptions options, IAntiforgery antiforgery) : PageModel
+public class CoursesModel(CourseService courseService, CacheService cache, ConfigService config, AppOptions options, IAntiforgery antiforgery, BromcomAssessmentService bromcomCache) : PageModel
 {
   public string CoursesJson { get; private set; }
   public string UnitsJson { get; private set; }
   public string EditableCourseIdsJson { get; private set; } = "[]";
   public string IsAdminJson { get; private set; } = "false";
+  public string BromcomSubjectsJson { get; private set; } = "[]";
   public string ChecklistItemsJson { get; private set; } = "[]";
   public string CsrfToken { get; private set; }
   public string MicrosoftSharePointSubdomain { get; private set; } = options.MicrosoftSharePointSubdomain;
@@ -45,6 +46,7 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
       UnitsJson = JsonSerializer.Serialize(units, JsonDefaults.CamelCase);
       EditableCourseIdsJson = JsonSerializer.Serialize(editableCourseIds, JsonDefaults.CamelCase);
       IsAdminJson = JsonSerializer.Serialize(isAdmin, JsonDefaults.CamelCase);
+      BromcomSubjectsJson = isAdmin ? JsonSerializer.Serialize(bromcomCache.Subjects, JsonDefaults.CamelCase) : "[]";
       ChecklistItemsJson = JsonSerializer.Serialize(config.ChecklistItems, JsonDefaults.CamelCase);
       CsrfToken = antiforgery.GetAndStoreTokens(HttpContext).RequestToken ?? string.Empty;
       IsEditableStaff = editableCourseIds.Count > 0;

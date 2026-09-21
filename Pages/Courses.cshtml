@@ -198,11 +198,7 @@
         <textarea id="modal-text"></textarea>
       </div>
       <div id="modal-select-container">
-        <select id="modal-select">
-          <option value="Autumn">Autumn</option>
-          <option value="Spring">Spring</option>
-          <option value="Summer">Summer</option>
-        </select>
+        <select id="modal-select"></select>
       </div>
       <div id="modal-checklist-container" class="hide"></div>
     </div>
@@ -308,6 +304,7 @@
     const units = @Html.Raw(Model.UnitsJson);
     const editableCourseIds = @Html.Raw(Model.EditableCourseIdsJson);
     const isAdmin = @Html.Raw(Model.IsAdminJson);
+    const bromcomSubjects = @Html.Raw(Model.BromcomSubjectsJson);
     const checklistItems = @Html.Raw(Model.ChecklistItemsJson);
     const isStaff = @(Model.IsStaff ? "true" : "false");
     const isEditableStaff = @(Model.IsEditableStaff ? "true" : "false");

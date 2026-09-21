@@ -21,6 +21,7 @@ const yearsForCourse = course => course.subjectCode === 'Rg'
 const fields = {
   intent: 'intent',
   specification: 'specification',
+  'bromcom-subject': 'bromcomSubject',
   icon: 'icon',
   'assignment-length': 'assignmentLength',
   term: 'term',
@@ -56,6 +57,12 @@ const modalConfig = {
     example: 'e.g. Edexcel GCSE Mathematics (1MA1)',
     input: 'text'
   },
+  'bromcom-subject': {
+    title: 'Bromcom Subject Name',
+    question: 'Select the Bromcom subject for this course:',
+    input: 'select',
+    options: [{ value: '', label: 'Not configured' }, ...bromcomSubjects.map(subject => ({ value: subject, label: subject }))]
+  },
   icon: {
     title: 'Course Icon',
     question: 'Enter the Material Symbols icon name for this course.',
@@ -68,7 +75,12 @@ const modalConfig = {
     example: 'e.g. 20',
     input: 'text'
   },
-  term: { question: 'Select the term in which this unit is assessed:', input: 'select' },
+  term: {
+    question: 'Select the term in which this unit is assessed:',
+    input: 'select',
+    options: ['Autumn', 'Spring', 'Summer'],
+    defaultValue: 'Autumn'
+  },
   'why-this': {
     question: '<b>Why this?</b> Explain the reason we\'ve included the unit in our curriculum, without reference to exam specifications.',
     example: 'e.g. It is important to understand how and why objects move.',
@@ -445,6 +457,17 @@ function showCourse(courseId, options = {}) {
   }
 
   if (inEditMode && isAdmin) {
+    if (bromcomSubjects.length > 0) {
+      const bromcomSubjectInfo = clone('tpl-course-info');
+      qs('.icon', bromcomSubjectInfo).textContent = 'school';
+      qs('.label', bromcomSubjectInfo).textContent = 'Bromcom subject name';
+      const value = qs('.value', bromcomSubjectInfo);
+      value.textContent = course.bromcomSubject || 'Not configured';
+      value.classList.toggle('not-configured', !course.bromcomSubject);
+      bromcomSubjectInfo.appendChild(buildEditButton(courseId, '', 'bromcom-subject'));
+      container.appendChild(bromcomSubjectInfo);
+    }
+
     const iconInfo = clone('tpl-course-info');
     qs('.icon', iconInfo).textContent = 'image';
     qs('.label', iconInfo).textContent = 'Course icon';
@@ -724,6 +747,7 @@ function buildEditButton(courseId, unitId, property, icon = 'edit') {
     'why-now': 'Edit why now',
     intent: 'Edit curriculum intent',
     specification: 'Edit specification',
+    'bromcom-subject': 'Edit Bromcom subject name',
     icon: 'Edit course icon',
     'assignment-length': 'Edit weekly assignment length'
   };
@@ -1451,7 +1475,12 @@ function openEditModal(courseId, unitId, property) {
   elements.modalChecklist.replaceChildren();
 
   if (config.input === 'select') {
-    elements.modalSelect.value = unit?.term || 'Autumn';
+    elements.modalSelect.replaceChildren(...config.options.map(option => {
+      const value = typeof option === 'string' ? option : option.value;
+      const label = typeof option === 'string' ? option : option.label;
+      return new Option(label, value);
+    }));
+    elements.modalSelect.value = (unit || course)?.[fields[property]] || config.defaultValue || '';
   } else if (config.input === 'checklist') {
     elements.modalChecklist.appendChild(buildChecklistEditor(unit?.checklist || ''));
   } else {
@@ -1527,7 +1556,7 @@ async function onSave() {
       return;
     }
 
-    const value = property === 'term'
+    const value = modalConfig[property].input === 'select'
       ? elements.modalSelect.value
       : property === 'checklist'
         ? readChecklistEditorValue()
@@ -1543,7 +1572,7 @@ async function onSave() {
       return;
     }
 
-    if (property === 'intent' || property === 'specification' || property === 'icon' || property === 'assignment-length') {
+    if (property === 'intent' || property === 'specification' || property === 'bromcom-subject' || property === 'icon' || property === 'assignment-length') {
       await request(`/courses/${course}/build/${property}`, 'PUT', { value });
       courseById(course)[fields[property]] = property === 'assignment-length' ? Number(value) : value;
       if (property === 'icon') {

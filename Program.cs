@@ -64,6 +64,10 @@ await configService.LoadAsync();
 
 builder.Services.AddSingleton(configService);
 RegisterBehaviourRecordService(builder.Services, appOptions);
+builder.Services.AddSingleton(provider => new BromcomAssessmentService(
+  blobServiceClient,
+  provider.GetService<SchoolBromcomClient>(),
+  provider.GetRequiredService<ILogger<BromcomAssessmentService>>()));
 builder.Services.AddSingleton<CourseService>();
 builder.Services.AddSingleton<XpService>();
 builder.Services.AddSingleton<BonusQuizService>();
@@ -100,6 +104,7 @@ builder.Services.AddWebOptimizer(pipeline =>
 });
 
 var app = builder.Build();
+await app.Services.GetRequiredService<BromcomAssessmentService>().LoadAsync();
 
 if (isProduction)
 {
