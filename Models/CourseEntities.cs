@@ -69,6 +69,7 @@ public class UnitEntity : ITableEntity
   public string SchemeUrl { get; set; }
   public string AssessmentUrl { get; set; }
   public string MarkSchemeUrl { get; set; }
+  public string BromcomColumn { get; set; }
   public string Checklist { get; set; }
   public int KeyKnowledgeStatus { get; set; }
   public int AssessmentStatus { get; set; }

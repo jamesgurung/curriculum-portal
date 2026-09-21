@@ -45,7 +45,7 @@ public sealed class BromcomAssessmentService : IDisposable
       try
       {
         var response = await _blobClient.DownloadContentAsync(cancellationToken);
-        cachedColumns = JsonSerializer.Deserialize<List<AssessmentColumn>>(response.Value.Content.ToString(), JsonDefaults.CamelCase);
+        cachedColumns = FilterColumns(JsonSerializer.Deserialize<List<AssessmentColumn>>(response.Value.Content.ToString(), JsonDefaults.CamelCase));
         lastModified = response.Value.Details.LastModified;
       }
       catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -106,9 +106,18 @@ public sealed class BromcomAssessmentService : IDisposable
 
   private async Task RefreshCoreAsync(CancellationToken cancellationToken)
   {
-    var columns = (await _client.GetColumnsAsync(cancellationToken: cancellationToken)).ToList();
+    var columns = FilterColumns(await _client.GetColumnsAsync(cancellationToken: cancellationToken));
     var data = BinaryData.FromString(JsonSerializer.Serialize(columns, JsonDefaults.CamelCase));
     await _blobClient.UploadAsync(data, overwrite: true, cancellationToken);
     AssessmentColumns = columns;
   }
+
+  private static List<AssessmentColumn> FilterColumns(IEnumerable<AssessmentColumn> columns) => columns?
+    .Where(column => column is not null
+      && (column.Type?.StartsWith("Topic ", StringComparison.OrdinalIgnoreCase) == true
+        || column.Type?.StartsWith("Mock ", StringComparison.OrdinalIgnoreCase) == true)
+      && column.Subject?.Contains('|', StringComparison.Ordinal) != true
+      && column.Term?.Contains('|', StringComparison.Ordinal) != true
+      && column.Type?.Contains('|', StringComparison.Ordinal) != true)
+    .ToList();
 }

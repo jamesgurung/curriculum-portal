@@ -428,7 +428,7 @@ public static partial class Api
       return Results.NoContent();
     });
 
-    app.MapPut("/courses/{courseId}/{unitId}/build/{property}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, string property, SingleValueModel model, CourseService courseService, ConfigService config, CacheService cache) =>
+    app.MapPut("/courses/{courseId}/{unitId}/build/{property}", [Authorize(Roles = Roles.Teacher)] async (HttpContext context, IAntiforgery antiforgery, string courseId, string unitId, string property, SingleValueModel model, CourseService courseService, ConfigService config, CacheService cache, BromcomAssessmentService bromcomCache) =>
     {
       var csrfError = await ValidateAntiForgeryAsync(context, antiforgery);
       if (csrfError is not null)
@@ -481,6 +481,29 @@ public static partial class Api
           break;
         case "checklist":
           unit.Checklist = value;
+          break;
+        case "bromcom-column":
+          if (value.Length == 0)
+          {
+            unit.BromcomColumn = string.Empty;
+            break;
+          }
+
+          var bromcomColumnParts = value.Split('|');
+          if (bromcomColumnParts.Length != 4
+            || string.IsNullOrWhiteSpace(course.BromcomSubject)
+            || bromcomCache.AssessmentColumns?.Any(column => column.Id.HasValue
+              && column.YearGroup == unit.YearGroup
+              && string.Equals(column.Subject?.Trim(), course.BromcomSubject?.Trim(), StringComparison.OrdinalIgnoreCase)
+              && string.Equals(column.Subject?.Trim(), bromcomColumnParts[0], StringComparison.Ordinal)
+              && string.Equals(column.YearGroup.Value.ToString(CultureInfo.InvariantCulture), bromcomColumnParts[1], StringComparison.Ordinal)
+              && string.Equals(column.Term?.Trim() ?? string.Empty, bromcomColumnParts[2], StringComparison.Ordinal)
+              && string.Equals(column.Id.Value.ToString(CultureInfo.InvariantCulture), bromcomColumnParts[3], StringComparison.Ordinal)) != true)
+          {
+            return Results.BadRequest("Invalid Bromcom assessment column specified.");
+          }
+
+          unit.BromcomColumn = value;
           break;
         case "term":
           if (value is not "Autumn" and not "Spring" and not "Summer")

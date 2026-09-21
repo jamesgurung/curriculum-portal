@@ -14,6 +14,7 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
   public string EditableCourseIdsJson { get; private set; } = "[]";
   public string IsAdminJson { get; private set; } = "false";
   public string BromcomSubjectsJson { get; private set; } = "[]";
+  public string BromcomAssessmentColumnsJson { get; private set; } = "[]";
   public string ChecklistItemsJson { get; private set; } = "[]";
   public string CsrfToken { get; private set; }
   public string MicrosoftSharePointSubdomain { get; private set; } = options.MicrosoftSharePointSubdomain;
@@ -47,6 +48,11 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
       EditableCourseIdsJson = JsonSerializer.Serialize(editableCourseIds, JsonDefaults.CamelCase);
       IsAdminJson = JsonSerializer.Serialize(isAdmin, JsonDefaults.CamelCase);
       BromcomSubjectsJson = isAdmin ? JsonSerializer.Serialize(bromcomCache.Subjects, JsonDefaults.CamelCase) : "[]";
+      BromcomAssessmentColumnsJson = editableCourseIds.Count == 0 || bromcomCache.AssessmentColumns is null
+        ? "[]"
+        : JsonSerializer.Serialize(bromcomCache.AssessmentColumns
+          .Where(column => column.Id.HasValue && column.YearGroup.HasValue)
+          .Select(column => new { column.Id, column.Type, Subject = column.Subject?.Trim(), column.YearGroup, Term = column.Term?.Trim() }), JsonDefaults.CamelCase);
       ChecklistItemsJson = JsonSerializer.Serialize(config.ChecklistItems, JsonDefaults.CamelCase);
       CsrfToken = antiforgery.GetAndStoreTokens(HttpContext).RequestToken ?? string.Empty;
       IsEditableStaff = editableCourseIds.Count > 0;

@@ -25,6 +25,7 @@ const fields = {
   icon: 'icon',
   'assignment-length': 'assignmentLength',
   term: 'term',
+  'bromcom-column': 'bromcomColumn',
   checklist: 'checklist',
   'why-this': 'whyThis',
   'why-now': 'whyNow',
@@ -80,6 +81,11 @@ const modalConfig = {
     input: 'select',
     options: ['Autumn', 'Spring', 'Summer'],
     defaultValue: 'Autumn'
+  },
+  'bromcom-column': {
+    title: 'Bromcom Column',
+    question: 'Select the Bromcom assessment column for this unit:',
+    input: 'select'
   },
   'why-this': {
     question: '<b>Why this?</b> Explain the reason we\'ve included the unit in our curriculum, without reference to exam specifications.',
@@ -285,6 +291,54 @@ function courseById(courseId) {
 
 function unitById(unitId) {
   return units.find(unit => unit.id === unitId);
+}
+
+function bromcomColumnValue(column) {
+  return `${String(column.subject || '').trim()}|${column.yearGroup}|${String(column.term || '').trim()}|${column.id}`;
+}
+
+function bromcomColumnsForUnit(course, unit) {
+  const subject = String(course.bromcomSubject || '').trim().toLowerCase();
+  if (!subject) {
+    return [];
+  }
+
+  const matchingColumns = bromcomAssessmentColumns
+    .filter(column => column.id !== null
+      && column.id !== undefined
+      && column.yearGroup === unit.yearGroup
+      && String(column.subject || '').trim().toLowerCase() === subject)
+    .sort((a, b) => String(a.type || '').localeCompare(String(b.type || ''))
+      || String(a.term || '').localeCompare(String(b.term || ''))
+      || a.id - b.id);
+  const columnsByValue = new Map();
+  for (const column of matchingColumns) {
+    const value = bromcomColumnValue(column);
+    if (!columnsByValue.has(value)) {
+      columnsByValue.set(value, column);
+    }
+  }
+  return [...columnsByValue.values()];
+}
+
+function findBromcomColumn(columns, value) {
+  const parts = String(value || '').split('|');
+  if (parts.length !== 4) {
+    return null;
+  }
+
+  return columns.find(column => String(column.subject || '').trim() === parts[0]
+    && String(column.yearGroup) === parts[1]
+    && String(column.term || '').trim() === parts[2]
+    && String(column.id) === parts[3]);
+}
+
+function bromcomColumnLabel(columns, column) {
+  const type = String(column.type || '').trim();
+  const term = String(column.term || '').trim();
+  const duplicateAcrossTerms = columns.some(other => String(other.type || '').trim() === type
+    && String(other.term || '').trim() !== term);
+  return duplicateAcrossTerms ? `${type} (${term || 'No'} Term)` : type;
 }
 
 function showCourseList(eventOrOptions, maybeOptions = {}) {
@@ -615,8 +669,23 @@ function renderUnit(courseId, unit) {
     term.appendChild(buildEditButton(courseId, unit.id, 'term'));
   }
 
+  const metadata = document.createElement('div');
+  metadata.className = 'staff-unit-metadata';
+  metadata.appendChild(term);
+  if (state.courseEditable && state.editMode) {
+    const bromcomColumns = bromcomColumnsForUnit(courseById(courseId), unit);
+    const linkedColumn = findBromcomColumn(bromcomColumns, unit.bromcomColumn);
+    const bromcomColumn = document.createElement('div');
+    bromcomColumn.className = 'bromcom-column';
+    const bromcomColumnText = document.createElement('span');
+    bromcomColumnText.textContent = linkedColumn ? bromcomColumnLabel(bromcomColumns, linkedColumn) : 'No Bromcom column linked';
+    bromcomColumnText.classList.toggle('not-configured', !linkedColumn);
+    bromcomColumn.append(bromcomColumnText, buildEditButton(courseId, unit.id, 'bromcom-column'));
+    metadata.appendChild(bromcomColumn);
+  }
+
   const checklist = renderChecklist(courseId, unit);
-  unitInfo.append(titleRow, term);
+  unitInfo.append(titleRow, metadata);
   if (checklist) {
     unitInfo.appendChild(checklist);
   }
@@ -742,6 +811,7 @@ function buildEditButton(courseId, unitId, property, icon = 'edit') {
     delete: 'Delete unit',
     rename: 'Rename unit',
     term: 'Edit term',
+    'bromcom-column': 'Edit Bromcom column',
     checklist: 'Edit checklist',
     'why-this': 'Edit why this',
     'why-now': 'Edit why now',
@@ -1475,12 +1545,25 @@ function openEditModal(courseId, unitId, property) {
   elements.modalChecklist.replaceChildren();
 
   if (config.input === 'select') {
-    elements.modalSelect.replaceChildren(...config.options.map(option => {
+    const bromcomColumns = property === 'bromcom-column' ? bromcomColumnsForUnit(course, unit) : [];
+    const options = property === 'bromcom-column'
+      ? [
+          { value: '', label: 'No Bromcom column linked' },
+          ...bromcomColumns.map(column => ({
+            value: bromcomColumnValue(column),
+            label: bromcomColumnLabel(bromcomColumns, column)
+          }))
+        ]
+      : config.options;
+    elements.modalSelect.replaceChildren(...options.map(option => {
       const value = typeof option === 'string' ? option : option.value;
       const label = typeof option === 'string' ? option : option.label;
       return new Option(label, value);
     }));
-    elements.modalSelect.value = (unit || course)?.[fields[property]] || config.defaultValue || '';
+    const selectedValue = (unit || course)?.[fields[property]];
+    elements.modalSelect.value = selectedValue === null || selectedValue === undefined || selectedValue === ''
+      ? config.defaultValue || ''
+      : String(selectedValue);
   } else if (config.input === 'checklist') {
     elements.modalChecklist.appendChild(buildChecklistEditor(unit?.checklist || ''));
   } else {
