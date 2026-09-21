@@ -43,7 +43,12 @@ const checklistStatusOptions = [
   { value: '2', label: 'Exempt', className: 'status-2' },
   { value: '1', label: 'Complete', className: 'status-1' }
 ];
+const assessmentMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const assessmentProgressData = new WeakMap();
 let checklistTooltip;
+let assessmentTooltip;
+let assessmentTooltipBridge;
+let assessmentTooltipTarget;
 
 const modalConfig = {
   intent: {
@@ -513,7 +518,7 @@ function showCourse(courseId, options = {}) {
   if (inEditMode && isAdmin) {
     if (bromcomSubjects.length > 0) {
       const bromcomSubjectInfo = clone('tpl-course-info');
-      qs('.icon', bromcomSubjectInfo).textContent = 'school';
+      qs('.icon', bromcomSubjectInfo).textContent = 'dataset_linked';
       qs('.label', bromcomSubjectInfo).textContent = 'Bromcom subject name';
       const value = qs('.value', bromcomSubjectInfo);
       value.textContent = course.bromcomSubject || 'Not configured';
@@ -672,22 +677,37 @@ function renderUnit(courseId, unit) {
   const metadata = document.createElement('div');
   metadata.className = 'staff-unit-metadata';
   metadata.appendChild(term);
+  const bromcomColumns = bromcomColumnsForUnit(courseById(courseId), unit);
+  const linkedColumn = findBromcomColumn(bromcomColumns, unit.bromcomColumn);
+  const bromcomColumn = document.createElement('div');
+  bromcomColumn.className = 'bromcom-column';
+  bromcomColumn.title = 'Bromcom assessment column';
+  bromcomColumn.classList.toggle('not-configured', !linkedColumn);
+  const bromcomColumnIcon = document.createElement('span');
+  bromcomColumnIcon.className = 'material-symbols-outlined';
+  bromcomColumnIcon.textContent = 'view_column';
+  bromcomColumnIcon.setAttribute('aria-hidden', 'true');
+  const bromcomColumnText = document.createElement('span');
+  bromcomColumnText.textContent = linkedColumn ? bromcomColumnLabel(bromcomColumns, linkedColumn) : 'No Bromcom column linked';
+  bromcomColumn.append(bromcomColumnIcon, bromcomColumnText);
   if (state.courseEditable && state.editMode) {
-    const bromcomColumns = bromcomColumnsForUnit(courseById(courseId), unit);
-    const linkedColumn = findBromcomColumn(bromcomColumns, unit.bromcomColumn);
-    const bromcomColumn = document.createElement('div');
-    bromcomColumn.className = 'bromcom-column';
-    const bromcomColumnText = document.createElement('span');
-    bromcomColumnText.textContent = linkedColumn ? bromcomColumnLabel(bromcomColumns, linkedColumn) : 'No Bromcom column linked';
-    bromcomColumnText.classList.toggle('not-configured', !linkedColumn);
-    bromcomColumn.append(bromcomColumnText, buildEditButton(courseId, unit.id, 'bromcom-column'));
-    metadata.appendChild(bromcomColumn);
+    bromcomColumn.appendChild(buildEditButton(courseId, unit.id, 'bromcom-column'));
   }
+  metadata.appendChild(bromcomColumn);
 
-  const checklist = renderChecklist(courseId, unit);
   unitInfo.append(titleRow, metadata);
-  if (checklist) {
-    unitInfo.appendChild(checklist);
+  const checklist = renderChecklist(courseId, unit);
+  const assessmentProgress = renderAssessmentProgress(unit);
+  let statusRow = null;
+  if (checklist || assessmentProgress) {
+    statusRow = document.createElement('div');
+    statusRow.className = 'unit-status-row';
+    if (checklist) {
+      statusRow.appendChild(checklist);
+    }
+    if (assessmentProgress) {
+      statusRow.appendChild(assessmentProgress);
+    }
   }
 
   const assessmentLinks = document.createElement('div');
@@ -702,6 +722,9 @@ function renderUnit(courseId, unit) {
 
   topRow.append(unitInfo, assessmentLinks);
   li.appendChild(topRow);
+  if (statusRow) {
+    li.appendChild(statusRow);
+  }
 
   const why = document.createElement('div');
   why.className = 'unit-why';
@@ -879,6 +902,203 @@ function renderChecklist(courseId, unit) {
   }
 
   return checklist;
+}
+
+function renderAssessmentProgress(unit) {
+  const data = bromcomAssessmentProgress[unit.id];
+  if (!Number.isInteger(data?.percentage)) {
+    return null;
+  }
+
+  const percentage = Math.min(100, Math.max(0, data.percentage));
+  const updatedAt = data?.updatedAt ? new Date(data.updatedAt) : null;
+  const validUpdatedAt = updatedAt && !Number.isNaN(updatedAt.valueOf()) ? updatedAt : null;
+  const updatedText = validUpdatedAt
+    ? `${validUpdatedAt.getDate()} ${assessmentMonthNames[validUpdatedAt.getMonth()]} ${validUpdatedAt.getFullYear()}, ${String(validUpdatedAt.getHours()).padStart(2, '0')}:${String(validUpdatedAt.getMinutes()).padStart(2, '0')}`
+    : 'date unavailable';
+  const enteredClasses = Array.isArray(data.enteredClasses) ? data.enteredClasses : [];
+  const notEnteredClasses = Array.isArray(data.notEnteredClasses) ? data.notEnteredClasses : [];
+  const formatClasses = classes => classes.length > 0
+    ? classes.map(item => `${item.name} ${item.completed}/${item.total}`).join(', ')
+    : 'None';
+  const summary = `${percentage}% data entered on Bromcom. Updated ${updatedText}. Entered classes: ${formatClasses(enteredClasses)}. Not entered classes: ${formatClasses(notEnteredClasses)}.`;
+
+  const progress = document.createElement('div');
+  progress.className = 'assessment-progress';
+  progress.tabIndex = 0;
+  progress.setAttribute('role', 'progressbar');
+  progress.setAttribute('aria-label', summary);
+  progress.setAttribute('aria-valuemin', '0');
+  progress.setAttribute('aria-valuemax', '100');
+  progress.setAttribute('aria-valuenow', String(percentage));
+  progress.setAttribute('aria-valuetext', `${percentage}% data entered on Bromcom`);
+  const completed = document.createElement('div');
+  completed.className = 'assessment-progress-complete';
+  completed.style.width = `${percentage}%`;
+  completed.setAttribute('aria-hidden', 'true');
+  progress.appendChild(completed);
+
+  assessmentProgressData.set(progress, { percentage, updatedAt: validUpdatedAt, updatedText, enteredClasses, notEnteredClasses });
+  attachAssessmentTooltip(progress);
+  return progress;
+}
+
+function buildAssessmentTooltipRow(label, classes, status) {
+  const row = document.createElement('div');
+  row.className = `assessment-tooltip-row assessment-tooltip-row-${status}`;
+
+  const heading = document.createElement('strong');
+  heading.className = 'assessment-tooltip-status';
+  heading.textContent = label;
+
+  if (classes.length === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'assessment-tooltip-empty';
+    empty.textContent = 'None';
+    row.append(heading, empty);
+    return row;
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'assessment-tooltip-classes';
+  for (const item of classes) {
+    const entry = document.createElement('li');
+    entry.append(document.createTextNode(`${item.name} `));
+    const count = document.createElement('span');
+    count.textContent = `${item.completed}/${item.total}`;
+    entry.appendChild(count);
+    list.appendChild(entry);
+  }
+
+  row.append(heading, list);
+  return row;
+}
+
+function getAssessmentTooltip() {
+  if (!assessmentTooltip) {
+    assessmentTooltip = document.createElement('div');
+    assessmentTooltip.className = 'assessment-tooltip';
+    assessmentTooltip.setAttribute('role', 'tooltip');
+    assessmentTooltip.setAttribute('aria-hidden', 'true');
+    assessmentTooltipBridge = document.createElement('div');
+    assessmentTooltipBridge.className = 'assessment-tooltip-bridge';
+    assessmentTooltipBridge.setAttribute('aria-hidden', 'true');
+    document.body.append(assessmentTooltipBridge, assessmentTooltip);
+    assessmentTooltip.addEventListener('mouseleave', event => {
+      if (!assessmentTooltipTarget?.contains(event.relatedTarget) && !assessmentTooltipBridge.contains(event.relatedTarget)) {
+        hideAssessmentTooltip();
+      }
+    });
+    assessmentTooltipBridge.addEventListener('mouseleave', event => {
+      if (!assessmentTooltipTarget?.contains(event.relatedTarget) && !assessmentTooltip.contains(event.relatedTarget)) {
+        hideAssessmentTooltip();
+      }
+    });
+
+    window.addEventListener('resize', refreshAssessmentTooltip, { passive: true });
+    window.addEventListener('scroll', refreshAssessmentTooltip, { passive: true, capture: true });
+    document.addEventListener('pointerdown', event => {
+      if (assessmentTooltipTarget && !assessmentTooltipTarget.contains(event.target) && !assessmentTooltip.contains(event.target) && !assessmentTooltipBridge.contains(event.target)) {
+        hideAssessmentTooltip();
+      }
+    });
+  }
+
+  return assessmentTooltip;
+}
+
+function positionAssessmentTooltip() {
+  if (!assessmentTooltipTarget || !assessmentTooltipTarget.isConnected) {
+    hideAssessmentTooltip();
+    return;
+  }
+
+  const tooltip = getAssessmentTooltip();
+  const rect = assessmentTooltipTarget.getBoundingClientRect();
+  const margin = 12;
+  const gap = 10;
+  const halfWidth = tooltip.offsetWidth / 2;
+  const left = Math.min(window.innerWidth - margin - halfWidth, Math.max(margin + halfWidth, rect.left + (rect.width / 2)));
+  const spaceAbove = Math.max(0, rect.top - gap - margin);
+  const spaceBelow = Math.max(0, window.innerHeight - rect.bottom - gap - margin);
+  const showAbove = spaceAbove >= tooltip.scrollHeight || spaceAbove >= spaceBelow;
+  tooltip.style.maxHeight = `${showAbove ? spaceAbove : spaceBelow}px`;
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${showAbove ? rect.top - gap : rect.bottom + gap}px`;
+  tooltip.classList.toggle('assessment-tooltip-below', !showAbove);
+  assessmentTooltipBridge.style.left = `${left - halfWidth}px`;
+  assessmentTooltipBridge.style.top = `${showAbove ? rect.top - gap : rect.bottom}px`;
+  assessmentTooltipBridge.style.width = `${tooltip.offsetWidth}px`;
+  assessmentTooltipBridge.style.height = `${gap}px`;
+  assessmentTooltipBridge.classList.add('active');
+}
+
+function showAssessmentTooltip(target) {
+  if (isEditModalOpen()) {
+    hideAssessmentTooltip();
+    return;
+  }
+
+  const data = assessmentProgressData.get(target);
+  if (!data) {
+    return;
+  }
+
+  hideChecklistTooltip();
+  assessmentTooltipTarget = target;
+  const tooltip = getAssessmentTooltip();
+  const summary = document.createElement('div');
+  summary.className = 'assessment-tooltip-summary';
+  const percentage = document.createElement('strong');
+  percentage.textContent = `${data.percentage}% data entered on Bromcom`;
+  const updated = document.createElement('time');
+  updated.textContent = `Updated ${data.updatedText}`;
+  if (data.updatedAt) {
+    updated.dateTime = data.updatedAt.toISOString();
+  }
+  summary.append(percentage, updated);
+  tooltip.replaceChildren(
+    summary,
+    buildAssessmentTooltipRow('Entered', data.enteredClasses, 'entered'),
+    buildAssessmentTooltipRow('Not entered', data.notEnteredClasses, 'not-entered')
+  );
+  tooltip.classList.add('active');
+  tooltip.setAttribute('aria-hidden', 'false');
+  positionAssessmentTooltip();
+}
+
+function hideAssessmentTooltip() {
+  assessmentTooltipTarget = null;
+  if (!assessmentTooltip) {
+    return;
+  }
+
+  assessmentTooltip.classList.remove('active', 'assessment-tooltip-below');
+  assessmentTooltip.setAttribute('aria-hidden', 'true');
+  assessmentTooltipBridge.classList.remove('active');
+}
+
+function refreshAssessmentTooltip() {
+  if (assessmentTooltip?.classList.contains('active')) {
+    positionAssessmentTooltip();
+  }
+}
+
+function attachAssessmentTooltip(element) {
+  element.addEventListener('mouseenter', () => showAssessmentTooltip(element));
+  element.addEventListener('focus', () => showAssessmentTooltip(element));
+  element.addEventListener('click', () => showAssessmentTooltip(element));
+  element.addEventListener('mouseleave', event => {
+    if (!assessmentTooltip?.contains(event.relatedTarget) && !assessmentTooltipBridge?.contains(event.relatedTarget)) {
+      hideAssessmentTooltip();
+    }
+  });
+  element.addEventListener('blur', hideAssessmentTooltip);
+  element.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      hideAssessmentTooltip();
+    }
+  });
 }
 
 function normalizeChecklistStatus(value) {
@@ -1656,14 +1876,27 @@ async function onSave() {
     }
 
     if (property === 'intent' || property === 'specification' || property === 'bromcom-subject' || property === 'icon' || property === 'assignment-length') {
-      await request(`/courses/${course}/build/${property}`, 'PUT', { value });
+      const result = await request(`/courses/${course}/build/${property}`, 'PUT', { value });
       courseById(course)[fields[property]] = property === 'assignment-length' ? Number(value) : value;
+      if (property === 'bromcom-subject') {
+        for (const courseUnit of courseUnits(course)) {
+          delete bromcomAssessmentProgress[courseUnit.id];
+        }
+        Object.assign(bromcomAssessmentProgress, result);
+      }
       if (property === 'icon') {
         renderCourseList();
       }
     } else {
-      await request(`/courses/${course}/${unit}/build/${property}`, 'PUT', { value });
+      const result = await request(`/courses/${course}/${unit}/build/${property}`, 'PUT', { value });
       unitById(unit)[fields[property]] = value;
+      if (property === 'bromcom-column') {
+        if (result) {
+          bromcomAssessmentProgress[unit] = result;
+        } else {
+          delete bromcomAssessmentProgress[unit];
+        }
+      }
     }
 
     elements.modal.classList.remove('active');

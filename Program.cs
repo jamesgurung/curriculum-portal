@@ -67,6 +67,7 @@ RegisterBehaviourRecordService(builder.Services, appOptions);
 builder.Services.AddSingleton(provider => new BromcomAssessmentService(
   blobServiceClient,
   provider.GetService<SchoolBromcomClient>(),
+  configService,
   provider.GetRequiredService<ILogger<BromcomAssessmentService>>()));
 builder.Services.AddSingleton<CourseService>();
 builder.Services.AddSingleton<XpService>();
@@ -84,6 +85,7 @@ builder.Services.AddSingleton<MailService>();
 builder.Services.AddSingleton<TeamsService>();
 builder.Services.AddSingleton<AssignmentAutomationService>();
 
+builder.Services.AddHostedService(provider => provider.GetRequiredService<BromcomAssessmentService>());
 builder.Services.AddHostedService(provider => provider.GetRequiredService<AssignmentAutomationService>());
 builder.Services.AddHostedService<CourseEvaluationAutomationService>();
 

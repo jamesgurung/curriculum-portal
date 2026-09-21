@@ -15,6 +15,7 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
   public string IsAdminJson { get; private set; } = "false";
   public string BromcomSubjectsJson { get; private set; } = "[]";
   public string BromcomAssessmentColumnsJson { get; private set; } = "[]";
+  public string BromcomAssessmentProgressJson { get; private set; } = "{}";
   public string ChecklistItemsJson { get; private set; } = "[]";
   public string CsrfToken { get; private set; }
   public string MicrosoftSharePointSubdomain { get; private set; } = options.MicrosoftSharePointSubdomain;
@@ -48,11 +49,25 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
       EditableCourseIdsJson = JsonSerializer.Serialize(editableCourseIds, JsonDefaults.CamelCase);
       IsAdminJson = JsonSerializer.Serialize(isAdmin, JsonDefaults.CamelCase);
       BromcomSubjectsJson = isAdmin ? JsonSerializer.Serialize(bromcomCache.Subjects, JsonDefaults.CamelCase) : "[]";
-      BromcomAssessmentColumnsJson = editableCourseIds.Count == 0 || bromcomCache.AssessmentColumns is null
+      BromcomAssessmentColumnsJson = bromcomCache.AssessmentColumns is null
         ? "[]"
         : JsonSerializer.Serialize(bromcomCache.AssessmentColumns
           .Where(column => column.Id.HasValue && column.YearGroup.HasValue)
           .Select(column => new { column.Id, column.Type, Subject = column.Subject?.Trim(), column.YearGroup, Term = column.Term?.Trim() }), JsonDefaults.CamelCase);
+      var coursesById = courses.ToDictionary(course => course.RowKey, StringComparer.Ordinal);
+      var editableCourseIdsSet = editableCourseIds.ToHashSet(StringComparer.Ordinal);
+      var teacherClassNames = config.UsersByEmail.TryGetValue(User.GetEmail(), out var currentUser)
+        ? (currentUser.Classes ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase)
+        : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+      var assessmentProgress = new Dictionary<string, BromcomAssessmentProgress>(StringComparer.Ordinal);
+      foreach (var unit in units.Where(unit => coursesById.ContainsKey(unit.PartitionKey)))
+      {
+        var course = coursesById[unit.PartitionKey];
+        var progress = bromcomCache.GetCompletionProgress(course, unit, editableCourseIdsSet.Contains(course.RowKey) ? null : teacherClassNames);
+        if (progress is not null)
+          assessmentProgress[unit.RowKey] = progress;
+      }
+      BromcomAssessmentProgressJson = JsonSerializer.Serialize(assessmentProgress, JsonDefaults.CamelCase);
       ChecklistItemsJson = JsonSerializer.Serialize(config.ChecklistItems, JsonDefaults.CamelCase);
       CsrfToken = antiforgery.GetAndStoreTokens(HttpContext).RequestToken ?? string.Empty;
       IsEditableStaff = editableCourseIds.Count > 0;

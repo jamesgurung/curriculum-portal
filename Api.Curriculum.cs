@@ -425,6 +425,15 @@ public static partial class Api
 
       await courseService.UpdateCourseAsync(course);
       cache.Invalidate("courses");
+      if (string.Equals(property, "bromcom-subject", StringComparison.OrdinalIgnoreCase))
+      {
+        var assessmentProgress = (await courseService.ListUnitsAsync(courseId))
+          .Select(unit => new { UnitId = unit.RowKey, Progress = bromcomCache.GetCompletionProgress(course, unit) })
+          .Where(item => item.Progress is not null)
+          .ToDictionary(item => item.UnitId, item => item.Progress, StringComparer.Ordinal);
+        return Results.Ok(assessmentProgress);
+      }
+
       return Results.NoContent();
     });
 
@@ -519,6 +528,11 @@ public static partial class Api
 
       await courseService.UpdateUnitAsync(unit);
       cache.Invalidate("units");
+      if (string.Equals(property, "bromcom-column", StringComparison.OrdinalIgnoreCase))
+      {
+        return Results.Ok(bromcomCache.GetCompletionProgress(course, unit));
+      }
+
       return Results.NoContent();
     });
 

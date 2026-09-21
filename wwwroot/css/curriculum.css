@@ -538,6 +538,7 @@ h3 {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     "top handle"
+    "status status"
     "why why";
   gap: 0;
   align-items: start;
@@ -645,13 +646,56 @@ h3 {
   margin-top: 0;
 }
 
+.bromcom-column.not-configured {
+  color: var(--danger);
+}
+
+.bromcom-column > span.material-symbols-outlined {
+  position: relative;
+  top: 1px;
+  color: currentColor;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.unit-status-row {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+  min-width: 0;
+}
+
 .unit-checklist {
   display: inline-flex;
   align-items: center;
   gap: 0;
-  margin-top: 0.8rem;
   flex-wrap: wrap;
+  flex: 0 0 auto;
   width: fit-content;
+}
+
+.assessment-progress {
+  position: relative;
+  flex: 1 1 8rem;
+  min-width: 3rem;
+  height: 0.95rem;
+  overflow: hidden;
+  border: 1px solid var(--border-standard);
+  border-radius: 0;
+  background: var(--panel-muted);
+  cursor: help;
+}
+
+.assessment-progress:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.assessment-progress-complete {
+  height: 100%;
+  background: var(--success);
 }
 
 .checklist-dot-target {
@@ -725,6 +769,129 @@ h3 {
 
 .checklist-tooltip.active {
   opacity: 1;
+}
+
+.assessment-tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  width: min(30rem, calc(100vw - 1.5rem));
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  transform: translate(-50%, -100%);
+  padding: 0.72rem 0.8rem;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-elevated);
+  color: var(--ink-primary);
+  font-size: 0.84rem;
+  line-height: 1.4;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+  visibility: hidden;
+  opacity: 0;
+  z-index: 1100;
+}
+
+.assessment-tooltip.assessment-tooltip-below {
+  transform: translate(-50%, 0);
+}
+
+.assessment-tooltip.active {
+  visibility: visible;
+  opacity: 1;
+}
+
+.assessment-tooltip-bridge {
+  position: fixed;
+  display: none;
+  z-index: 1099;
+}
+
+.assessment-tooltip-bridge.active {
+  display: block;
+}
+
+.assessment-tooltip-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.55rem;
+  margin-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.assessment-tooltip-summary strong {
+  color: var(--ink-strong);
+  font-size: 0.95rem;
+}
+
+.assessment-tooltip-summary time {
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+}
+
+.assessment-tooltip-row {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.assessment-tooltip-row + .assessment-tooltip-row {
+  margin-top: 0.48rem;
+}
+
+.assessment-tooltip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  white-space: nowrap;
+}
+
+.assessment-tooltip-status::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.assessment-tooltip-row-entered .assessment-tooltip-status {
+  color: var(--success);
+}
+
+.assessment-tooltip-row-not-entered .assessment-tooltip-status {
+  color: var(--danger);
+}
+
+.assessment-tooltip-classes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.22rem 0.8rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assessment-tooltip-classes li {
+  max-width: 100%;
+  color: var(--ink-primary);
+  overflow-wrap: anywhere;
+}
+
+.assessment-tooltip-classes li span {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.assessment-tooltip-empty {
+  color: var(--ink-faint);
 }
 
 .unit-assessment {
@@ -1860,6 +2027,26 @@ body.evaluation-layout .app-footer {
   .staff-top-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
+  }
+
+  .unit-status-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .assessment-progress {
+    flex: none;
+    width: 100%;
+  }
+
+  .assessment-tooltip-row {
+    grid-template-columns: 1fr;
+    gap: 0.18rem;
+  }
+
+  .assessment-tooltip-classes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .unit-assessment {

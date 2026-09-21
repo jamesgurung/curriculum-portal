@@ -31,7 +31,7 @@ public static partial class Api
       return Results.Ok();
     });
 
-    app.MapGet("/bromcom/assessment-columns/refresh", [Authorize(Roles = Roles.Admin)] async Task<IResult> (HttpContext context, BromcomAssessmentService cache) =>
+    app.MapGet("/bromcom/assessments/refresh", [Authorize(Roles = Roles.Admin)] async Task<IResult> (HttpContext context, BromcomAssessmentService cache) =>
     {
       if (!cache.IsConfigured) return Results.Conflict("Bromcom is not configured.");
       await cache.RefreshAsync(context.RequestAborted);
