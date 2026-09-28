@@ -27,6 +27,7 @@ public class CourseEntity : ITableEntity
   public string Specification { get; set; }
   public string BromcomSubject { get; set; }
   public int AssignmentLength { get; set; }
+  public DateTimeOffset? EvaluationUpdatedAt { get; set; }
 
   [JsonIgnore]
   public string Leaders
@@ -74,6 +75,7 @@ public class UnitEntity : ITableEntity
   public int KeyKnowledgeStatus { get; set; }
   public int AssessmentStatus { get; set; }
   public int RevisionQuizStatus { get; set; }
+  public DateTimeOffset? EvaluationUpdatedAt { get; set; }
 }
 
 public interface ICurriculumBlob { }

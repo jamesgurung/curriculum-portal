@@ -156,6 +156,7 @@ public static partial class Api
       {
         unit.RevisionQuizStatus = questionBank.Questions.Count == 0 ? 0 : 1;
       }
+      unit.EvaluationUpdatedAt = DateTimeOffset.UtcNow;
       await courseService.UpdateUnitAsync(unit);
       cache.Invalidate("units");
 
@@ -225,6 +226,7 @@ public static partial class Api
 
       await courseService.UploadBlobAsync(unitId, assessment);
       unit.AssessmentStatus = assessment.Sections.SelectMany(o => o.Questions).Any() ? 1 : 0;
+      unit.EvaluationUpdatedAt = DateTimeOffset.UtcNow;
       await courseService.UpdateUnitAsync(unit);
       cache.Invalidate("units");
 
@@ -265,6 +267,8 @@ public static partial class Api
           {
             return Results.BadRequest(keyKnowledgeError);
           }
+          if (unit.KeyKnowledgeStatus != 2)
+            unit.EvaluationUpdatedAt = DateTimeOffset.UtcNow;
           unit.KeyKnowledgeStatus = 2;
           break;
         case "quiz":
@@ -299,6 +303,8 @@ public static partial class Api
           {
             return Results.BadRequest(assessmentError);
           }
+          if (unit.AssessmentStatus != 2)
+            unit.EvaluationUpdatedAt = DateTimeOffset.UtcNow;
           unit.AssessmentStatus = 2;
           break;
         default:
@@ -349,6 +355,7 @@ public static partial class Api
         }
 
         unit.Order = i;
+        unit.EvaluationUpdatedAt = DateTimeOffset.UtcNow;
         await courseService.UpdateUnitAsync(unit);
       }
 
@@ -381,12 +388,15 @@ public static partial class Api
       }
 
       var value = model.Value?.Trim() ?? string.Empty;
+      var evaluationChanged = false;
       switch (property.ToLowerInvariant())
       {
         case "intent":
+          evaluationChanged = course.Intent != value;
           course.Intent = value;
           break;
         case "specification":
+          evaluationChanged = course.Specification != value;
           course.Specification = value;
           break;
         case "bromcom-subject":
@@ -423,6 +433,8 @@ public static partial class Api
           return Results.BadRequest("Invalid property specified.");
       }
 
+      if (evaluationChanged)
+        course.EvaluationUpdatedAt = DateTimeOffset.UtcNow;
       await courseService.UpdateCourseAsync(course);
       cache.Invalidate("courses");
       if (string.Equals(property, "bromcom-subject", StringComparison.OrdinalIgnoreCase))
@@ -468,15 +480,19 @@ public static partial class Api
       }
 
       var value = model.Value?.Trim() ?? string.Empty;
+      var evaluationChanged = false;
       switch (property.ToLowerInvariant())
       {
         case "rename":
+          evaluationChanged = unit.Title != value;
           unit.Title = value;
           break;
         case "why-this":
+          evaluationChanged = unit.WhyThis != value;
           unit.WhyThis = value;
           break;
         case "why-now":
+          evaluationChanged = unit.WhyNow != value;
           unit.WhyNow = value;
           break;
         case "scheme-url":
@@ -489,6 +505,23 @@ public static partial class Api
           unit.MarkSchemeUrl = value;
           break;
         case "checklist":
+          if (!context.User.IsInRole(Roles.Admin))
+          {
+            var submittedStatuses = value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+              .Select(pair => pair.Split(',', StringSplitOptions.TrimEntries)).ToList();
+            if (submittedStatuses.Any(parts => parts.Length != 2 || string.IsNullOrEmpty(parts[0]) || parts[1] is not "0" and not "1" and not "2")
+              || submittedStatuses.GroupBy(parts => parts[0], StringComparer.Ordinal).Any(group => group.Count() > 1))
+              return Results.BadRequest("Invalid checklist.");
+
+            var exemptIds = (unit.Checklist ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+              .Select(pair => pair.Split(',', StringSplitOptions.TrimEntries))
+              .Where(parts => parts.Length > 1 && parts[1] == "2" && config.ChecklistItems.Any(item => item.Id == parts[0]))
+              .Select(parts => parts[0]).ToHashSet(StringComparer.Ordinal);
+            if (submittedStatuses.Any(parts => parts[1] == "2" && !exemptIds.Contains(parts[0]))
+              || exemptIds.Any(id => !submittedStatuses.Any(parts => parts[0] == id && parts[1] == "2")))
+              return Results.Forbid();
+          }
+
           unit.Checklist = value;
           break;
         case "bromcom-column":
@@ -520,12 +553,15 @@ public static partial class Api
             return Results.BadRequest("Invalid term specified.");
           }
 
+          evaluationChanged = unit.Term != value;
           unit.Term = value;
           break;
         default:
           return Results.BadRequest("Invalid property specified.");
       }
 
+      if (evaluationChanged)
+        unit.EvaluationUpdatedAt = DateTimeOffset.UtcNow;
       await courseService.UpdateUnitAsync(unit);
       cache.Invalidate("units");
       if (string.Equals(property, "bromcom-column", StringComparison.OrdinalIgnoreCase))
@@ -570,7 +606,8 @@ public static partial class Api
         Checklist = string.Empty,
         KeyKnowledgeStatus = 0,
         AssessmentStatus = 0,
-        MarkSchemeUrl = string.Empty
+        MarkSchemeUrl = string.Empty,
+        EvaluationUpdatedAt = DateTimeOffset.UtcNow
       };
 
       await courseService.UpdateUnitAsync(unit);

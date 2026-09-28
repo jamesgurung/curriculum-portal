@@ -15,8 +15,7 @@ public sealed class CourseEvaluationService(
   internal static CourseEvaluationUnitResult ResolveUnitEvaluation(IReadOnlyList<UnitEntity> units, CourseEvaluation evaluation, string unitId) =>
     ResolveUnitEvaluations(units, evaluation).GetValueOrDefault(unitId)?.Evaluation;
 
-  internal async Task<CourseEvaluationStatus> GetStatusAsync(CourseEntity course, IReadOnlyList<UnitEntity> units, CourseEvaluation evaluation,
-    CancellationToken cancellationToken = default)
+  internal CourseEvaluationStatus GetStatus(CourseEntity course, IReadOnlyList<UnitEntity> units, CourseEvaluation evaluation)
   {
     ArgumentNullException.ThrowIfNull(course);
     ArgumentNullException.ThrowIfNull(units);
@@ -24,49 +23,24 @@ public sealed class CourseEvaluationService(
 
     var resolvedUnitEvaluations = ResolveUnitEvaluations(units, evaluation);
 
-    var legacyUnitIds = new HashSet<string>(StringComparer.Ordinal);
-    if (!evaluation.Overall.EvaluationSourceUpdatedAt.HasValue)
-      legacyUnitIds.UnionWith(units.Select(o => o.RowKey));
-    legacyUnitIds.UnionWith(resolvedUnitEvaluations
-      .Where(o => !o.Value.Evaluation.EvaluationSourceUpdatedAt.HasValue)
-      .Select(o => o.Key));
-
-    var lastModifiedTasks = legacyUnitIds.ToDictionary(
-      o => o,
-      o => courseService.GetEvaluationContentLastModifiedAsync(o, cancellationToken),
-      StringComparer.Ordinal);
-    await Task.WhenAll(lastModifiedTasks.Values);
-    var legacyContentUpdatedAt = lastModifiedTasks.ToDictionary(o => o.Key, o => o.Value.Result, StringComparer.Ordinal);
-
     var currentUnitIds = units.Select(o => o.RowKey).ToList();
     var overviewSourceUnitIds = evaluation.Overall.SourceUnitIds
       ?? evaluation.Units.Select(o => o.UnitId).Where(o => !string.IsNullOrWhiteSpace(o)).ToList();
     var overviewRosterChanged = !overviewSourceUnitIds.SequenceEqual(currentUnitIds, StringComparer.Ordinal);
-    var isOverviewOutdated = !string.Equals(GetModelName(evaluation.Overall.Model), options.OpenAIModel, StringComparison.Ordinal);
-    if (evaluation.Overall.EvaluationSourceUpdatedAt.HasValue)
-    {
-      var currentSourceUpdatedAt = units.Select(o => o.Timestamp ?? DateTimeOffset.MinValue)
-        .Append(course.Timestamp ?? DateTimeOffset.MinValue)
-        .Max();
-      isOverviewOutdated |= currentSourceUpdatedAt > evaluation.Overall.EvaluationSourceUpdatedAt.Value || overviewRosterChanged;
-    }
-    else if (evaluation.Overall.GeneratedAt != default)
-    {
-      isOverviewOutdated |= course.Timestamp > evaluation.Overall.GeneratedAt
-        || units.Any(o => o.Timestamp > evaluation.Overall.GeneratedAt)
-        || legacyContentUpdatedAt.Values.Any(o => o > evaluation.Overall.GeneratedAt)
-        || overviewRosterChanged;
-    }
+    var currentSourceUpdatedAt = units.Select(o => o.EvaluationUpdatedAt ?? DateTimeOffset.MinValue)
+      .Append(course.EvaluationUpdatedAt ?? DateTimeOffset.MinValue)
+      .Max();
+    var isOverviewOutdated = !string.Equals(GetModelName(evaluation.Overall.Model), options.OpenAIModel, StringComparison.Ordinal)
+      || !evaluation.Overall.EvaluationSourceUpdatedAt.HasValue
+      || currentSourceUpdatedAt > evaluation.Overall.EvaluationSourceUpdatedAt.Value
+      || overviewRosterChanged;
 
     var outdatedUnitIds = currentUnitIds.Where(o => !resolvedUnitEvaluations.ContainsKey(o)).ToHashSet(StringComparer.Ordinal);
     foreach (var item in resolvedUnitEvaluations.Values)
     {
       var isOutdated = !string.Equals(GetModelName(item.Evaluation.Model), options.OpenAIModel, StringComparison.Ordinal)
-        || (item.Evaluation.EvaluationSourceUpdatedAt.HasValue
-          ? item.Unit.Timestamp.GetValueOrDefault() > item.Evaluation.EvaluationSourceUpdatedAt.Value
-          : item.Evaluation.GeneratedAt != default
-            && (item.Unit.Timestamp > item.Evaluation.GeneratedAt
-              || legacyContentUpdatedAt.GetValueOrDefault(item.Unit.RowKey) > item.Evaluation.GeneratedAt));
+        || !item.Evaluation.EvaluationSourceUpdatedAt.HasValue
+        || item.Unit.EvaluationUpdatedAt.GetValueOrDefault() > item.Evaluation.EvaluationSourceUpdatedAt.Value;
       if (isOutdated)
         outdatedUnitIds.Add(item.Unit.RowKey);
     }
@@ -96,14 +70,14 @@ public sealed class CourseEvaluationService(
     {
       result.Overall.GeneratedAt = generatedAt;
       result.Overall.Model = ai.ModelName;
-      result.Overall.EvaluationSourceUpdatedAt = units.Select(o => o.Timestamp ?? DateTimeOffset.MinValue)
-        .Append(course.Timestamp ?? DateTimeOffset.MinValue)
+      result.Overall.EvaluationSourceUpdatedAt = units.Select(o => o.EvaluationUpdatedAt ?? DateTimeOffset.MinValue)
+        .Append(course.EvaluationUpdatedAt ?? DateTimeOffset.MinValue)
         .Max();
       result.Overall.SourceUnitIds = units.Select(o => o.RowKey).ToList();
       evaluation.Overall = result.Overall;
     }
 
-    var sourceUpdatedAtByUnitId = units.ToDictionary(o => o.RowKey, o => o.Timestamp ?? DateTimeOffset.MinValue, StringComparer.Ordinal);
+    var sourceUpdatedAtByUnitId = units.ToDictionary(o => o.RowKey, o => o.EvaluationUpdatedAt ?? DateTimeOffset.MinValue, StringComparer.Ordinal);
     foreach (var unitResult in result.Units)
     {
       if (!sourceUpdatedAtByUnitId.TryGetValue(unitResult.UnitId, out var sourceUpdatedAt)) continue;
@@ -159,7 +133,7 @@ public sealed class CourseEvaluationService(
 
         evaluatedCourseCount++;
         var courseUnits = unitsByCourseId[course.RowKey].ToList();
-        var status = await GetStatusAsync(course, courseUnits, evaluation, cancellationToken);
+        var status = GetStatus(course, courseUnits, evaluation);
         var state = new CourseEvaluationRefreshCourse(course, courseUnits, evaluation, courseIndex);
         if (status.IsOverviewOutdated)
         {

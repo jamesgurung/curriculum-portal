@@ -1806,6 +1806,11 @@ body.evaluation-layout .app-footer {
   color: var(--checklist-exempt);
 }
 
+.checklist-radio:disabled {
+  color: var(--border-strong);
+  cursor: default;
+}
+
 .checklist-radio:checked {
   background: currentColor;
   box-shadow: inset 0 0 0 2px var(--panel-elevated);

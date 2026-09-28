@@ -1146,6 +1146,7 @@ function buildChecklistEditor(checklistValue) {
   for (const item of configuredChecklistItems) {
     const row = document.createElement('div');
     row.className = 'checklist-editor-row';
+    const status = normalizeChecklistStatus(statuses[item.id]);
 
     const controls = document.createElement('div');
     controls.className = 'checklist-editor-controls';
@@ -1161,7 +1162,8 @@ function buildChecklistEditor(checklistValue) {
       input.value = option.value;
       input.title = option.label;
       input.setAttribute('aria-label', `${option.label}: ${item.title}`);
-      input.checked = normalizeChecklistStatus(statuses[item.id]) === Number(option.value);
+      input.checked = status === Number(option.value);
+      input.disabled = !isAdmin && (status === 2 || option.value === '2');
 
       label.appendChild(input);
       controls.appendChild(label);
@@ -1806,7 +1808,7 @@ function openEditModal(courseId, unitId, property) {
   if (config.input === 'select') {
     elements.modalSelect.focus();
   } else if (config.input === 'checklist') {
-    elements.modalChecklist.querySelector('input[type="radio"]:checked, input[type="radio"]')?.focus();
+    elements.modalChecklist.querySelector('input[type="radio"]:enabled:checked, input[type="radio"]:enabled')?.focus();
   } else {
     elements.modalText.focus();
   }

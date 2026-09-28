@@ -42,7 +42,7 @@ public class CourseEvaluationModel(CourseService courseService, CourseEvaluation
     Units = Evaluation is null ? [] : await courseService.ListUnitsAsync(courseId);
     if (Evaluation is not null)
     {
-      var status = await evaluationService.GetStatusAsync(Course, Units, Evaluation, HttpContext.RequestAborted);
+      var status = evaluationService.GetStatus(Course, Units, Evaluation);
       IsOverviewStale = status.IsOverviewOutdated;
       StaleUnitIds.UnionWith(status.OutdatedUnitIds);
     }

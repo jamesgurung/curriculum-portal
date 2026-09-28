@@ -54,7 +54,7 @@ public class BuildModel(CourseService courseService, CourseEvaluationService eva
       if (evaluation is not null)
       {
         var units = await courseService.ListUnitsAsync(courseId, HttpContext.RequestAborted);
-        var status = await evaluationService.GetStatusAsync(course, units, evaluation, HttpContext.RequestAborted);
+        var status = evaluationService.GetStatus(course, units, evaluation);
         var unitEvaluation = status.UnitEvaluations.GetValueOrDefault(unitId);
         IsKeyKnowledgeFeedbackStale = status.OutdatedUnitIds.Contains(unitId);
         KeyKnowledgeFeedback = (unitEvaluation?.KeyKnowledge?.RecommendedActions ?? [])

@@ -55,6 +55,8 @@ public class AuditModel(CourseService storage, ConfigService config) : PageModel
     if (course.KeyStage == 3)
       followup.Criteria.Add(new FollowupCriterion { Name = "Key knowledge defined" });
 
+    followup.Criteria.Add(new FollowupCriterion { Name = "Linked Bromcom data entry column" });
+
     foreach (var item in checklistItems)
       followup.Criteria.Add(new FollowupCriterion { Name = item.Title });
     if (course.KeyStage == 3 && evaluation is not null)
@@ -122,6 +124,8 @@ public class AuditModel(CourseService storage, ConfigService config) : PageModel
 
     if (includeKeyKnowledge)
       row.Cells.Add(new FollowupCell { Complete = unit.KeyKnowledgeStatus == 2 });
+
+    row.Cells.Add(new FollowupCell { Complete = !string.IsNullOrWhiteSpace(unit.BromcomColumn) });
 
     foreach (var item in checklistItems)
     {
