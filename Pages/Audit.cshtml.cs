@@ -128,7 +128,7 @@ public class AuditModel(CourseService storage, ConfigService config) : PageModel
       row.Cells.Add(new FollowupCell
       {
         Complete = IsChecklistItemCompleteOrExempt(unit.Checklist, item.Id),
-        Important = string.Equals(item.Id, "assessedTasks", StringComparison.OrdinalIgnoreCase)
+        Important = item.Required
       });
     }
 

@@ -145,6 +145,7 @@ public class ChecklistItemConfig
 {
   public string Id { get; set; } = string.Empty;
   public string Title { get; set; } = string.Empty;
+  public bool Required { get; set; }
 }
 
 public class AssignmentsPageData

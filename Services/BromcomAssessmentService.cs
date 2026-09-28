@@ -235,7 +235,7 @@ public sealed class BromcomAssessmentService : BackgroundService
         : null))
       .Where(item => item is not null)
       .GroupBy(item => item.Class.Name, StringComparer.OrdinalIgnoreCase)
-      .Select(group => new { Class = group.First().Class, StudentIds = group.Select(item => item.StudentId).ToHashSet() })
+      .Select(group => new { group.First().Class, StudentIds = group.Select(item => item.StudentId).ToHashSet() })
       .OrderBy(item => item.Class.Name, StringComparer.OrdinalIgnoreCase)
       .ToList();
     var resultStudents = results

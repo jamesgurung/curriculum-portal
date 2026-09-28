@@ -95,17 +95,19 @@ Deploy effortlessly to Microsoft Azure.
         }
         ```
 
-    - Upload `checklist.json` containing the checklist items to show for each unit. Each `id` must be unique and may only contain letters, numbers, hyphens, and underscores.
+    - Upload `checklist.json` containing the checklist items to show for each unit. Each `id` must be unique and may only contain letters, numbers, hyphens, and underscores. On `/courses/audit`, incomplete items with `required: true` have a red cross; `required: false` or an omitted `required` has a grey cross.
 
         ```json
         [
           {
             "id": "participation",
-            "title": "Every lesson includes high-participation activities throughout"
+            "title": "Every lesson includes high-participation activities throughout",
+            "required": true
           },
           {
             "id": "vocabulary",
-            "title": "Tier 3 vocabulary is identified and explicitly taught"
+            "title": "Tier 3 vocabulary is identified and explicitly taught",
+            "required": false
           }
         ]
         ```
