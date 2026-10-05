@@ -29,17 +29,17 @@ public sealed class BromcomService : IBehaviourRecordService
     if (positiveStudentsByBehaviour.Values.Sum(o => o.Count) == 0 && negativeStudentsByBehaviour.Values.Sum(o => o.Count) == 0) return (0, 0);
 
     var behaviours = await GetBromcomBehavioursAsync();
-    var subjectNames = await GetSubjectNamesByCodeAsync();
+    var subjectNames = await GetSubjectNamesByKeyStageAndCodeAsync();
     var positiveCount = 0;
     foreach (var group in positiveStudentsByBehaviour.Where(o => o.Value.Count > 0))
     {
-      positiveCount += await IssueBehaviourAsync(group.Value, behaviours.StaffId, behaviours.Positive, GetComment(group.Key, subjectNames, false));
+      positiveCount += await IssueBehaviourAsync(group.Value, behaviours.StaffId, behaviours.Positive, student => GetComment(group.Key, student, subjectNames, false));
     }
 
     var negativeCount = 0;
     foreach (var group in negativeStudentsByBehaviour.Where(o => o.Value.Count > 0))
     {
-      negativeCount += await IssueBehaviourAsync(group.Value, behaviours.StaffId, behaviours.Negative, GetComment(group.Key, subjectNames, true));
+      negativeCount += await IssueBehaviourAsync(group.Value, behaviours.StaffId, behaviours.Negative, student => GetComment(group.Key, student, subjectNames, true));
     }
 
     return (positiveCount, negativeCount);
@@ -61,15 +61,15 @@ public sealed class BromcomService : IBehaviourRecordService
     }
   }
 
-  private async Task<Dictionary<string, string>> GetSubjectNamesByCodeAsync()
+  private async Task<Dictionary<string, string>> GetSubjectNamesByKeyStageAndCodeAsync()
   {
     return (await _courseService.ListCoursesAsync())
       .Where(o => !string.IsNullOrWhiteSpace(o.SubjectCode) && !string.IsNullOrWhiteSpace(o.Name))
-      .GroupBy(o => o.SubjectCode.Trim(), StringComparer.OrdinalIgnoreCase)
+      .GroupBy(o => $"{o.KeyStage}:{o.SubjectCode.Trim()}", StringComparer.OrdinalIgnoreCase)
       .ToDictionary(g => g.Key, g => g.First().Name.Trim(), StringComparer.OrdinalIgnoreCase);
   }
 
-  private async Task<int> IssueBehaviourAsync(IEnumerable<User> students, int staffId, BromcomBehaviourConfig behaviour, string comment)
+  private async Task<int> IssueBehaviourAsync(IEnumerable<User> students, int staffId, BromcomBehaviourConfig behaviour, Func<User, string> getComment)
   {
     var count = 0;
     foreach (var student in students.DistinctBy(o => o.Id))
@@ -83,7 +83,7 @@ public sealed class BromcomService : IBehaviourRecordService
         LocationId = null,
         Date = DateTime.Now,
         Points = behaviour.Points,
-        Comment = comment,
+        Comment = getComment(student),
         InternalComment = "Issued automatically by the Curriculum Portal"
       }, CancellationToken.None);
       count++;
@@ -92,12 +92,14 @@ public sealed class BromcomService : IBehaviourRecordService
     return count;
   }
 
-  private static string GetComment(string behaviourCode, Dictionary<string, string> subjectNames, bool isNegative)
+  private static string GetComment(string behaviourCode, User student, Dictionary<string, string> subjectNames, bool isNegative)
   {
     var completionWord = isNegative ? "incomplete" : "complete";
     if (behaviourCode.Equals("KS3", StringComparison.OrdinalIgnoreCase)) return $"Knowledge quizzes {completionWord}";
 
-    return $"{(subjectNames.TryGetValue(behaviourCode, out var subjectName) ? subjectName : behaviourCode)} knowledge quiz {completionWord}";
+    var yearGroup = ClassNameParser.GetLeadingNumber(student.TutorGroup);
+    var keyStage = yearGroup >= 12 ? 5 : yearGroup >= 10 ? 4 : 3;
+    return $"{(subjectNames.TryGetValue($"{keyStage}:{behaviourCode}", out var subjectName) ? subjectName : behaviourCode)} knowledge quiz {completionWord}";
   }
 
   private static BromcomBehaviourSettings ParseBromcomBehaviours(string json)
