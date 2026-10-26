@@ -1,6 +1,5 @@
 using Azure.Storage.Blobs;
 using CsvHelper;
-using CsvHelper.Configuration;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
@@ -75,29 +74,27 @@ public class ConfigService(AppOptions options, BlobServiceClient blobServiceClie
 
   private List<User> ParseUsers(string csv, bool isTeacher)
   {
-    var config = CreateCsvConfiguration();
     using var reader = new StringReader(csv);
-    using var csvReader = new CsvReader(reader, config);
+    using var csvReader = CsvReader.Create(reader, CreateCsvReaderOptions());
     var records = new List<User>();
-    csvReader.Read();
     csvReader.ReadHeader();
     while (csvReader.Read())
     {
-      if (!int.TryParse(csvReader.GetField("Id"), out var id)) continue;
-      var email = csvReader.GetField("Email").Trim().ToLowerInvariant();
+      if (!int.TryParse(GetCsvField(csvReader, "Id"), out var id)) continue;
+      var email = GetCsvField(csvReader, "Email").Trim().ToLowerInvariant();
       if (email.Length == 0) continue;
 
-      var classes = csvReader.GetField("Classes").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(o => o.Length > 0)
+      var classes = GetCsvField(csvReader, "Classes").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(o => o.Length > 0)
         .Distinct(StringComparer.OrdinalIgnoreCase).Order().ToList();
-      var tutorGroup = isTeacher ? null : (csvReader.GetField("TutorGroup") ?? string.Empty).Trim();
-      var pupilPremium = !isTeacher && bool.TryParse(csvReader.GetField("PupilPremium"), out var parsedPupilPremium) && parsedPupilPremium;
+      var tutorGroup = isTeacher ? null : (GetCsvField(csvReader, "TutorGroup") ?? string.Empty).Trim();
+      var pupilPremium = !isTeacher && bool.TryParse(GetCsvField(csvReader, "PupilPremium"), out var parsedPupilPremium) && parsedPupilPremium;
 
       records.Add(new User
       {
         Id = id,
         Email = email,
-        FirstName = (csvReader.GetField("FirstName") ?? string.Empty).Trim(),
-        LastName = (csvReader.GetField("LastName") ?? string.Empty).Trim(),
+        FirstName = (GetCsvField(csvReader, "FirstName") ?? string.Empty).Trim(),
+        LastName = (GetCsvField(csvReader, "LastName") ?? string.Empty).Trim(),
         TutorGroup = isTeacher ? GetTeacherTutorGroup(classes) : tutorGroup,
         Classes = classes,
         IsTeacher = isTeacher,
@@ -121,14 +118,13 @@ public class ConfigService(AppOptions options, BlobServiceClient blobServiceClie
   private static List<Holiday> ParseHolidays(string csv)
   {
     using var reader = new StringReader(csv);
-    using var csvReader = new CsvReader(reader, CreateCsvConfiguration());
+    using var csvReader = CsvReader.Create(reader, CreateCsvReaderOptions());
     var records = new List<Holiday>();
-    csvReader.Read();
     csvReader.ReadHeader();
     while (csvReader.Read())
     {
-      if (!DateOnly.TryParseExact(csvReader.GetField("Start"), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
-        || !DateOnly.TryParseExact(csvReader.GetField("End"), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var end)
+      if (!DateOnly.TryParseExact(GetCsvField(csvReader, "Start"), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
+        || !DateOnly.TryParseExact(GetCsvField(csvReader, "End"), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var end)
         || end < start) continue;
 
       records.Add(new Holiday
@@ -146,14 +142,13 @@ public class ConfigService(AppOptions options, BlobServiceClient blobServiceClie
     if (string.IsNullOrWhiteSpace(csv)) return [];
 
     using var reader = new StringReader(csv.Trim());
-    using var csvReader = new CsvReader(reader, CreateCsvConfiguration());
+    using var csvReader = CsvReader.Create(reader, CreateCsvReaderOptions());
     var records = new HashSet<int>();
-    if (!csvReader.Read()) return records;
 
     csvReader.ReadHeader();
     while (csvReader.Read())
     {
-      if (!int.TryParse(csvReader.GetField("UserId"), out var userId)) continue;
+      if (!int.TryParse(GetCsvField(csvReader, "UserId"), out var userId)) continue;
       records.Add(userId);
     }
 
@@ -165,14 +160,13 @@ public class ConfigService(AppOptions options, BlobServiceClient blobServiceClie
     if (string.IsNullOrWhiteSpace(csv)) return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     using var reader = new StringReader(csv.Trim());
-    using var csvReader = new CsvReader(reader, CreateCsvConfiguration());
+    using var csvReader = CsvReader.Create(reader, CreateCsvReaderOptions());
     var records = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    if (!csvReader.Read()) return records;
 
     csvReader.ReadHeader();
     while (csvReader.Read())
     {
-      var email = (csvReader.GetField("Email") ?? string.Empty).Trim().ToLowerInvariant();
+      var email = (GetCsvField(csvReader, "Email") ?? string.Empty).Trim().ToLowerInvariant();
       if (email.Length == 0) continue;
       records.Add(email);
     }
@@ -214,15 +208,20 @@ public class ConfigService(AppOptions options, BlobServiceClient blobServiceClie
     }
   }
 
-  private static CsvConfiguration CreateCsvConfiguration()
+  private static string GetCsvField(CsvReader reader, string name) =>
+    reader.TryGetFieldIndex(name, out var index) && index < reader.FieldCount ? reader.GetString(index) : null;
+
+  private static CsvReaderOptions CreateCsvReaderOptions()
   {
-    return new CsvConfiguration(CultureInfo.InvariantCulture)
+    return new CsvReaderOptions
     {
-      HasHeaderRecord = true,
-      MissingFieldFound = null,
-      TrimOptions = TrimOptions.Trim,
-      HeaderValidated = null,
-      IgnoreBlankLines = true
+      Separator = ',',
+      HasHeader = true,
+      TrimWhitespace = true,
+      WhitespaceCharacters = " ",
+      MalformedData = CsvMalformedDataHandling.Throw,
+      SkipEmptyLines = true,
+      FormatProvider = CultureInfo.InvariantCulture
     };
   }
 

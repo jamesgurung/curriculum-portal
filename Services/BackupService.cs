@@ -71,7 +71,11 @@ public class BackupService
       var entry = archive.CreateEntry($"tables/{table.Name}.csv", CompressionLevel.SmallestSize);
       await using var entryStream = await entry.OpenAsync(cancellationToken);
       await using var writer = new StreamWriter(entryStream);
-      await using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+      await using var csv = CsvWriter.Create(writer, new CsvWriterOptions
+      {
+        FormatProvider = CultureInfo.InvariantCulture,
+        Quoting = CsvQuoting.WhenNeededOrWhitespace
+      });
       var propertyNames = new SortedSet<string>(StringComparer.Ordinal);
       var propertyTypes = new Dictionary<string, string>(StringComparer.Ordinal);
       var tableClient = _tableServiceClient.GetTableClient(table.Name);
@@ -89,13 +93,13 @@ public class BackupService
       }
 
       WriteHeader(csv, propertyNames);
-      await csv.NextRecordAsync();
+      await csv.EndRecordAsync(cancellationToken);
 
       var isFirstEntity = true;
       await foreach (var entity in tableClient.QueryAsync<TableEntity>(cancellationToken: cancellationToken))
       {
         WriteEntity(csv, entity, propertyNames, propertyTypes, isFirstEntity);
-        await csv.NextRecordAsync();
+        await csv.EndRecordAsync(cancellationToken);
         isFirstEntity = false;
       }
     }
