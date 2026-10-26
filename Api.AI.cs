@@ -163,10 +163,23 @@ public static partial class Api
         return Results.BadRequest("This course has too many units to update safely in one transaction.");
       }
 
+      var unitGroups = new[] { units };
+      if (courseId == "gcse-mathematics")
+      {
+        string[] prefixes = ["Foundation - ", "Foundation Plus - ", "Higher - "];
+        unitGroups = prefixes.Select(prefix => units.Where(unit => unit.Title?.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) == true).ToList()).ToArray();
+        if (unitGroups.Sum(group => group.Count) != units.Count)
+          return Results.BadRequest("Every unit title must start with 'Foundation - ', 'Foundation Plus - ', or 'Higher - '. No changes were made.");
+
+        if (unitGroups.Any(group => group.Count == 0))
+          return Results.BadRequest("Foundation, Foundation Plus, and Higher must each contain at least one unit. No changes were made.");
+      }
+
       var expectedUnitIds = units.Select(unit => unit.RowKey).ToHashSet(StringComparer.Ordinal);
       return StreamAiOperation(async ct =>
       {
-        var rationales = await ai.EnhanceCourseRationalesAsync(course, units, ct);
+        var responses = await Task.WhenAll(unitGroups.Select(group => ai.EnhanceCourseRationalesAsync(course, group, ct)));
+        var rationales = responses.SelectMany(response => response).ToList();
         if (rationales.Count != units.Count)
           throw new InvalidOperationException("The AI did not return every unit exactly once. No changes were made.");
 

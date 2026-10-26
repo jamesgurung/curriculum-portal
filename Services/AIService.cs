@@ -618,13 +618,16 @@ public sealed partial class AIService : IDisposable
 
     using var tokenReservation = await _tokenBudget.ReserveAsync(Math.Max(32000, units.Count * 4000), cancellationToken);
     var client = _aiClient.GetResponsesClient();
-    var systemMessage = """
+    var knowledgeGuidance = course.KeyStage is 4 or 5
+      ? " If provided, key knowledge statements are illustrative, not exhaustive. Each unit covers the full demands of the qualification specification for its content. Do not interpret limited or missing key knowledge as limited curriculum coverage."
+      : string.Empty;
+    var systemMessage = $"""
       You are an experienced secondary school teacher and expert curriculum designer. The user will provide a course and all its units. Your task is to enhance the "Why this?" and "Why now?" statements for every unit.
 
       # Requirements
       - "Why this?" must explain the curricular purpose and benefits of learning the content in its own right. It must not justify inclusion by referring to an examination or specification.
       - "Why now?" must explain why the unit is taught at this point, which might include meaningful prerequisites, progression, or connections with earlier and later units where the supplied curriculum supports them.
-      - Use the course name, curriculum intent, unit titles, existing rationales, and key knowledge to understand the curriculum as a whole.
+      - Use the course name, curriculum intent, unit titles, existing rationales, and key knowledge to understand the curriculum as a whole.{knowledgeGuidance}
       - Preserve accurate meaning and intentional curriculum choices. Improve clarity, specificity, coherence, and sequencing explanations without inventing unsupported facts or relationships.
       - If an existing statement is already strong, preserve its meaning and make only necessary improvements. If it is missing, write an appropriate statement from the supplied context.
       - If an existing statement is inaccurate or misleading, correct it. If it is accurate but weak, improve and expand upon it.
@@ -645,7 +648,10 @@ public sealed partial class AIService : IDisposable
     var knowledgeTasks = units.Select(unit => _courseService.GetBlobAsync<KeyKnowledge>(unit.RowKey, cancellationToken));
     var keyKnowledge = await Task.WhenAll(knowledgeTasks);
     var input = new StringBuilder();
-    input.Append(CultureInfo.InvariantCulture, $"# Course\n\n## Course name\n\n{course.Name}\n\n## Curriculum intent\n\n{(string.IsNullOrWhiteSpace(course.Intent) ? "(Not provided.)" : course.Intent)}\n\n# Units\n\n");
+    input.Append(CultureInfo.InvariantCulture, $"# Course\n\n## Course name\n\n{course.Name}\n\n## Curriculum intent\n\n{(string.IsNullOrWhiteSpace(course.Intent) ? "(Not provided.)" : course.Intent)}\n\n");
+    if (!string.IsNullOrWhiteSpace(course.Specification))
+      input.Append(CultureInfo.InvariantCulture, $"## Specification\n\n{course.Specification}\n\n");
+    input.Append("# Units\n\n");
 
     for (var i = 0; i < units.Count; i++)
     {
