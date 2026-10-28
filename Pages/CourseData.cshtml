@@ -1,0 +1,372 @@
+@page "/courses/data"
+@using CurriculumPortal
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.Teacher)]
+@model CourseDataModel
+@{
+  Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Course Data Completion</title>
+  <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/css/layout.css" asp-append-version="true" />
+<style>
+  @@page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  body {
+    display: block;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .data-page {
+    box-sizing: border-box;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    font-family: Arial, sans-serif;
+    font-size: 8pt;
+    color: #202124;
+  }
+
+  .data-page * {
+    box-sizing: border-box;
+    margin: 0;
+  }
+
+  .data-department + .data-department {
+    break-before: right;
+  }
+
+  .data-page-title {
+    display: none;
+  }
+
+  .data-department-title {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .data-summary {
+    margin-bottom: 8px;
+  }
+
+  .data-legend {
+    margin-bottom: 16px;
+  }
+
+  .data-course {
+    margin-bottom: 24px;
+  }
+
+  .data-course:last-child {
+    margin-bottom: 0;
+  }
+
+  .data-course-title {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .data-year {
+    margin-bottom: 16px;
+  }
+
+  .data-year-title {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .data-department-title,
+  .data-summary,
+  .data-legend,
+  .data-course-title,
+  .data-year-title {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .data-table {
+    width: min(100%, calc(26mm + var(--unit-count) * 12mm));
+    min-width: min(100%, calc(26mm + var(--unit-count) * 6mm));
+    border-collapse: collapse;
+    table-layout: fixed;
+    break-before: avoid;
+    break-inside: avoid;
+    page-break-before: avoid;
+    page-break-inside: avoid;
+  }
+
+  .data-table caption {
+    text-align: left;
+  }
+
+  .data-table th,
+  .data-table td {
+    border: 1px solid #dadce0;
+    padding: 0;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .data-table th {
+    background: #f8f9fa;
+  }
+
+  .data-table col:first-child {
+    width: 26mm;
+  }
+
+  .data-row-heading {
+    padding-left: 1px !important;
+    padding-right: 1px !important;
+    text-align: left;
+  }
+
+  .data-table tbody .data-row-heading {
+    font-weight: normal;
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: normal;
+  }
+
+  .data-unit-heading {
+    font-size: 7pt;
+    text-align: center;
+    vertical-align: bottom !important;
+  }
+
+  .data-term-heading {
+    padding: 2px 1px !important;
+    font-size: 6.5pt;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .data-unit-heading-content {
+    align-items: flex-end;
+    display: flex;
+    height: 52mm;
+    justify-content: center;
+  }
+
+  .data-unit-heading-text {
+    display: inline-block;
+    height: 100%;
+    line-height: 1.15;
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-align: start;
+    text-overflow: ellipsis;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    word-break: normal;
+    writing-mode: vertical-rl;
+  }
+
+  .data-status {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .data-symbol {
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .data-entered {
+    color: #137333;
+  }
+
+  .data-not-entered {
+    color: #bdc1c6;
+  }
+
+  .data-unavailable {
+    color: #b06000;
+  }
+
+  .data-table thead {
+    break-after: avoid;
+    display: table-header-group;
+    page-break-after: avoid;
+  }
+
+  .data-table tbody tr:first-child {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  .data-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .data-page,
+  .data-page * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+</style>
+</head>
+<body>
+<main class="data-page">
+  <h1 class="data-page-title">Course Data Completion</h1>
+
+  @if (Model.Departments.Count == 0)
+  {
+    <p>No course summaries could be generated.</p>
+  }
+
+  @foreach (var department in Model.Departments)
+  {
+    <section class="data-department">
+      <h2 class="data-department-title">Head of Department: @department.Name</h2>
+      <p class="data-summary">Course data completion – all terms</p>
+      <p class="data-legend">
+        <span class="data-symbol data-entered" aria-hidden="true">&#x2705;</span> At least 50% entered
+        &nbsp; <span class="data-symbol data-not-entered" aria-hidden="true">&#x2715;</span> Below 50% entered
+        &nbsp; <span class="data-symbol data-unavailable" aria-hidden="true">&#x26A0;&#xFE0E;</span> Missing/invalid link or cached data unavailable
+      </p>
+
+      @foreach (var course in department.Courses)
+      {
+        <section class="data-course">
+          @foreach (var year in course.YearGroups)
+          {
+            <section class="data-year">
+              @if (year.Units.Count == 0)
+              {
+                @if (year == course.YearGroups[0])
+                {
+                  <h3 class="data-course-title">@course.Name</h3>
+                }
+                <h4 class="data-year-title">Year @year.Year</h4>
+                <p>No units configured.</p>
+              }
+              @if (year.Units.Count > 0)
+              {
+                <table class="data-table" style="--unit-count: @year.Units.Count" aria-label="@course.Name – Year @year.Year">
+                  <caption>
+                    @if (year == course.YearGroups[0])
+                    {
+                      <h3 class="data-course-title">@course.Name</h3>
+                    }
+                    <h4 class="data-year-title">Year @year.Year</h4>
+                  </caption>
+                  <colgroup>
+                    <col>
+                    @foreach (var unit in year.Units)
+                    {
+                      <col>
+                    }
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th class="data-row-heading" scope="row">Term</th>
+                      @foreach (var term in new[] { "Autumn", "Spring", "Summer", "Unconfigured" })
+                      {
+                        var unitCount = year.Units.Count(unit => term == "Unconfigured"
+                          ? string.IsNullOrWhiteSpace(unit.Term)
+                          : string.Equals(unit.Term, term, StringComparison.OrdinalIgnoreCase));
+                        if (unitCount > 0)
+                        {
+                          <th class="data-term-heading" scope="colgroup" colspan="@unitCount" title="@term">@term</th>
+                        }
+                      }
+                    </tr>
+                    <tr>
+                      <th class="data-row-heading" scope="col">Class</th>
+                      @foreach (var unit in year.Units)
+                      {
+                        <th class="data-unit-heading" scope="col" title="@unit.Title">
+                          <span class="data-unit-heading-content">
+                            <span class="data-unit-heading-text">@unit.Title</span>
+                          </span>
+                        </th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @foreach (var row in year.Rows)
+                    {
+                      <tr>
+                        <th class="data-row-heading" scope="row" title="@row.Name">@row.Name</th>
+                        @foreach (var cell in row.Cells)
+                        {
+                          <td class="data-status">
+                            @if (cell == CourseDataStatus.Entered)
+                            {
+                              <span class="data-symbol data-entered" role="img" aria-label="At least 50% entered" title="At least 50% entered">&#x2705;</span>
+                            }
+                            else if (cell == CourseDataStatus.NotEntered)
+                            {
+                              <span class="data-symbol data-not-entered" role="img" aria-label="Below 50% entered" title="Below 50% entered">&#x2715;</span>
+                            }
+                            else
+                            {
+                              <span class="data-symbol data-unavailable" role="img" aria-label="Missing or invalid assessment link, or cached completion data unavailable" title="Missing or invalid assessment link, or cached completion data unavailable">&#x26A0;&#xFE0E;</span>
+                            }
+                          </td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </section>
+          }
+        </section>
+      }
+    </section>
+  }
+</main>
+
+<script>
+  window.PagedConfig = {
+    auto: false
+  };
+</script>
+<script src="/lib/pagedjs/dist/paged.polyfill.js"></script>
+<script>
+  class CourseDataTableHeaders extends Paged.Handler {
+    renderNode(node, source) {
+      const table = node.parentElement?.closest('table.data-table[data-split-from]');
+      if (!table || table.tHead) return;
+
+      // Restore the caption, headers and column widths before measuring a continued table.
+      const original = source.parentElement.closest('table');
+      table.prepend(original.querySelector('colgroup').cloneNode(true), original.tHead.cloneNode(true));
+      if (original.caption) table.prepend(original.caption.cloneNode(true));
+    }
+  }
+
+  Paged.registerHandlers(CourseDataTableHeaders);
+
+  window.addEventListener('load', async () => {
+    try {
+      await document.fonts.ready;
+      await window.PagedPolyfill.preview();
+    } catch (error) {
+      console.error('The course data print layout could not be prepared.', error);
+    }
+  }, { once: true });
+</script>
+</body>
+</html>

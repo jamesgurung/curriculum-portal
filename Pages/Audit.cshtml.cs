@@ -1,16 +1,21 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace CurriculumPortal;
 
-[Authorize(Roles = Roles.Admin)]
+[Authorize(Roles = Roles.Admin + "," + Roles.Teacher)]
 public class AuditModel(CourseService storage, ConfigService config) : PageModel
 {
   public IReadOnlyList<FollowupDepartment> Departments { get; private set; } = [];
 
-  public async Task OnGetAsync()
+  public async Task<IActionResult> OnGetAsync()
   {
-    var courses = await storage.ListCoursesAsync(HttpContext.RequestAborted);
+    var courses = (await storage.ListCoursesAsync(HttpContext.RequestAborted))
+      .Where(course => User.CanEditCourse(course, config)).ToList();
+    if (courses.Count == 0 && !User.IsInRole(Roles.Admin) && !config.SeniorLeaders.Contains(User.GetEmail()))
+      return Forbid();
+
     var units = await storage.ListUnitsAsync(cancellationToken: HttpContext.RequestAborted);
     var unitsByCourse = units.ToLookup(o => o.PartitionKey);
     var departments = new Dictionary<string, FollowupDepartment>(StringComparer.OrdinalIgnoreCase);
@@ -39,6 +44,7 @@ public class AuditModel(CourseService storage, ConfigService config) : PageModel
     }
 
     Departments = departments.Values.OrderBy(o => o.Name).ToList();
+    return Page();
   }
 
   private static FollowupCourse BuildCourseFollowup(
@@ -48,7 +54,7 @@ public class AuditModel(CourseService storage, ConfigService config) : PageModel
     IReadOnlyList<ChecklistItemConfig> checklistItems)
   {
     var followup = new FollowupCourse { Name = course.Name, HasUnits = units.Count > 0 };
-    followup.Criteria.Add(new FollowupCriterion { Name = "'Why this?' and 'why now?' rationale" });
+    followup.Criteria.Add(new FollowupCriterion { Name = "Term, why this, and why now" });
     followup.Criteria.Add(new FollowupCriterion { Name = "Linked scheme of work" });
     followup.Criteria.Add(new FollowupCriterion { Name = "Assessment and mark scheme" });
 
@@ -112,7 +118,7 @@ public class AuditModel(CourseService storage, ConfigService config) : PageModel
       Name = UnitName(unit),
       Cells =
       [
-        new() { Complete = !string.IsNullOrWhiteSpace(unit.WhyThis) && !string.IsNullOrWhiteSpace(unit.WhyNow) },
+        new() { Complete = !string.IsNullOrWhiteSpace(unit.Term) && !string.IsNullOrWhiteSpace(unit.WhyThis) && !string.IsNullOrWhiteSpace(unit.WhyNow) },
         new() { Complete = !string.IsNullOrWhiteSpace(unit.SchemeUrl) },
         new()
         {

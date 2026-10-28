@@ -1,7 +1,7 @@
 @page "/courses/audit"
 @using CurriculumPortal
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = Roles.Admin)]
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.Teacher)]
 @model AuditModel
 @{
   Layout = null;
@@ -310,7 +310,6 @@
     try {
       await document.fonts.ready;
       await window.PagedPolyfill.preview();
-      window.print();
     } catch (error) {
       console.error('The curriculum follow-up print layout could not be prepared.', error);
     }
