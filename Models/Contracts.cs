@@ -359,6 +359,7 @@ public class AssignmentsStaffDetail
   public string Title { get; set; } = string.Empty;
   public string FirstColumnTitle { get; set; } = string.Empty;
   public bool ClickableRows { get; set; }
+  public bool ShowCompletion { get; set; }
   public List<AssignmentsStaffRow> Rows { get; set; } = [];
   public string QuestionsTitle { get; set; } = string.Empty;
   public List<AssignmentsStaffQuestion> Questions { get; set; } = [];
@@ -382,6 +383,10 @@ public class AssignmentsProgressCell
   public bool HasAssignment { get; set; }
   public int Completed { get; set; }
   public int Total { get; set; }
+  public int Attempted { get; set; }
+  public int FirstTimeCorrect { get; set; }
   public int PupilPremiumCompleted { get; set; }
   public int PupilPremiumTotal { get; set; }
+  public int PupilPremiumAttempted { get; set; }
+  public int PupilPremiumFirstTimeCorrect { get; set; }
 }

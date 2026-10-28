@@ -1129,21 +1129,21 @@ a.assignment-card.is-overdue:hover {
 
 .assignments-table {
   width: 100%;
-  min-width: 620px;
+  min-width: 900px;
   border-collapse: collapse;
   table-layout: fixed;
 }
 
 .assignments-table th,
 .assignments-table td {
-  padding: 0.1rem 0.7rem;
+  padding: 0.55rem 0.6rem;
   border-bottom: 1px solid var(--assignments-border);
   vertical-align: middle;
 }
 
 .assignments-table thead th:not(:first-child),
 .assignments-table tbody td {
-  width: calc((100% - 280px) / 5);
+  width: calc((100% - 320px) / 5);
   text-align: center;
 }
 
@@ -1156,7 +1156,7 @@ a.assignment-card.is-overdue:hover {
 }
 
 .assignments-table thead th:nth-child(2) {
-  opacity: 0.5;
+  color: var(--assignments-faint);
 }
 
 .assignments-table thead th:nth-child(3) {
@@ -1171,13 +1171,16 @@ a.assignment-card.is-overdue:hover {
 }
 
 .assignments-table tbody th {
-  background-color: transparent;
+  background-color: var(--assignments-panel);
 }
 
 .assignments-table-label,
 .assignments-table-row-title {
-  width: 280px;
-  min-width: 280px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 320px;
+  min-width: 320px;
   color: var(--assignments-text-strong);
   text-align: left;
 }
@@ -1190,6 +1193,119 @@ a.assignment-card.is-overdue:hover {
   font-weight: 400;
 }
 
+.assignment-row-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.assignment-row-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignment-row-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.assignment-row-link:hover {
+  text-decoration: underline;
+}
+
+.assignment-row-link:focus-visible,
+.assignments-table-scroller:focus-visible {
+  outline: 2px solid var(--assignments-accent);
+  outline-offset: 3px;
+}
+
+.assignment-row-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.assignment-metric-cohorts {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--assignments-muted);
+  font-size: 0.8rem;
+  line-height: 1.1;
+  text-align: right;
+}
+
+.assignment-metric-chart {
+  --metric-color: var(--assignments-accent);
+  display: grid;
+  gap: 0.15rem;
+  line-height: 1.1;
+}
+
+.assignment-metric-chart.is-accuracy {
+  --metric-color: var(--assignments-ring-active);
+}
+
+.assignment-metric-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.2rem;
+  align-items: center;
+  min-height: 0.88rem;
+  gap: 0.35rem;
+}
+
+.assignment-metric-bar.is-pp {
+  --metric-color: var(--assignments-ring-pp);
+}
+
+.assignment-metric-bar.is-pp .assignment-metric-track {
+  height: 5px;
+}
+
+.assignment-metric-track {
+  display: block;
+  height: 9px;
+  background: var(--assignments-ring-track);
+}
+
+.assignment-metric-fill {
+  display: block;
+  height: 100%;
+  background: var(--metric-color);
+}
+
+.assignment-metric-value {
+  color: var(--assignments-text-strong);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.assignment-metric-pp,
+.assignment-metric-bar.is-pp .assignment-metric-value {
+  color: color-mix(in srgb, var(--assignments-ring-pp) 80%, var(--assignments-text-strong));
+}
+
+.assignment-metric-bar.is-empty .assignment-metric-value {
+  color: var(--assignments-faint);
+}
+
+.assignment-metric-bar.is-empty .assignment-metric-track {
+  background: transparent;
+  border-top: 1px dashed var(--assignments-border-strong);
+  height: 0;
+}
+
 .assignment-pp-badge {
   display: inline-flex;
   align-items: center;
@@ -1200,6 +1316,7 @@ a.assignment-card.is-overdue:hover {
   color: #ffffff;
   font-size: 0.66rem;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .assignments-table-cell {
@@ -1216,18 +1333,14 @@ a.assignment-card.is-overdue:hover {
 
 .assignments-table tbody tr.is-clickable:hover > th,
 .assignments-table tbody tr.is-clickable:hover > td,
-.assignments-table tbody tr.is-clickable:focus-visible > th,
-.assignments-table tbody tr.is-clickable:focus-visible > td {
+.assignments-table tbody tr.is-clickable:focus-within > th,
+.assignments-table tbody tr.is-clickable:focus-within > td {
   background-color: var(--assignments-accent-soft);
   color: var(--assignments-text-strong);
 }
 
 .assignments-table tbody tr.is-clickable:focus-visible {
   outline: none;
-}
-
-.assignments-table tbody td:nth-child(2) .assignment-progress {
-  opacity: 0.5;
 }
 
 .assignments-table tbody td:nth-child(3) {
@@ -1238,6 +1351,7 @@ a.assignment-card.is-overdue:hover {
   display: inline-block;
   width: 100%;
   min-height: 1.5rem;
+  color: var(--assignments-faint);
 }
 
 .assignment-questions {
@@ -1535,6 +1649,21 @@ a.assignment-card.is-overdue:hover {
 @media (max-width: 800px) {
   .assignments-page {
     padding: 0.55rem;
+  }
+
+  .assignments-table-label,
+  .assignments-table-row-title {
+    width: 150px;
+    min-width: 150px;
+  }
+
+  .assignments-table thead th:not(:first-child),
+  .assignments-table tbody td {
+    width: calc((100% - 150px) / 5);
+  }
+
+  .assignments-table {
+    min-width: 860px;
   }
 
   .assignment-card-grid {

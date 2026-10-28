@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   assignmentsRoot.addEventListener('click', onAssignmentsClick);
   assignmentsRoot.addEventListener('change', onAssignmentsChange);
-  assignmentsRoot.addEventListener('keydown', onAssignmentsKeydown);
   renderAssignments();
 });
 
@@ -35,22 +34,7 @@ function onAssignmentsChange(event) {
 
   assignmentState.showPupilPremium = event.target.checked;
   renderAssignments();
-}
-
-function onAssignmentsKeydown(event) {
-  if (event.key !== 'Enter' && event.key !== ' ') {
-    return;
-  }
-
-  const detailRow = event.target.closest('tr[data-detail-id]');
-  if (!detailRow) {
-    return;
-  }
-
-  event.preventDefault();
-  assignmentState.detailStack.push(detailRow.dataset.detailId);
-  renderAssignments();
-  scrollAssignmentsToTop();
+  document.getElementById('show-pupil-premium')?.focus();
 }
 
 function renderAssignments() {
@@ -219,33 +203,43 @@ function buildStaffControls() {
 
 function buildStaffOverview() {
   const wrapper = createElement('div', 'assignment-overview');
-  wrapper.appendChild(buildStaffSection('My Classes', assignmentsData.staff?.dates ?? [], assignmentsData.staff?.classes ?? [], 'Class', 'No classes with assignment data were found.'));
-  wrapper.appendChild(buildStaffSection('Year Groups', assignmentsData.staff?.dates ?? [], assignmentsData.staff?.yearGroups ?? [], 'Year Group', 'No year groups with assignment data were found.'));
-  wrapper.appendChild(buildStaffSection('Courses', assignmentsData.staff?.dates ?? [], assignmentsData.staff?.courses ?? [], 'Course', 'No course summaries are available.'));
+  if (assignmentsData.staff?.classes?.length > 0) {
+    wrapper.appendChild(buildStaffSection('My Classes', assignmentsData.staff.dates ?? [], assignmentsData.staff.classes, 'Class', '', false));
+  }
+  wrapper.appendChild(buildStaffSection('Year Groups', assignmentsData.staff?.dates ?? [], assignmentsData.staff?.yearGroups ?? [], 'Year Group', 'No year groups with assignment data were found.', true));
+  wrapper.appendChild(buildStaffSection('Courses', assignmentsData.staff?.dates ?? [], assignmentsData.staff?.courses ?? [], 'Course', 'No course summaries are available.', false));
 
   return wrapper;
 }
 
-function buildStaffSection(title, dates, rows, firstColumnTitle, emptyText) {
+function buildStaffSection(title, dates, rows, firstColumnTitle, emptyText, showCompletion) {
   const section = createElement('section', 'assignment-section');
-  section.appendChild(createElement('div', 'assignment-section-heading', title));
+  section.appendChild(createElement('div', 'assignment-section-heading', `${title} – ${showCompletion ? 'Completion' : 'Accuracy'}`));
   if (rows.length === 0) {
     section.appendChild(createElement('p', 'assignments-empty', emptyText));
     return section;
   }
 
-  section.appendChild(buildAssignmentsTable(dates, rows, true, firstColumnTitle));
+  section.appendChild(buildAssignmentsTable(dates, rows, true, firstColumnTitle, showCompletion));
   return section;
 }
 
-function buildAssignmentsTable(dates, rows, clickable, firstColumnTitle) {
+function buildAssignmentsTable(dates, rows, clickable, firstColumnTitle, showCompletion) {
+  const showComparison = assignmentState.showPupilPremium && firstColumnTitle !== 'Student';
   const scroller = createElement('div', 'assignments-table-scroller');
+  scroller.tabIndex = 0;
+  scroller.setAttribute('role', 'region');
+  scroller.setAttribute('aria-label', `${firstColumnTitle} assignment ${showCompletion ? 'completion' : 'accuracy'}; scroll for more dates`);
   const table = createElement('table', 'assignments-table');
   const thead = document.createElement('thead');
   const headerRow = document.createElement('tr');
-  headerRow.appendChild(createElement('th', 'assignments-table-label', firstColumnTitle));
+  const labelHeader = createElement('th', 'assignments-table-label', firstColumnTitle);
+  labelHeader.scope = 'col';
+  headerRow.appendChild(labelHeader);
   for (const date of dates) {
-    headerRow.appendChild(createElement('th', 'assignments-table-date', date.label));
+    const dateHeader = createElement('th', 'assignments-table-date', date.label);
+    dateHeader.scope = 'col';
+    headerRow.appendChild(dateHeader);
   }
   thead.appendChild(headerRow);
   table.appendChild(thead);
@@ -256,22 +250,44 @@ function buildAssignmentsTable(dates, rows, clickable, firstColumnTitle) {
     if (clickable && row.detailId) {
       tr.className = 'assignments-table-row is-clickable';
       tr.dataset.detailId = row.detailId;
-      tr.tabIndex = 0;
-      tr.setAttribute('role', 'button');
     }
 
-    const titleCell = createElement('th', 'assignments-table-row-title', row.title ?? row.name ?? '');
-    if (assignmentState.showPupilPremium && row.pupilPremium) {
-      titleCell.appendChild(createElement('span', 'assignment-pp-badge', 'PP'));
+    const titleCell = createElement('th', 'assignments-table-row-title');
+    titleCell.scope = 'row';
+    titleCell.setAttribute('aria-label', `${row.title ?? row.name ?? ''}${assignmentState.showPupilPremium && row.pupilPremium ? ', Pupil Premium' : ''}`);
+    const title = createElement('div', 'assignment-row-name');
+    title.title = row.title ?? row.name ?? '';
+    const name = createElement(clickable && row.detailId ? 'button' : 'span', 'assignment-row-text', row.title ?? row.name ?? '');
+    if (clickable && row.detailId) {
+      name.classList.add('assignment-row-link');
+      name.type = 'button';
+      name.dataset.detailId = row.detailId;
     }
+    title.appendChild(name);
+    if (assignmentState.showPupilPremium && row.pupilPremium) {
+      title.appendChild(createElement('span', 'assignment-pp-badge', 'PP'));
+    }
+    const heading = createElement('div', 'assignment-row-heading');
+    heading.appendChild(title);
+    if (showComparison) {
+      const cohorts = createElement('div', 'assignment-metric-cohorts');
+      cohorts.title = 'All pupils (including PP) and Pupil Premium pupils';
+      cohorts.append(createElement('span', '', 'All'), createElement('span', 'assignment-metric-pp', 'PP'));
+      heading.appendChild(cohorts);
+    }
+    titleCell.appendChild(heading);
     tr.appendChild(titleCell);
     for (const cell of row.cells) {
       const td = document.createElement('td');
       td.className = 'assignments-table-cell';
       if (!cell.hasAssignment) {
-        td.appendChild(createElement('span', 'assignments-table-empty', ''));
+        const empty = createElement('span', 'assignments-table-empty');
+        empty.setAttribute('aria-label', 'No assignment');
+        td.appendChild(empty);
+      } else if (!showCompletion && firstColumnTitle === 'Student' && cell.completed < cell.total) {
+        td.appendChild(createElement('span', 'assignment-metric-value', 'Incomplete'));
       } else {
-        td.appendChild(buildProgressBadge(cell.completed, cell.total, true, cell.pupilPremiumCompleted, cell.pupilPremiumTotal, row.pupilPremium));
+        td.appendChild(buildStaffMetric(cell, showComparison, showCompletion));
       }
       tr.appendChild(td);
     }
@@ -283,6 +299,35 @@ function buildAssignmentsTable(dates, rows, clickable, firstColumnTitle) {
   return scroller;
 }
 
+function buildStaffMetric(cell, showComparison, showCompletion) {
+  const metric = showCompletion
+    ? { label: 'Completion', completed: cell.completed, total: cell.total, ppCompleted: cell.pupilPremiumCompleted, ppTotal: cell.pupilPremiumTotal, description: 'questions answered correctly, including retries' }
+    : { label: 'Accuracy', completed: cell.firstTimeCorrect, total: cell.attempted, ppCompleted: cell.pupilPremiumFirstTimeCorrect, ppTotal: cell.pupilPremiumAttempted, description: 'attempted questions answered correctly first time' };
+  const chart = createElement('div', `assignment-metric-chart${showCompletion ? '' : ' is-accuracy'}`);
+  const cohorts = [{ label: 'All', completed: metric.completed, total: metric.total }];
+  if (showComparison) {
+    cohorts.push({ label: 'PP', completed: metric.ppCompleted, total: metric.ppTotal });
+  }
+  for (const cohort of cohorts) {
+    const percentage = cohort.total > 0 ? cohort.completed / cohort.total * 100 : 0;
+    const value = cohort.total > 0 ? `${Math.round(percentage)}%` : '';
+    const assignedTotal = cohort.label === 'PP' ? cell.pupilPremiumTotal : cell.total;
+    const detail = cohort.total > 0 ? `${value}; ${cohort.completed} of ${cohort.total} ${metric.description}` : assignedTotal > 0 ? 'no questions attempted' : 'no applicable questions';
+    const description = `${showComparison ? `${cohort.label}: ` : ''}${metric.label}, ${detail}`;
+    const bar = createElement('div', `assignment-metric-bar${cohort.label === 'PP' ? ' is-pp' : ''}${cohort.total > 0 ? '' : ' is-empty'}`);
+    bar.title = description;
+    bar.setAttribute('aria-label', description);
+    const track = createElement('span', 'assignment-metric-track');
+    track.setAttribute('aria-hidden', 'true');
+    const fill = createElement('span', 'assignment-metric-fill');
+    fill.style.width = `${Math.min(percentage, 100)}%`;
+    track.appendChild(fill);
+    bar.append(track, createElement('span', 'assignment-metric-value', value));
+    chart.appendChild(bar);
+  }
+  return chart;
+}
+
 function buildStaffDetail(detail) {
   const wrapper = createElement('section', 'assignment-detail');
   const header = createElement('div', 'assignment-detail-header');
@@ -291,7 +336,7 @@ function buildStaffDetail(detail) {
   backButton.dataset.action = 'back-to-overview';
   backButton.setAttribute('aria-label', 'Back');
   backButton.title = 'Back';
-  header.append(backButton, createElement('h3', 'assignment-detail-title', detail.title));
+  header.append(backButton, createElement('h3', 'assignment-detail-title', `${detail.title} – ${detail.showCompletion ? 'Completion' : 'Accuracy'}`));
   wrapper.appendChild(header);
 
   if ((assignmentsData.staff?.dates ?? []).length === 0) {
@@ -304,7 +349,7 @@ function buildStaffDetail(detail) {
     return wrapper;
   }
 
-  wrapper.appendChild(buildAssignmentsTable(assignmentsData.staff.dates, detail.rows, detail.clickableRows, detail.firstColumnTitle));
+  wrapper.appendChild(buildAssignmentsTable(assignmentsData.staff.dates, detail.rows, detail.clickableRows, detail.firstColumnTitle, detail.showCompletion));
   const questionsSection = buildQuestionsSection(detail);
   if (questionsSection) {
     wrapper.appendChild(questionsSection);

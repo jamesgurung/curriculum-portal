@@ -92,7 +92,7 @@ public partial class AssignmentService
       coursesByKeyStageAndSubjectCode,
       partitionData,
       today);
-    var progressCache = new Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), AssignmentProgressTotals>();
+    var progressCache = completionData.Progress;
 
     var details = new List<AssignmentsStaffDetail>();
     var classRowsByName = new Dictionary<string, AssignmentsStaffRow>(StringComparer.OrdinalIgnoreCase);
@@ -182,6 +182,7 @@ public partial class AssignmentService
           Id = tutorDetailId,
           Title = tutorGroup.Key,
           FirstColumnTitle = "Student",
+          ShowCompletion = true,
           Rows = BuildAggregateStudentRows(tutorStudents, partitionData, staffDateColumns, coursesByKeyStageAndSubjectCode, studentClassesById, progressCache, yearGroup.Key)
         });
       }
@@ -202,6 +203,7 @@ public partial class AssignmentService
         Title = $"Year {yearGroup.Key}",
         FirstColumnTitle = "Tutor Group",
         ClickableRows = true,
+        ShowCompletion = true,
         Rows = tutorGroupRows
       });
     }

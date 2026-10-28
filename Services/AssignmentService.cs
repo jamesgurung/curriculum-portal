@@ -458,6 +458,8 @@ public partial class AssignmentService
   {
     public int StudentId { get; set; }
     public int Completed { get; set; }
+    public int Attempted { get; set; }
+    public int FirstTimeCorrect { get; set; }
   }
 
   private sealed class AssignmentQuestionsCache : AssignmentCacheFile
@@ -476,7 +478,7 @@ public partial class AssignmentService
     public required Dictionary<DateOnly, List<AssignmentQuestionEntity>> QuestionsByDate { get; init; }
   }
 
-  private sealed record AssignmentProgressTotals(int Completed, int Total);
+  private sealed record AssignmentProgressTotals(int Completed, int Total, int Attempted = 0, int FirstTimeCorrect = 0);
 
   private sealed class StudentAssignmentContext
   {

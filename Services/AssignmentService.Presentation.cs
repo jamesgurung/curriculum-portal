@@ -74,15 +74,21 @@ public partial class AssignmentService
 
     var completed = 0;
     var total = 0;
+    var attempted = 0;
+    var firstTimeCorrect = 0;
     foreach (var studentId in studentIds)
     {
       var progress = GetAssignmentProgress(assignment, data, studentId, progressCache);
       completed += progress.Completed;
       total += progress.Total;
+      attempted += progress.Attempted;
+      firstTimeCorrect += progress.FirstTimeCorrect;
     }
 
     var pupilPremiumCompleted = 0;
     var pupilPremiumTotal = 0;
+    var pupilPremiumAttempted = 0;
+    var pupilPremiumFirstTimeCorrect = 0;
     if (pupilPremiumStudentIds is not null)
     {
       foreach (var studentId in pupilPremiumStudentIds)
@@ -90,6 +96,8 @@ public partial class AssignmentService
         var progress = GetAssignmentProgress(assignment, data, studentId, progressCache);
         pupilPremiumCompleted += progress.Completed;
         pupilPremiumTotal += progress.Total;
+        pupilPremiumAttempted += progress.Attempted;
+        pupilPremiumFirstTimeCorrect += progress.FirstTimeCorrect;
       }
     }
 
@@ -99,8 +107,12 @@ public partial class AssignmentService
       HasAssignment = true,
       Completed = completed,
       Total = total,
+      Attempted = attempted,
+      FirstTimeCorrect = firstTimeCorrect,
       PupilPremiumCompleted = pupilPremiumCompleted,
-      PupilPremiumTotal = pupilPremiumTotal
+      PupilPremiumTotal = pupilPremiumTotal,
+      PupilPremiumAttempted = pupilPremiumAttempted,
+      PupilPremiumFirstTimeCorrect = pupilPremiumFirstTimeCorrect
     };
   }
 
@@ -159,8 +171,12 @@ public partial class AssignmentService
       cell.HasAssignment = true;
       cell.Completed += partitionCell.Completed;
       cell.Total += partitionCell.Total;
+      cell.Attempted += partitionCell.Attempted;
+      cell.FirstTimeCorrect += partitionCell.FirstTimeCorrect;
       cell.PupilPremiumCompleted += partitionCell.PupilPremiumCompleted;
       cell.PupilPremiumTotal += partitionCell.PupilPremiumTotal;
+      cell.PupilPremiumAttempted += partitionCell.PupilPremiumAttempted;
+      cell.PupilPremiumFirstTimeCorrect += partitionCell.PupilPremiumFirstTimeCorrect;
     }
 
     return cell;
@@ -196,7 +212,9 @@ public partial class AssignmentService
       DueDate = date.Value,
       HasAssignment = true,
       Completed = progress.Completed,
-      Total = progress.Total
+      Total = progress.Total,
+      Attempted = progress.Attempted,
+      FirstTimeCorrect = progress.FirstTimeCorrect
     };
   }
 
@@ -240,6 +258,8 @@ public partial class AssignmentService
       cell.HasAssignment = true;
       cell.Completed += partitionCell.Completed;
       cell.Total += partitionCell.Total;
+      cell.Attempted += partitionCell.Attempted;
+      cell.FirstTimeCorrect += partitionCell.FirstTimeCorrect;
     }
 
     return cell;

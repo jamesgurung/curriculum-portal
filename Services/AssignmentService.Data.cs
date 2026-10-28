@@ -41,7 +41,7 @@ public partial class AssignmentService
     return date.AddDays(daysUntilMonday);
   }
 
-  private async Task<(Dictionary<string, List<AssignmentEntity>> Assignments, Dictionary<string, List<AssignmentSubmissionEntity>> Submissions)> LoadStaffCompletionDataAsync(
+  private async Task<(Dictionary<string, List<AssignmentEntity>> Assignments, Dictionary<string, List<AssignmentSubmissionEntity>> Submissions, Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), AssignmentProgressTotals> Progress)> LoadStaffCompletionDataAsync(
     List<string> assignmentKeys,
     IEnumerable<DateOnly> dueDates,
     DateOnly upcomingDueDate,
@@ -49,43 +49,36 @@ public partial class AssignmentService
   {
     var assignments = CreateBuckets<AssignmentEntity>(assignmentKeys);
     var submissions = CreateBuckets<AssignmentSubmissionEntity>(assignmentKeys);
+    var progress = new Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), AssignmentProgressTotals>();
     var results = await Task.WhenAll(dueDates.Distinct().Select(dueDate => LoadStaffCompletionDateDataAsync(assignmentKeys, dueDate, upcomingDueDate, academicYear)));
 
     foreach (var result in results.OrderBy(o => o.DueDate))
-    {
-      AddBuckets(assignments, result.Assignments);
-      AddBuckets(submissions, result.Submissions);
-    }
+      AddCompletionCacheToBuckets(result, assignmentKeys, assignments, submissions, progress);
 
-    return (assignments, submissions);
+    return (assignments, submissions, progress);
   }
 
-  private async Task<(DateOnly DueDate, Dictionary<string, List<AssignmentEntity>> Assignments, Dictionary<string, List<AssignmentSubmissionEntity>> Submissions)> LoadStaffCompletionDateDataAsync(
+  private async Task<AssignmentCompletionCache> LoadStaffCompletionDateDataAsync(
     List<string> assignmentKeys,
     DateOnly dueDate,
     DateOnly upcomingDueDate,
     int academicYear)
   {
     var cached = dueDate == upcomingDueDate ? null : await TryDownloadAssignmentCacheAsync<AssignmentCompletionCache>(BuildCompletionCacheBlobName(dueDate, academicYear));
-    if (cached is not null)
-    {
-      var assignments = CreateBuckets<AssignmentEntity>(assignmentKeys);
-      var submissions = CreateBuckets<AssignmentSubmissionEntity>(assignmentKeys);
-      AddCompletionCacheToBuckets(cached, assignmentKeys, assignments, submissions);
-      return (dueDate, assignments, submissions);
-    }
+    if (cached is not null) return cached;
 
     var assignmentsTask = LoadAssignmentsByDueDateAsync(assignmentKeys, dueDate);
-    var submissionsTask = LoadSubmissionsByDueDateAsync(assignmentKeys, dueDate);
+    var submissionsTask = LoadSubmissionsByDueDatesAsync(assignmentKeys, [dueDate], true);
     await Task.WhenAll(assignmentsTask, submissionsTask);
     var dateAssignments = await assignmentsTask;
     var dateSubmissions = await submissionsTask;
+    var liveCache = BuildCompletionCache(dueDate, dateAssignments, dateSubmissions);
     if (dueDate != upcomingDueDate)
     {
-      await UploadAssignmentCacheAsync(BuildCompletionCacheBlobName(dueDate, academicYear), BuildCompletionCache(dueDate, dateAssignments, dateSubmissions));
+      await UploadAssignmentCacheAsync(BuildCompletionCacheBlobName(dueDate, academicYear), liveCache);
     }
 
-    return (dueDate, dateAssignments, dateSubmissions);
+    return liveCache;
   }
 
   private async Task<Dictionary<string, List<AssignmentsStaffQuestion>>> LoadStaffQuestionSummariesAsync(
@@ -245,10 +238,16 @@ public partial class AssignmentService
         Length = assignment.Length,
         Students = (submissions ?? [])
           .OrderBy(o => o.StudentId)
-          .Select(o => new AssignmentCompletionStudentCacheItem
+          .Select(o =>
           {
-            StudentId = o.StudentId,
-            Completed = o.Completed
+            var progress = string.IsNullOrWhiteSpace(o.Progress) ? [] : ParseProgress(o.Progress, Math.Max(assignment.Length, 0));
+            return new AssignmentCompletionStudentCacheItem
+            {
+              StudentId = o.StudentId,
+              Completed = o.Completed,
+              Attempted = progress.Count(entry => entry.Attempts > 0),
+              FirstTimeCorrect = progress.Count(entry => entry.IsCorrect && entry.Attempts == 1)
+            };
           })
           .ToList()
       });
@@ -261,7 +260,8 @@ public partial class AssignmentService
     AssignmentCompletionCache cache,
     List<string> assignmentKeys,
     Dictionary<string, List<AssignmentEntity>> assignments,
-    Dictionary<string, List<AssignmentSubmissionEntity>> submissions)
+    Dictionary<string, List<AssignmentSubmissionEntity>> submissions,
+    Dictionary<(string AssignmentKey, DateOnly DueDate, int StudentId), AssignmentProgressTotals> progress)
   {
     var allowedKeys = assignmentKeys.ToHashSet(StringComparer.OrdinalIgnoreCase);
     foreach (var item in cache.Assignments.Where(o => allowedKeys.Contains(o.AssignmentKey)))
@@ -276,6 +276,9 @@ public partial class AssignmentService
 
       foreach (var student in item.Students)
       {
+        var total = GetAssignmentTotal(assignment);
+        progress[(item.AssignmentKey, assignment.DueDate, student.StudentId)] = new AssignmentProgressTotals(
+          Math.Min(student.Completed, total), total, student.Attempted, student.FirstTimeCorrect);
         submissions[item.AssignmentKey].Add(new AssignmentSubmissionEntity
         {
           PartitionKey = cache.DueDate,
@@ -311,21 +314,10 @@ public partial class AssignmentService
     await blobClient.UploadAsync(binaryData, overwrite: true);
   }
 
-  private static void AddBuckets<T>(Dictionary<string, List<T>> target, Dictionary<string, List<T>> source)
-  {
-    foreach (var item in source)
-    {
-      if (target.TryGetValue(item.Key, out var bucket))
-      {
-        bucket.AddRange(item.Value);
-      }
-    }
-  }
-
   private static List<AssignmentsStaffQuestion> GetQuestionSummaries(Dictionary<string, List<AssignmentsStaffQuestion>> summariesByContext, string key)
     => summariesByContext.TryGetValue(key, out var summaries) ? summaries : [];
 
-  private static string BuildCompletionCacheBlobName(DateOnly dueDate, int academicYear) => $"{FormatDate(dueDate)}-{academicYear}-completion.json";
+  private static string BuildCompletionCacheBlobName(DateOnly dueDate, int academicYear) => $"{FormatDate(dueDate)}-{academicYear}-completion-v2.json";
 
   private static string BuildQuestionsCacheBlobName(DateOnly dueDate, int academicYear) => $"{FormatDate(dueDate)}-{academicYear}-questions.json";
 
