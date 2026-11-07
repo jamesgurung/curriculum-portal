@@ -49,6 +49,9 @@ public class PublicFacingUnit(UnitEntity unit)
   public string WhyThis { get; set; } = unit.WhyThis;
   public string WhyNow { get; set; } = unit.WhyNow;
   public bool HasKeyKnowledge { get; set; } = unit.KeyKnowledgeStatus == 2;
+  public bool HasImage { get; set; } = unit.HasImage;
+  public string ImageUrl { get; set; } = unit.ImageUrl;
+  public string ImageSrcSet { get; set; } = unit.ImageSrcSet;
 }
 
 public class KeyKnowledgeRevisionQuiz

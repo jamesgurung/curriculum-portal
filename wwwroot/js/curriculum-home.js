@@ -142,7 +142,11 @@ const elements = {
   modalClose: document.getElementById('modal-close'),
   textBoxContainer: document.getElementById('modal-text-container'),
   selectContainer: document.getElementById('modal-select-container'),
-  aiModal: document.getElementById('ai-modal')
+  aiModal: document.getElementById('ai-modal'),
+  aiModalOperation: document.getElementById('ai-modal-operation'),
+  aiModalProgress: document.getElementById('ai-modal-progress'),
+  aiModalProgressTrack: document.getElementById('ai-modal-progress-track'),
+  aiModalProgressBar: document.getElementById('ai-modal-progress-bar')
 };
 
 const state = { courseId: null, unitId: null, courseEditable: false, editMode: false, quizQuestions: [], remainingQuestions: [], activeQuizQuestionCount: 0 };
@@ -177,6 +181,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   elements.answer2.addEventListener('click', () => answer(elements.answer2));
   elements.quizBack.addEventListener('click', backToUnit);
   elements.quizRestart.addEventListener('click', startQuiz);
+  elements.aiModal.addEventListener('keydown', event => {
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      elements.aiModal.focus();
+    }
+  });
 
   if (isEditableStaff) {
     elements.courseDetail.addEventListener('click', onCourseDetailClick);
@@ -458,6 +468,14 @@ function showCourse(courseId, options = {}) {
 
     if (isAdmin && inEditMode) {
       actions.appendChild(enhanceRationalesButton);
+      const generateImagesButton = document.createElement('button');
+      generateImagesButton.type = 'button';
+      generateImagesButton.className = 'generate-images-button material-symbols-outlined';
+      generateImagesButton.title = 'Generate course images';
+      generateImagesButton.setAttribute('aria-label', 'Generate course images');
+      generateImagesButton.textContent = 'add_photo_alternate';
+      generateImagesButton.addEventListener('click', () => generateCourseImages(courseId, generateImagesButton));
+      actions.appendChild(generateImagesButton);
     }
 
     actions.appendChild(editToggleButton);
@@ -535,6 +553,24 @@ function showCourse(courseId, options = {}) {
     container.appendChild(iconInfo);
   }
 
+  if (isStaff) {
+    const yearLinks = document.createElement('nav');
+    yearLinks.className = 'year-group-links';
+    yearLinks.setAttribute('aria-label', 'Jump to year group');
+    yearLinks.append('Jump to:');
+    for (const year of visibleYears) {
+      const link = document.createElement('a');
+      link.href = `#year-${year}`;
+      link.textContent = `Year ${year}`;
+      link.addEventListener('click', event => {
+        event.preventDefault();
+        document.getElementById(`year-${year}`).scrollIntoView({ block: 'start' });
+      });
+      yearLinks.appendChild(link);
+    }
+    container.appendChild(yearLinks);
+  }
+
   for (const year of visibleYears) {
     container.appendChild(renderYearSection(courseId, unitsForCourse, year));
   }
@@ -583,6 +619,9 @@ function showCourse(courseId, options = {}) {
 
 function renderYearSection(courseId, unitsForCourse, yearGroup) {
   const section = clone('tpl-year-group-section');
+  if (isStaff) {
+    section.id = `year-${yearGroup}`;
+  }
   qs('.year-title', section).textContent = `Year ${yearGroup} units`;
 
   const unitsList = qs('.units-list', section);
@@ -614,12 +653,21 @@ function renderYearSection(courseId, unitsForCourse, yearGroup) {
 }
 
 function renderUnit(courseId, unit) {
+  const thumbnail = unit.hasImage && unit.imageUrl ? clone('tpl-unit-thumbnail') : null;
+  if (thumbnail) {
+    thumbnail.srcset = unit.imageSrcSet;
+    thumbnail.src = unit.imageUrl;
+  }
+
   if (!isStaff) {
     const li = clone('tpl-unit-item');
     li.dataset.id = unit.id;
     qs('a', li).href = buildCurriculumPath(courseId, unit.id);
     qs('.unit-title', li).textContent = unit.title;
     qs('.term-text', li).textContent = `Year ${unit.yearGroup} ${unit.term ? `${unit.term} Term` : ''}`;
+    if (thumbnail) {
+      qs('.material-symbols-outlined', li).replaceWith(thumbnail);
+    }
     li.addEventListener('click', event => {
       if (isClientNavigationClick(event)) {
         event.preventDefault();
@@ -633,20 +681,25 @@ function renderUnit(courseId, unit) {
   li.className = 'unit-item unit-item-staff';
   li.dataset.id = unit.id;
 
-  if (state.courseEditable && state.editMode) {
-    const handle = document.createElement('div');
-    handle.className = 'handle material-symbols-outlined';
-    handle.title = 'Drag to reorder';
-    handle.setAttribute('aria-label', 'Drag to reorder unit');
-    handle.textContent = 'drag_indicator';
-    li.appendChild(handle);
-  }
-
   const topRow = document.createElement('div');
   topRow.className = 'staff-top-row';
 
   const unitInfo = document.createElement('div');
   unitInfo.className = 'staff-unit-info';
+  if (thumbnail) {
+    const imageLink = document.createElement('a');
+    imageLink.className = 'unit-thumbnail-link';
+    imageLink.href = buildCurriculumPath(courseId, unit.id);
+    imageLink.setAttribute('aria-label', unit.title);
+    imageLink.addEventListener('click', event => {
+      if (isClientNavigationClick(event)) {
+        event.preventDefault();
+        showUnit(unit.id);
+      }
+    });
+    imageLink.appendChild(thumbnail);
+    topRow.appendChild(imageLink);
+  }
 
   const titleRow = document.createElement('div');
   titleRow.className = 'staff-unit-title';
@@ -659,7 +712,17 @@ function renderUnit(courseId, unit) {
   titleRow.appendChild(title);
 
   if (state.courseEditable && state.editMode) {
-    titleRow.append(buildEditButton(courseId, unit.id, 'rename'), buildEditButton(courseId, unit.id, 'delete', 'delete'));
+    const actions = document.createElement('span');
+    actions.className = 'staff-unit-actions';
+    actions.append(buildEditButton(courseId, unit.id, 'rename'), buildEditButton(courseId, unit.id, 'delete', 'delete'));
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'handle edit-button material-symbols-outlined';
+    handle.title = 'Drag to reorder';
+    handle.setAttribute('aria-label', 'Drag to reorder unit');
+    handle.textContent = 'drag_indicator';
+    actions.appendChild(handle);
+    titleRow.appendChild(actions);
   }
 
   const term = document.createElement('div');
@@ -679,6 +742,7 @@ function renderUnit(courseId, unit) {
   metadata.appendChild(term);
   const bromcomColumns = bromcomColumnsForUnit(courseById(courseId), unit);
   const linkedColumn = findBromcomColumn(bromcomColumns, unit.bromcomColumn);
+  const columnName = linkedColumn ? bromcomColumnLabel(bromcomColumns, linkedColumn) : 'No Bromcom column linked';
   const bromcomColumn = document.createElement('div');
   bromcomColumn.className = 'bromcom-column';
   bromcomColumn.title = 'Bromcom assessment column';
@@ -688,48 +752,59 @@ function renderUnit(courseId, unit) {
   bromcomColumnIcon.textContent = 'view_column';
   bromcomColumnIcon.setAttribute('aria-hidden', 'true');
   const bromcomColumnText = document.createElement('span');
-  bromcomColumnText.textContent = linkedColumn ? bromcomColumnLabel(bromcomColumns, linkedColumn) : 'No Bromcom column linked';
+  bromcomColumnText.className = 'bromcom-column-text';
+  bromcomColumnText.textContent = columnName;
+  bromcomColumnText.title = bromcomColumnText.textContent;
   bromcomColumn.append(bromcomColumnIcon, bromcomColumnText);
   if (state.courseEditable && state.editMode) {
     bromcomColumn.appendChild(buildEditButton(courseId, unit.id, 'bromcom-column'));
   }
-  metadata.appendChild(bromcomColumn);
-
   unitInfo.append(titleRow, metadata);
   const checklist = renderChecklist(courseId, unit);
-  const assessmentProgress = renderAssessmentProgress(unit);
-  let statusRow = null;
-  if (checklist || assessmentProgress) {
-    statusRow = document.createElement('div');
-    statusRow.className = 'unit-status-row';
-    if (checklist) {
-      statusRow.appendChild(checklist);
-    }
-    if (assessmentProgress) {
-      statusRow.appendChild(assessmentProgress);
-    }
+  const assessmentProgress = renderAssessmentProgress(unit, columnName);
+  const statusRow = document.createElement('div');
+  statusRow.className = 'unit-status-row';
+  if (checklist) {
+    statusRow.appendChild(checklist);
+  }
+  if (assessmentProgress) {
+    statusRow.appendChild(assessmentProgress);
   }
 
   const assessmentLinks = document.createElement('div');
   assessmentLinks.className = 'unit-assessment';
   assessmentLinks.append(
     buildSchemeLink(courseId, unit),
-    buildAssessmentLink(courseId, unit, 'key-knowledge', 'Knowledge', unit.keyKnowledgeStatus, unit.yearGroup <= 9, 'neurology'),
+    buildAssessmentLink(courseId, unit, 'key-knowledge', 'Key Knowledge', unit.keyKnowledgeStatus, unit.yearGroup <= 9, 'neurology'),
     buildAssessmentLink(courseId, unit, 'assessment', 'Assessment', unit.assessmentStatus, true, 'article'),
     buildAssessmentLink(courseId, unit, 'mark-scheme', 'Mark Scheme', unit.assessmentStatus, true, 'done_all'),
-    buildQuizLink(courseId, unit),
+    buildQuizLink(courseId, unit)
   );
-
-  topRow.append(unitInfo, assessmentLinks);
-  li.appendChild(topRow);
-  if (statusRow) {
-    li.appendChild(statusRow);
+  for (const link of assessmentLinks.children) {
+    const icon = document.createElement('span');
+    icon.className = 'material-symbols-outlined';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = link.textContent;
+    link.classList.remove('material-symbols-outlined');
+    link.replaceChildren(icon);
   }
+  statusRow.appendChild(assessmentLinks);
 
-  const why = document.createElement('div');
-  why.className = 'unit-why';
-  why.append(renderWhyField(courseId, unit, 'Why this?', 'why-this', 'whyThis'), renderWhyField(courseId, unit, 'Why now?', 'why-now', 'whyNow'));
-  li.appendChild(why);
+  topRow.appendChild(unitInfo);
+  const status = document.createElement('div');
+  status.className = 'staff-unit-status';
+  if (state.courseEditable && state.editMode) {
+    status.appendChild(bromcomColumn);
+  }
+  status.appendChild(statusRow);
+  li.append(topRow, status);
+
+  if (state.courseEditable && state.editMode) {
+    const why = document.createElement('div');
+    why.className = 'unit-why';
+    why.append(renderWhyField(courseId, unit, 'Why this?', 'why-this', 'whyThis'), renderWhyField(courseId, unit, 'Why now?', 'why-now', 'whyNow'));
+    li.appendChild(why);
+  }
 
   return li;
 }
@@ -744,10 +819,10 @@ function renderWhyField(courseId, unit, label, property, field) {
   if (!unit[field]) {
     value.classList.add('not-configured');
   }
-  container.append(labelElement, value);
   if (state.courseEditable && state.editMode) {
-    container.appendChild(buildEditButton(courseId, unit.id, property));
+    labelElement.appendChild(buildEditButton(courseId, unit.id, property));
   }
+  container.append(labelElement, value);
   return container;
 }
 
@@ -904,7 +979,7 @@ function renderChecklist(courseId, unit) {
   return checklist;
 }
 
-function renderAssessmentProgress(unit) {
+function renderAssessmentProgress(unit, columnName) {
   const data = bromcomAssessmentProgress[unit.id];
   if (!Number.isInteger(data?.percentage)) {
     return null;
@@ -921,7 +996,7 @@ function renderAssessmentProgress(unit) {
   const formatClasses = classes => classes.length > 0
     ? classes.map(item => `${item.name} ${item.completed}/${item.total}`).join(', ')
     : 'None';
-  const summary = `${percentage}% data entered on Bromcom. Updated ${updatedText}. Entered classes: ${formatClasses(enteredClasses)}. Not entered classes: ${formatClasses(notEnteredClasses)}.`;
+  const summary = `${columnName}. ${percentage}% data entered on Bromcom. Updated ${updatedText}. Entered classes: ${formatClasses(enteredClasses)}. Not entered classes: ${formatClasses(notEnteredClasses)}.`;
 
   const progress = document.createElement('div');
   progress.className = 'assessment-progress';
@@ -938,7 +1013,7 @@ function renderAssessmentProgress(unit) {
   completed.setAttribute('aria-hidden', 'true');
   progress.appendChild(completed);
 
-  assessmentProgressData.set(progress, { percentage, updatedAt: validUpdatedAt, updatedText, enteredClasses, notEnteredClasses });
+  assessmentProgressData.set(progress, { columnName, percentage, updatedAt: validUpdatedAt, updatedText, enteredClasses, notEnteredClasses });
   attachAssessmentTooltip(progress);
   return progress;
 }
@@ -1056,7 +1131,10 @@ function showAssessmentTooltip(target) {
   if (data.updatedAt) {
     updated.dateTime = data.updatedAt.toISOString();
   }
-  summary.append(percentage, updated);
+  const column = document.createElement('div');
+  column.className = 'assessment-tooltip-column';
+  column.textContent = data.columnName;
+  summary.append(percentage, updated, column);
   tooltip.replaceChildren(
     summary,
     buildAssessmentTooltipRow('Entered', data.enteredClasses, 'entered'),
@@ -1088,11 +1166,7 @@ function attachAssessmentTooltip(element) {
   element.addEventListener('mouseenter', () => showAssessmentTooltip(element));
   element.addEventListener('focus', () => showAssessmentTooltip(element));
   element.addEventListener('click', () => showAssessmentTooltip(element));
-  element.addEventListener('mouseleave', event => {
-    if (!assessmentTooltip?.contains(event.relatedTarget) && !assessmentTooltipBridge?.contains(event.relatedTarget)) {
-      hideAssessmentTooltip();
-    }
-  });
+  element.addEventListener('mouseleave', hideAssessmentTooltip);
   element.addEventListener('blur', hideAssessmentTooltip);
   element.addEventListener('keydown', event => {
     if (event.key === 'Escape') {
@@ -1253,6 +1327,25 @@ function setupSortable() {
       animation: 150,
       ghostClass: 'drop-highlight',
       direction: 'vertical',
+      forceFallback: true,
+      onChoose: event => {
+        const title = qs('.staff-unit-title', event.item);
+        const top = title.getBoundingClientRect().top;
+        const scrollTop = getPageScrollTop();
+        elements.courseDetail.style.setProperty('--units-drag-height', `${elements.courseDetail.offsetHeight}px`);
+        elements.courseDetail.classList.add('units-dragging');
+        const nextScrollTop = scrollTop + title.getBoundingClientRect().top - top;
+        elements.courseDetail.style.setProperty('--units-drag-offset', `${Math.max(0, -nextScrollTop)}px`);
+        setPageScrollTop(Math.max(0, nextScrollTop));
+      },
+      onUnchoose: event => {
+        const title = qs('.staff-unit-title', event.item);
+        const top = title.getBoundingClientRect().top;
+        elements.courseDetail.classList.remove('units-dragging');
+        elements.courseDetail.style.removeProperty('--units-drag-height');
+        elements.courseDetail.style.removeProperty('--units-drag-offset');
+        setPageScrollTop(getPageScrollTop() + title.getBoundingClientRect().top - top);
+      },
       onEnd: sortUnits
     });
   }
@@ -1273,6 +1366,22 @@ async function showUnit(unitId, options = {}) {
   }
 
   const fragment = document.createDocumentFragment();
+
+  if (unit.hasImage && unit.imageUrl) {
+    const cover = clone('tpl-unit-cover');
+    const image = qs('.unit-cover-art', cover);
+    image.srcset = unit.imageSrcSet;
+    image.src = unit.imageUrl;
+    if (isAdmin) {
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'unit-image-delete';
+      deleteButton.textContent = 'Delete image';
+      deleteButton.addEventListener('click', () => deleteUnitImage(unit, cover, deleteButton));
+      cover.appendChild(deleteButton);
+    }
+    fragment.appendChild(cover);
+  }
 
   const header = clone('tpl-unit-header');
   qs('.unit-title', header).textContent = unit.title;
@@ -1944,6 +2053,8 @@ async function enhanceCourseRationales(courseId, button) {
   if (!window.confirm(`Are you sure you want to enhance every "Why this?" and "Why now?" statement for ${course?.name || 'this course'}? All existing statements will be replaced, and this cannot be undone.`)) return;
 
   button.disabled = true;
+  elements.aiModalOperation.textContent = 'Enhancing unit rationales...';
+  elements.aiModalProgress.hidden = true;
   elements.aiModal.setAttribute('aria-busy', 'true');
   elements.aiModal.classList.add('active');
   elements.aiModal.focus();
@@ -1960,7 +2071,57 @@ async function enhanceCourseRationales(courseId, button) {
   }
 }
 
-async function postSse(url) {
+async function generateCourseImages(courseId, button) {
+  button.disabled = true;
+  elements.aiModalOperation.textContent = 'Generating course images...';
+  elements.aiModalProgressBar.style.width = '0%';
+  elements.aiModalProgressTrack.setAttribute('aria-valuenow', '0');
+  elements.aiModalProgress.hidden = false;
+  elements.aiModal.setAttribute('aria-busy', 'true');
+  elements.aiModal.classList.add('active');
+  elements.aiModal.focus();
+
+  try {
+    const result = await postSse(`/courses/${encodeSegment(courseId)}/build/ai/generateimages`, {
+      failureMessage: 'Course images could not be generated.',
+      onProgress: progress => {
+        const value = Math.max(0, Math.min(Number(progress.percentage) || 0, 100));
+        elements.aiModalProgressBar.style.width = `${value}%`;
+        elements.aiModalProgressTrack.setAttribute('aria-valuenow', String(value));
+      }
+    });
+    if (result.failures.length > 0) {
+      elements.aiModal.classList.remove('active');
+      elements.aiModal.removeAttribute('aria-busy');
+      window.alert(result.failures.map(failure => `${failure.title}: ${failure.message}`).join('\n'));
+    }
+    window.location.reload();
+  } catch (error) {
+    elements.aiModal.classList.remove('active');
+    elements.aiModal.removeAttribute('aria-busy');
+    window.alert(error.message || 'Course images could not be generated.');
+    button.disabled = false;
+    if (button.isConnected) button.focus();
+  }
+}
+
+async function deleteUnitImage(unit, cover, button) {
+  if (!window.confirm(`Delete the cover image for ${unit.title}? You can generate a new one using Generate course images.`)) return;
+
+  button.disabled = true;
+  try {
+    await request(`/courses/${encodeSegment(unit.courseId)}/${encodeSegment(unit.id)}/build/image`, 'DELETE');
+    unit.hasImage = false;
+    unit.imageUrl = null;
+    unit.imageSrcSet = null;
+    cover.remove();
+  } catch (error) {
+    window.alert(error.message || 'The image could not be deleted.');
+    button.disabled = false;
+  }
+}
+
+async function postSse(url, { onProgress, failureMessage = 'The unit rationales could not be enhanced. No changes were made.' } = {}) {
   if (!csrfToken) throw new Error('Missing anti-forgery token.');
 
   const response = await fetch(url, {
@@ -1970,7 +2131,7 @@ async function postSse(url) {
   if (!response.ok) {
     const message = (await response.text()).trim();
     if (response.status === 429) throw new Error(message || 'The daily AI token limit has been reached. Please try again later.');
-    throw new Error(message || 'The unit rationales could not be enhanced. No changes were made.');
+    throw new Error(message || failureMessage);
   }
   if (!response.body) throw new Error('No response stream received.');
 
@@ -1989,6 +2150,10 @@ async function postSse(url) {
 
     const value = data.join('\n');
     if (event === 'heartbeat') return undefined;
+    if (event === 'progress') {
+      onProgress?.(JSON.parse(value));
+      return undefined;
+    }
     if (event === 'result') return JSON.parse(value);
     if (event === 'error') {
       let message = value;
@@ -1996,7 +2161,7 @@ async function postSse(url) {
         message = JSON.parse(value).message ?? message;
       } catch {
       }
-      throw new Error(message || 'The unit rationales could not be enhanced. No changes were made.');
+      throw new Error(message || failureMessage);
     }
     return undefined;
   }

@@ -23,6 +23,8 @@ public sealed class AppOptions
   public string MicrosoftTenantId { get; set; }
   public string OpenAIAdminApiKey { get; set; }
   public string OpenAIApiKey { get; set; }
+  public string OpenAIImageApiKey { get; set; }
+  public string OpenAIImageModel { get; set; }
   public string OpenAIModel { get; set; }
   public string PrivacyNoticeUrl { get; set; }
   public string SchoolName { get; set; }
@@ -42,6 +44,7 @@ public sealed class AppOptions
     EnsureValue(MicrosoftTeamsPrefix, nameof(MicrosoftTeamsPrefix));
     EnsureValue(MicrosoftTenantId, nameof(MicrosoftTenantId));
     EnsureValue(OpenAIApiKey, nameof(OpenAIApiKey));
+    EnsureValue(OpenAIImageModel, nameof(OpenAIImageModel));
     EnsureValue(OpenAIModel, nameof(OpenAIModel));
     EnsureValue(PrivacyNoticeUrl, nameof(PrivacyNoticeUrl));
     EnsureValue(SchoolName, nameof(SchoolName));

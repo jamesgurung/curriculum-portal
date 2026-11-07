@@ -75,6 +75,17 @@ public class UnitEntity : ITableEntity
   public int KeyKnowledgeStatus { get; set; }
   public int AssessmentStatus { get; set; }
   public int RevisionQuizStatus { get; set; }
+  public bool HasImage { get; set; }
+
+  [JsonIgnore]
+  public string ImageSceneSummary { get; set; }
+
+  [IgnoreDataMember]
+  public string ImageUrl { get; set; }
+
+  [IgnoreDataMember]
+  public string ImageSrcSet { get; set; }
+
   public DateTimeOffset? EvaluationUpdatedAt { get; set; }
 }
 

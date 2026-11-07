@@ -254,7 +254,8 @@ body.courses-layout #curriculum-app > main {
 }
 
 main h2,
-#modal-title {
+#modal-title,
+#ai-modal-title {
   margin: 0;
   color: var(--ink-strong);
   font-weight: 700;
@@ -368,6 +369,24 @@ main h2,
   margin: 0;
 }
 
+.year-group-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem 0.5rem;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+
+  & a {
+    color: color-mix(in srgb, var(--accent) 60%, var(--ink-muted));
+    text-underline-offset: 0.15em;
+  }
+}
+
+.year-group-section[id] {
+  scroll-margin-top: var(--app-header-height);
+}
+
 .year-group-section {
   padding: 1.08rem 0;
   border: 0;
@@ -431,6 +450,28 @@ h3 {
     flex-direction: column;
     min-width: 0;
   }
+}
+
+.unit-thumbnail {
+  width: 10rem;
+  height: auto;
+  aspect-ratio: 3 / 1;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.unit-item:has(> a > .unit-thumbnail:not([hidden])) {
+  padding: 0;
+}
+
+.unit-item > a:has(.unit-thumbnail:not([hidden])) {
+  align-items: stretch;
+  gap: 0;
+}
+
+.unit-item > a:has(.unit-thumbnail:not([hidden])) > span {
+  justify-content: center;
+  padding: 0.9rem 0.94rem;
 }
 
 .unit-title {
@@ -534,14 +575,9 @@ h3 {
 }
 
 .unit-item-staff {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "top handle"
-    "status status"
-    "why why";
-  gap: 0;
-  align-items: start;
+  position: relative;
+  display: block;
+  padding: 0;
   cursor: default;
 }
 
@@ -551,19 +587,8 @@ h3 {
 }
 
 .handle.material-symbols-outlined {
-  grid-area: handle;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.8rem;
-  height: 1.8rem;
-  border: 1px solid var(--border-standard);
-  border-radius: 8px;
-  color: var(--ink-faint);
   cursor: grab;
-  margin-left: 0.7rem;
-  position: relative;
-  top: -2px;
+  touch-action: none;
 
   &:active {
     cursor: grabbing;
@@ -571,24 +596,72 @@ h3 {
 }
 
 .staff-top-row {
-  grid-area: top;
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.8rem;
-  align-items: start;
+  display: flex;
+  align-items: stretch;
+}
+
+.unit-thumbnail-link {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.staff-top-row .unit-thumbnail {
+  width: 12rem;
 }
 
 .staff-unit-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
   min-width: 0;
+  padding: 0.5rem 0.35rem 0.5rem 0.94rem;
 }
 
 .staff-unit-title {
   display: flex;
-  align-items: flex-start;
-  gap: 0.35rem;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 0.4rem;
   min-width: 0;
+}
+
+.staff-unit-title > .unit-open {
+  flex: 1 1 14rem;
+}
+
+.staff-unit-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.unit-item-staff .edit-button {
+  flex-shrink: 0;
+}
+
+#course-detail.units-dragging {
+  align-content: start;
+  min-height: var(--units-drag-height);
+  padding-top: var(--units-drag-offset, 0px);
+  overflow-anchor: none;
+}
+
+.units-dragging .unit-item-staff > :not(.staff-top-row),
+.units-dragging .staff-top-row > :not(.staff-unit-info),
+.units-dragging .staff-unit-info > :not(.staff-unit-title),
+.units-dragging .staff-unit-actions {
+  display: none;
+}
+
+.units-dragging .staff-unit-title {
+  flex-wrap: nowrap;
+}
+
+.units-dragging .unit-open {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .unit-open {
@@ -612,6 +685,7 @@ h3 {
   justify-content: center;
   width: 1.78rem;
   height: 1.78rem;
+  padding: 0.2em 0 0;
   border: 1px solid var(--border-standard);
   border-radius: 7px;
   font-size: 1.04rem;
@@ -650,7 +724,19 @@ h3 {
   color: var(--danger);
 }
 
+.bromcom-column-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bromcom-column > .edit-button {
+  flex-shrink: 0;
+}
+
 .bromcom-column > span.material-symbols-outlined {
+  flex-shrink: 0;
   position: relative;
   top: 1px;
   color: currentColor;
@@ -659,12 +745,20 @@ h3 {
 }
 
 .unit-status-row {
-  grid-area: status;
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  margin-top: 0.8rem;
+  margin-top: 0.55rem;
   min-width: 0;
+}
+
+.unit-status-row:first-child {
+  margin-top: 0;
+}
+
+.staff-unit-status {
+  padding: 0.35rem;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .unit-checklist {
@@ -672,7 +766,7 @@ h3 {
   align-items: center;
   gap: 0;
   flex-wrap: wrap;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   width: fit-content;
 }
 
@@ -833,6 +927,12 @@ h3 {
   font-size: 0.78rem;
 }
 
+.assessment-tooltip-column {
+  flex-basis: 100%;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
 .assessment-tooltip-row {
   display: grid;
   grid-template-columns: 6rem minmax(0, 1fr);
@@ -896,24 +996,32 @@ h3 {
 
 .unit-assessment {
   display: grid;
-  grid-template-columns: repeat(5, minmax(2.35rem, 1fr));
+  grid-template-columns: repeat(5, 1.9rem);
+  flex: 0 0 auto;
   gap: 0.45rem;
   align-content: start;
+  margin-left: auto;
 
   & a {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0.35rem;
     border: 1px solid currentColor;
     text-decoration: none;
-    min-height: 2.2rem;
-    padding: 0.35rem;
-    font-family: "Material Symbols Outlined";
+    min-height: 1.9rem;
+    padding: 0.2rem 0.35rem;
+    font-family: inherit;
     font-weight: normal;
     font-style: normal;
-    font-size: 1.15rem;
+    font-size: 0.78rem;
     white-space: nowrap;
-    line-height: 1.1;
+    text-align: center;
+    line-height: 1.25;
+
+    & .material-symbols-outlined {
+      font-size: 1.15rem;
+    }
 
     &.status-0 {
       color: var(--ink-faint);
@@ -940,26 +1048,29 @@ h3 {
 }
 
 .unit-why {
-  grid-area: why;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.9rem;
   width: 100%;
   min-width: 0;
-  padding-top: 0.16rem;
+  padding: 0.9rem 0.94rem;
+  border-top: 1px solid var(--border-subtle);
   color: var(--ink-primary);
   font-size: 0.9rem;
   line-height: 1.48;
 
   & div {
-    margin-top: 0.42rem;
+    margin-top: 0;
   }
 
   & b {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.25rem;
     color: var(--ink-strong);
     font-weight: 650;
   }
-}
-
-.unit-why .edit-button {
-  margin-block: -0.22rem;
 }
 
 .drop-highlight {
@@ -979,6 +1090,37 @@ h3 {
 
 #unit-detail .course-info {
   margin-top: 0.45rem;
+}
+
+.unit-cover-art {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 1;
+  object-fit: cover;
+  object-position: center;
+  margin-bottom: 1rem;
+}
+
+.unit-cover-art:not([hidden]) {
+  display: block;
+}
+
+.unit-image-delete {
+  display: block;
+  margin: -0.5rem 0 0.8rem auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+
+.unit-image-delete:disabled {
+  cursor: wait;
 }
 
 .unit-header {
@@ -1621,7 +1763,7 @@ body.evaluation-layout .app-footer {
   background: var(--panel-muted);
 }
 
-#evaluation-progress-bar {
+.evaluation-progress-track > div {
   width: 0;
   height: 100%;
   border-radius: inherit;
@@ -2030,8 +2172,7 @@ body.evaluation-layout .app-footer {
   }
 
   .staff-top-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.5rem;
+    flex-direction: column;
   }
 
   .unit-status-row {
@@ -2055,8 +2196,9 @@ body.evaluation-layout .app-footer {
   }
 
   .unit-assessment {
-    min-width: 0;
-    width: 100%;
+    align-self: stretch;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin-left: 0;
   }
 
   #question {
@@ -2092,12 +2234,37 @@ body.evaluation-layout .app-footer {
     padding: 0.66rem;
   }
 
-  .handle {
-    justify-self: end;
+  .unit-item-staff {
+    padding: 0;
+  }
+
+  .staff-unit-info {
+    padding: 0.5rem 0.35rem 0.5rem 0.66rem;
+  }
+
+  .unit-why {
+    padding: 0.66rem;
+  }
+
+  .unit-item > a:has(.unit-thumbnail:not([hidden])) {
+    flex-direction: column;
+  }
+
+  .unit-item > a:has(.unit-thumbnail:not([hidden])) > span {
+    padding: 0.66rem;
+  }
+
+  .unit-thumbnail,
+  .staff-top-row .unit-thumbnail {
+    width: 100%;
   }
 
   .staff-course-actions {
     margin-bottom: 0.55rem;
+  }
+
+  .unit-cover-art {
+    aspect-ratio: 3 / 1;
   }
 
   .evaluation-header {
@@ -2126,7 +2293,8 @@ body.evaluation-layout .app-footer {
     width: 100%;
   }
 
-  #modal-content {
+  #modal-content,
+  #ai-modal .modal-content {
     margin-top: 84px;
     max-height: calc(100dvh - 102px);
   }

@@ -14,11 +14,13 @@ public sealed partial class AIService : IDisposable
   private readonly CacheService _cache;
   private readonly AITokenBudgetService _tokenBudget;
   private readonly ILogger<AIService> _logger;
+  private readonly AppOptions _options;
+  private readonly IHttpClientFactory _httpClientFactory;
   private readonly SemaphoreSlim _evaluationSemaphore = new(5, 5);
 
   public string ModelName { get; }
 
-  public AIService(AppOptions options, CourseService courseService, CacheService cache, AITokenBudgetService tokenBudget, ILogger<AIService> logger)
+  public AIService(AppOptions options, CourseService courseService, CacheService cache, AITokenBudgetService tokenBudget, ILogger<AIService> logger, IHttpClientFactory httpClientFactory)
   {
     ArgumentNullException.ThrowIfNull(options);
     ArgumentNullException.ThrowIfNull(tokenBudget);
@@ -36,10 +38,19 @@ public sealed partial class AIService : IDisposable
     _cache = cache;
     _tokenBudget = tokenBudget;
     _logger = logger;
+    _options = options;
+    _httpClientFactory = httpClientFactory;
     ModelName = options.OpenAIModel;
   }
 
-  public void Dispose() => _evaluationSemaphore.Dispose();
+  public void Dispose()
+  {
+    _evaluationSemaphore.Dispose();
+    _imageSemaphore.Dispose();
+    _imageSceneSemaphore.Dispose();
+    foreach (var semaphore in _imageSubjectSemaphores.Values)
+      semaphore.Dispose();
+  }
 
   public async Task<Assessment> ImportTextAssessmentAsync(string value, CancellationToken cancellationToken = default)
   {

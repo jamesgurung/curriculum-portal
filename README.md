@@ -172,7 +172,9 @@ Deploy effortlessly to Microsoft Azure.
     - `MicrosoftTenantId` - your Azure tenant ID
     - `OpenAIAdminApiKey` - an OpenAI admin API key used to check daily token usage when `DailyTokenLimit` is set
     - `OpenAIApiKey` - your OpenAI or Microsoft Foundry API key
+    - `OpenAIImageApiKey` - optional API key used only for image-generation requests
     - `OpenAIModel` - the OpenAI model name or Microsoft Foundry deployment name
+    - `OpenAIImageModel` - required image-generation model or Microsoft Foundry deployment name
     - `PrivacyNoticeUrl` - the absolute URL of the school's official privacy notice
     - `SchoolName` - the name of your school
     - `StorageAccountConnectionString` - the connection string for the Azure Storage account

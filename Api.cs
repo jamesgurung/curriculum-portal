@@ -16,6 +16,7 @@ public static partial class Api
     MapInfrastructurePaths(app);
     MapCurriculumPaths(app);
     MapCourseAiPaths(app);
+    MapImagePaths(app);
     MapEvaluationPaths(app);
     MapAssignmentPaths(app);
     MapSyncPaths(app);

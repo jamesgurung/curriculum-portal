@@ -9,6 +9,8 @@
   ViewData["CanonicalUrl"] = Model.CanonicalUrl;
   ViewData["Robots"] = Model.IsQuiz ? "noindex, follow" : null;
   ViewData["BodyClass"] = "courses-layout";
+  var thumbnailSizes = $"(max-width: 800px) calc(100vw - 1.8rem), {(Model.IsStaff ? "12rem" : "10rem")}";
+  var coverSizes = "(max-width: 800px) calc(100vw - 1.8rem), (max-width: 1172px) calc(100vw - 360px - 2.8rem), 768px";
 
   string RenderKnowledgeItem(string value)
   {
@@ -90,7 +92,15 @@
               {
                 <li class="unit-item" data-id="@unit.Id">
                   <a href="/courses/@Uri.EscapeDataString(Model.SelectedCourse.RowKey)/@Uri.EscapeDataString(unit.Id)">
-                    <span class="material-symbols-outlined">assignment</span><span><strong class="unit-title">@unit.Title</strong><span class="term-text">@($"Year {unit.YearGroup} {(string.IsNullOrWhiteSpace(unit.Term) ? string.Empty : $"{unit.Term} Term")}")</span></span>
+                    @if (unit.HasImage && !string.IsNullOrEmpty(unit.ImageUrl))
+                    {
+                      <img class="unit-thumbnail" src="@unit.ImageUrl" srcset="@unit.ImageSrcSet" sizes="@thumbnailSizes" alt="" width="1536" height="512" loading="lazy" onerror="this.hidden=true" />
+                    }
+                    else
+                    {
+                      <span class="material-symbols-outlined">assignment</span>
+                    }
+                    <span><strong class="unit-title">@unit.Title</strong><span class="term-text">@($"Year {unit.YearGroup} {(string.IsNullOrWhiteSpace(unit.Term) ? string.Empty : $"{unit.Term} Term")}")</span></span>
                   </a>
                 </li>
               }
@@ -110,6 +120,12 @@
     <div id="unit-detail" class="@(Model.ServerRender && Model.SelectedUnit is not null && !Model.IsQuiz ? "active" : string.Empty)">
       @if (Model.ServerRender && Model.SelectedUnit is not null && !Model.IsQuiz)
       {
+        @if (Model.SelectedUnit.HasImage && !string.IsNullOrEmpty(Model.SelectedUnit.ImageUrl))
+        {
+          <div class="unit-cover">
+            <img class="unit-cover-art" src="@Model.SelectedUnit.ImageUrl" srcset="@Model.SelectedUnit.ImageSrcSet" sizes="@coverSizes" alt="" width="1536" height="512" onerror="this.hidden=true" />
+          </div>
+        }
         <div class="unit-header">
           <a class="back-button material-symbols-outlined" data-action="back-to-course" href="/courses/@Uri.EscapeDataString(Model.SelectedCourse.RowKey)" aria-label="Back to course">arrow_back</a>
           <h2 class="unit-title">@Model.SelectedUnit.Title</h2>
@@ -211,8 +227,13 @@
 <div id="ai-modal" class="evaluation-modal" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title" aria-describedby="ai-modal-note" tabindex="-1">
   <div class="modal-content">
     <div class="modal-body">
-      <h2 id="ai-modal-title"><span class="spinner" aria-hidden="true"></span><span>Enhancing unit rationales...</span></h2>
+      <h2 id="ai-modal-title"><span class="spinner" aria-hidden="true"></span><span id="ai-modal-operation">Enhancing unit rationales...</span></h2>
       <p id="ai-modal-note" class="evaluation-progress-note">This may take several minutes. Do not close the page.</p>
+      <div id="ai-modal-progress" hidden>
+        <div id="ai-modal-progress-track" class="evaluation-progress-track" role="progressbar" aria-label="Course image generation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="ai-modal-progress-bar"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -265,10 +286,20 @@
   </li>
 </template>
 
+<template id="tpl-unit-thumbnail">
+  <img class="unit-thumbnail" src="" srcset="" sizes="@thumbnailSizes" alt="" width="1536" height="512" loading="lazy" onerror="this.hidden=true" />
+</template>
+
 <template id="tpl-unit-header">
   <div class="unit-header">
     <a class="back-button material-symbols-outlined" data-action="back-to-course" href="" aria-label="Back to course">arrow_back</a>
     <h2 class="unit-title"></h2>
+  </div>
+</template>
+
+<template id="tpl-unit-cover">
+  <div class="unit-cover">
+    <img class="unit-cover-art" src="" srcset="" sizes="@coverSizes" alt="" width="1536" height="512" onerror="this.hidden=true" />
   </div>
 </template>
 
