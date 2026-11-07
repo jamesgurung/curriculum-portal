@@ -49,6 +49,7 @@ function renderAssignments() {
 function renderStudentAssignments() {
   const container = document.createDocumentFragment();
   if (assignmentsData.student?.gamification) {
+    assignmentsRoot.dataset.rank = assignmentsData.student.gamification.currentRank.toLowerCase();
     container.appendChild(buildGamificationSummary(assignmentsData.student.gamification, assignmentsData.student.bonusQuiz));
   }
   container.appendChild(buildStudentSection('To Do', assignmentsData.student?.toDo ?? [], 'Nothing due right now.', false));
@@ -61,9 +62,17 @@ function buildGamificationSummary(progress, bonusQuiz) {
   summary.setAttribute('aria-labelledby', 'assignment-rank-title');
 
   const identity = createElement('div', 'assignment-gamification-identity');
+  const rankImage = `/images/ranks/${progress.currentRank.toLowerCase()}`;
+  const rankIcon = createElement('img', 'assignment-gamification-icon');
+  rankIcon.src = `${rankImage}-64.webp`;
+  rankIcon.srcset = `${rankImage}-64.webp 64w, ${rankImage}-128.webp 128w`;
+  rankIcon.sizes = '40px';
+  rankIcon.width = 40;
+  rankIcon.height = 40;
+  rankIcon.alt = '';
   const rankTitle = createElement('h2', 'assignment-gamification-rank', progress.currentRank);
   rankTitle.id = 'assignment-rank-title';
-  identity.appendChild(rankTitle);
+  identity.append(rankIcon, rankTitle);
 
   const total = createElement('div', 'assignment-gamification-total');
   total.appendChild(createElement('strong', 'assignment-gamification-xp', `${progress.totalXp} XP`));

@@ -1,5 +1,6 @@
 using Azure;
 using Azure.Data.Tables;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
 
@@ -37,6 +38,7 @@ public class XpService
   private readonly TableClient _submissionsClient;
   private readonly TableClient _ledgerClient;
   private readonly ILogger<XpService> _logger;
+  private readonly ConcurrentDictionary<int, Lazy<Task<List<XpLedgerEntity>>>> _progressRows = new();
 
   public XpService(TableServiceClient tableServiceClient, ConfigService config, CourseService courseService, ILogger<XpService> logger)
   {
@@ -47,6 +49,39 @@ public class XpService
     _config = config;
     _courseService = courseService;
     _logger = logger;
+  }
+
+  public async Task<IReadOnlyList<XpLeaderboardEntry>> GetLeaderboardAsync(CancellationToken cancellationToken)
+  {
+    var totals = new Dictionary<string, int>(StringComparer.Ordinal);
+    await foreach (var row in _ledgerClient.QueryAsync<XpLedgerEntity>(
+      select: ["PartitionKey", "AnswerPoints", "CompletionPoints", "BonusQuizPoints"],
+      cancellationToken: cancellationToken))
+    {
+      totals.TryGetValue(row.PartitionKey, out var total);
+      totals[row.PartitionKey] = checked(total + row.AnswerPoints + row.CompletionPoints + row.BonusQuizPoints);
+    }
+
+    var students = _config.Students
+      .Select(student => (Student: student, TotalXp: totals.GetValueOrDefault(FormatStudentId(student.Id))))
+      .Where(entry => entry.TotalXp > 0)
+      .OrderByDescending(entry => entry.TotalXp)
+      .ThenBy(entry => entry.Student.LastName, StringComparer.OrdinalIgnoreCase)
+      .ThenBy(entry => entry.Student.FirstName, StringComparer.OrdinalIgnoreCase)
+      .ThenBy(entry => entry.Student.Id);
+    var entries = new List<XpLeaderboardEntry>();
+    var position = 0;
+    var previousXp = -1;
+    foreach (var entry in students)
+    {
+      if (entry.TotalXp != previousXp) position = entries.Count + 1;
+      var nextRank = Ranks.FirstOrDefault(rank => rank.Threshold > entry.TotalXp);
+      entries.Add(new XpLeaderboardEntry(position, entry.Student.DisplayName, entry.Student.TutorGroup,
+        entry.TotalXp, Ranks.Last(rank => rank.Threshold <= entry.TotalXp).Name,
+        nextRank.Name, nextRank.Name is null ? 0 : nextRank.Threshold - entry.TotalXp));
+      previousXp = entry.TotalXp;
+    }
+    return entries;
   }
 
   public async Task CreateWeeklyRowsAsync(DateOnly dueDate, CancellationToken cancellationToken)
@@ -67,6 +102,7 @@ public class XpService
         try
         {
           await _ledgerClient.AddEntityAsync(CreateRow(eligible.Student.Id, dueDate), token);
+          _progressRows.TryRemove(eligible.Student.Id, out _);
         }
         catch (RequestFailedException ex) when (ex.Status == 409)
         {
@@ -122,6 +158,7 @@ public class XpService
         try
         {
           await _ledgerClient.UpdateEntityAsync(row, row.ETag, TableUpdateMode.Replace, cancellationToken);
+          if (newlyAwardedXp > 0) _progressRows.TryRemove(student.Id, out _);
           return new XpAwardResult(newlyAwardedXp, await GetProgressAsync(student.Id, DateTimeOffset.UtcNow, cancellationToken));
         }
         catch (RequestFailedException ex) when (ex.Status == 412 && attempt + 1 < MaxUpdateAttempts)
@@ -144,11 +181,29 @@ public class XpService
 
   public async Task<GamificationProgress> GetProgressAsync(int studentId, DateTimeOffset nowUtc, CancellationToken cancellationToken)
   {
+    cancellationToken.ThrowIfCancellationRequested();
     var partitionKey = FormatStudentId(studentId);
-    var rows = await _ledgerClient.QueryAsync<XpLedgerEntity>(
-      filter: $"PartitionKey eq '{EscapeODataValue(partitionKey)}'",
-      select: ["PartitionKey", "RowKey", "AnswerPoints", "CompletionPoints", "BonusQuizPoints"],
-      cancellationToken: cancellationToken).ToListAsync(cancellationToken);
+    var cachedRows = _progressRows.GetOrAdd(studentId, _ =>
+    {
+      Lazy<Task<List<XpLedgerEntity>>> entry = null;
+      entry = new(async () =>
+      {
+        try
+        {
+          return await _ledgerClient.QueryAsync<XpLedgerEntity>(
+            filter: $"PartitionKey eq '{EscapeODataValue(partitionKey)}'",
+            select: ["PartitionKey", "RowKey", "AnswerPoints", "CompletionPoints", "BonusQuizPoints"],
+            cancellationToken: CancellationToken.None).ToListAsync(CancellationToken.None);
+        }
+        catch
+        {
+          _progressRows.TryRemove(new KeyValuePair<int, Lazy<Task<List<XpLedgerEntity>>>>(studentId, entry));
+          throw;
+        }
+      });
+      return entry;
+    });
+    var rows = await cachedRows.Value.WaitAsync(cancellationToken);
     rows = rows.OrderBy(row => row.RowKey, StringComparer.Ordinal).ToList();
 
     var totalXp = rows.Aggregate(0, (total, row) => checked(total + row.AnswerPoints + row.CompletionPoints + row.BonusQuizPoints));
@@ -277,6 +332,7 @@ public class XpService
       try
       {
         await _ledgerClient.UpdateEntityAsync(row, row.ETag, TableUpdateMode.Replace, cancellationToken);
+        if (awardedXp > 0) _progressRows.TryRemove(studentId, out _);
         return true;
       }
       catch (RequestFailedException ex) when (ex.Status == 412 && attempt + 1 < MaxUpdateAttempts)
@@ -303,6 +359,7 @@ public class XpService
     try
     {
       await _ledgerClient.AddEntityAsync(CreateRow(student.Id, dueDate), cancellationToken);
+      _progressRows.TryRemove(student.Id, out _);
     }
     catch (RequestFailedException ex) when (ex.Status == 409)
     {
@@ -427,6 +484,15 @@ public class XpService
 }
 
 public sealed record XpAwardResult(int NewlyAwardedXp, GamificationProgress Progress);
+
+public sealed record XpLeaderboardEntry(
+  int Position,
+  string StudentName,
+  string TutorGroup,
+  int TotalXp,
+  string CurrentRank,
+  string NextRank,
+  int XpToNextRank);
 
 public sealed record BonusQuizLedgerSnapshot(
   DateOnly DueDate,

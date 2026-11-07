@@ -1,4 +1,5 @@
 const assignmentDetailRoot = document.getElementById('assignment-detail-root');
+const navRankBadges = document.querySelectorAll('.nav-rank-badge');
 const assignmentCsrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
 const assignmentMode = typeof assignmentQuizConfig === 'undefined'
   ? {
@@ -117,6 +118,13 @@ async function onAssignmentDetailClick(event) {
       assignmentState.gamification = result.gamification;
       if (previousRank && previousRank !== result.gamification.currentRank) {
         assignmentState.rankUp = result.gamification.currentRank;
+        const rankImage = `/images/ranks/${result.gamification.currentRank.toLowerCase()}`;
+        for (const badge of navRankBadges) {
+          badge.src = `${rankImage}-64.webp`;
+          badge.srcset = `${rankImage}-64.webp 64w, ${rankImage}-128.webp 128w`;
+          badge.alt = `${result.gamification.currentRank} rank`;
+          badge.title = result.gamification.currentRank;
+        }
       }
     }
     if (newlyAwardedXp !== null) {

@@ -1,5 +1,8 @@
 @using CurriculumPortal
 @inject AppOptions AppOptions
+@inject ConfigService Config
+@inject XpService Xp
+@inject ILoggerFactory LoggerFactory
 @{
   var title = ViewData["Title"] as string;
   var resolvedTitle = string.IsNullOrWhiteSpace(title) ? AppOptions.SchoolName : title;
@@ -13,7 +16,19 @@
   if (!string.IsNullOrWhiteSpace(pageBodyClass))
     bodyClass = string.IsNullOrWhiteSpace(bodyClass) ? pageBodyClass : $"{bodyClass} {pageBodyClass}";
   var returnUrl = Uri.EscapeDataString($"{Context.Request.Path}{Context.Request.QueryString}");
-
+  var studentRank = string.Empty;
+  if (User.Identity.IsAuthenticated && User.IsInRole(Roles.Student) && Config.UsersByEmail.TryGetValue(User.GetEmail(), out var student))
+  {
+    try
+    {
+      studentRank = (await Xp.GetProgressAsync(student.Id, DateTimeOffset.UtcNow, Context.RequestAborted)).CurrentRank;
+    }
+    catch (Exception ex) when (!Context.RequestAborted.IsCancellationRequested)
+    {
+      LoggerFactory.CreateLogger("CurriculumPortal.Pages.Shared.Layout").LogWarning(ex, "Failed to load the navigation rank for student {StudentId}.", student.Id);
+    }
+  }
+  var rankImage = $"/images/ranks/{studentRank.ToLowerInvariant()}";
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -62,7 +77,13 @@
           {
             <a class="nav-drawer-link @(isCoursesSection ? "active" : string.Empty)" href="/courses">Courses</a>
             <a class="nav-drawer-link @(isAssignmentsSection ? "active" : string.Empty)" href="/assignments">Assignments</a>
-            <span class="nav-drawer-user">@User.GetDisplayName()</span>
+            <span class="nav-drawer-user">
+              @if (studentRank.Length > 0)
+              {
+                <img class="nav-rank-badge" src="@(rankImage)-64.webp" srcset="@(rankImage)-64.webp 64w, @(rankImage)-128.webp 128w" sizes="28px" width="28" height="28" alt="@studentRank rank" title="@studentRank" />
+              }
+              <span class="user-display-name">@User.GetDisplayName()</span>
+            </span>
             <a class="nav-drawer-link" href="/logout">Sign Out</a>
           }
           else
@@ -87,7 +108,13 @@
       <div class="auth-actions">
         @if (User.Identity.IsAuthenticated)
         {
-          <span class="signed-in-name">@User.GetDisplayName()</span>
+          <span class="signed-in-name">
+            @if (studentRank.Length > 0)
+            {
+              <img class="nav-rank-badge" src="@(rankImage)-64.webp" srcset="@(rankImage)-64.webp 64w, @(rankImage)-128.webp 128w" sizes="28px" width="28" height="28" alt="@studentRank rank" title="@studentRank" />
+            }
+            <span class="user-display-name">@User.GetDisplayName()</span>
+          </span>
           <a class="auth-button auth-link" href="/logout">Sign Out</a>
         }
         else

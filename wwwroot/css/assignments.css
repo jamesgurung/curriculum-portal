@@ -17,8 +17,9 @@
   --assignments-ring-active: #0f7a3f;
   --assignments-ring-complete: #0f7a3f;
   --assignments-ring-pp: #d9368b;
-  --assignments-xp: #8a6500;
-  --assignments-xp-soft: #fff7d6;
+  --assignments-xp: #1f4da8;
+  --assignments-xp-soft: #edf3ff;
+  --assignments-xp-fill: #2864c9;
   --assignments-shadow: none;
   min-height: 100%;
   padding: 0.9rem;
@@ -66,6 +67,77 @@ body.assignments-layout .assignments-page {
   gap: 0.94rem;
 }
 
+.assignments-root[data-rank] {
+  --assignments-rank: #2864c9;
+  --assignments-xp: color-mix(in srgb, var(--assignments-rank) 78%, #000000);
+  --assignments-xp-soft: color-mix(in srgb, var(--assignments-rank) 8%, #ffffff);
+  --assignments-xp-fill: var(--assignments-rank);
+}
+
+.assignments-root[data-rank="novice"] {
+  --assignments-rank: #3f8050;
+}
+
+.assignments-root[data-rank="apprentice"] {
+  --assignments-rank: #187bc1;
+}
+
+.assignments-root[data-rank="practitioner"] {
+  --assignments-rank: #a15b32;
+}
+
+.assignments-root[data-rank="specialist"] {
+  --assignments-rank: #087f7d;
+}
+
+.assignments-root[data-rank="expert"] {
+  --assignments-rank: #4e5ac7;
+}
+
+.assignments-root[data-rank="champion"] {
+  --assignments-rank: #a8750c;
+}
+
+.assignments-root[data-rank="elite"] {
+  --assignments-rank: #be315b;
+}
+
+.assignments-root[data-rank="grandmaster"] {
+  --assignments-rank: #7137ac;
+}
+
+.assignments-root[data-rank="legend"] {
+  --assignments-rank: #be5b13;
+}
+
+.assignments-root[data-rank="icon"] {
+  --assignments-rank: #b32686;
+}
+
+.assignments-root[data-rank="titan"] {
+  --assignments-rank: #365e83;
+}
+
+.assignments-root[data-rank="paragon"] {
+  --assignments-rank: #477a9c;
+}
+
+.assignments-root[data-rank="mythic"] {
+  --assignments-rank: #8840ba;
+}
+
+.assignments-root[data-rank="sovereign"] {
+  --assignments-rank: #9b303a;
+}
+
+.assignments-root[data-rank="transcendent"] {
+  --assignments-rank: #07838c;
+}
+
+.assignments-root[data-rank="immortal"] {
+  --assignments-rank: #51566d;
+}
+
 .assignment-staff-controls {
   display: flex;
   justify-content: flex-end;
@@ -77,7 +149,7 @@ body.assignments-layout .assignments-page {
   gap: 0.9rem 1.3rem;
   padding: 1.05rem 1.15rem;
   border: 1px solid var(--assignments-border-standard);
-  border-left: 3px solid var(--assignments-xp);
+  border-left: 3px solid var(--assignments-xp-fill);
   border-radius: 0;
   background: var(--assignments-panel-soft);
   box-shadow: var(--assignments-shadow);
@@ -86,6 +158,7 @@ body.assignments-layout .assignments-page {
 .assignment-gamification-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 1.2rem;
   grid-column: 1 / -1;
@@ -94,7 +167,17 @@ body.assignments-layout .assignments-page {
 }
 
 .assignment-gamification-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   min-width: 0;
+}
+
+.assignment-gamification-icon {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: contain;
 }
 
 .assignment-gamification-rank {
@@ -109,6 +192,7 @@ body.assignments-layout .assignments-page {
   align-items: center;
   flex: none;
   min-height: 2rem;
+  margin-left: auto;
   padding: 0.35rem 0.62rem;
   border: 1px solid color-mix(in srgb, var(--assignments-xp) 30%, var(--assignments-border-standard));
   background: var(--assignments-xp-soft);
@@ -182,6 +266,10 @@ body.assignments-layout .assignments-page {
   height: 100%;
   border-radius: inherit;
   background: var(--assignments-xp);
+}
+
+.assignment-rank-progress-fill {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--assignments-xp-fill) 65%, #ffffff), var(--assignments-xp-fill) 45%, color-mix(in srgb, var(--assignments-xp-fill) 85%, #000000));
 }
 
 .assignment-rank-progress.is-maximum {
@@ -1594,14 +1682,21 @@ a.assignment-card.is-overdue:hover {
     --assignments-ring-active: #5eb288;
     --assignments-ring-complete: #5eb288;
     --assignments-ring-pp: #f25aa5;
-    --assignments-xp: #e1bd55;
-    --assignments-xp-soft: #342e1c;
+    --assignments-xp: #9bbfff;
+    --assignments-xp-soft: #1d2d49;
+    --assignments-xp-fill: #5b8ee5;
     --assignments-shadow: none;
   }
 
   body.assignments-layout {
     --assignments-bg: #141519;
     --page-bg-solid: var(--assignments-bg);
+  }
+
+  .assignments-root[data-rank] {
+    --assignments-xp: color-mix(in srgb, var(--assignments-rank) 55%, #ffffff);
+    --assignments-xp-soft: color-mix(in srgb, var(--assignments-rank) 15%, var(--assignments-panel-soft));
+    --assignments-xp-fill: color-mix(in srgb, var(--assignments-rank) 70%, #ffffff);
   }
 }
 
