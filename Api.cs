@@ -26,9 +26,10 @@ public static partial class Api
   {
     app.MapGet("/error", [AllowAnonymous] () => Results.Content("An error occurred.", "text/plain"));
 
-    app.MapGet("/refresh", [Authorize(Roles = Roles.Admin)] async (ConfigService config) =>
+    app.MapGet("/refresh", [Authorize(Roles = Roles.Admin)] async (ConfigService config, CacheService cache) =>
     {
       await config.ReloadAsync();
+      cache.Clear();
       return Results.Ok();
     });
 

@@ -21,6 +21,8 @@ public class CacheService
 
   public void Update(string key, string value) => _cache[key] = (value, RoundedNow());
 
+  public void Clear() => _cache.Clear();
+
   public void Invalidate(params string[] keys)
   {
     ArgumentNullException.ThrowIfNull(keys);
