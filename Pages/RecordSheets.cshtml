@@ -1,5 +1,6 @@
 @page "/courses/{courseId}/{unitId}/build/recordsheets"
 @model CurriculumPortal.RecordSheetsModel
+@inject CurriculumPortal.AppOptions AppOptions
 @{
   Layout = null;
   var totalMaxScore = Model.Data.Elements.Sum(e => e.MaxMarks);
@@ -8,13 +9,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>@Model.Data.UnitTitle - Record Sheets</title>
+  <title>@Model.Data.UnitTitle - Record Sheets - @AppOptions.SchoolName</title>
   <link rel="stylesheet" href="/css/recordsheets.css" />
 </head>
 <body>
+  <h1 class="visually-hidden">@Model.Data.UnitTitle - Record Sheets</h1>
   @foreach (var cls in Model.Data.Classes)
   {
-    <h1>@Model.Data.UnitTitle - @cls.Name</h1>
+    <h2 class="record-sheet-title">@Model.Data.UnitTitle - @cls.Name</h2>
     <table>
       <thead>
         <tr>

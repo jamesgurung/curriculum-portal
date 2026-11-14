@@ -6,6 +6,7 @@
 @{
   ViewData["Title"] = Model.PageTitle;
   ViewData["MetaDescription"] = Model.MetaDescription;
+  ViewData["MetaImage"] = Model.SelectedUnit?.HasImage == true ? Model.SelectedUnit.ImageUrl : null;
   ViewData["CanonicalUrl"] = Model.CanonicalUrl;
   ViewData["Robots"] = Model.IsQuiz ? "noindex, follow" : null;
   ViewData["BodyClass"] = "courses-layout";
@@ -42,51 +43,65 @@
 
 <div id="curriculum-app">
   <aside id="course-column" class="@(Model.ServerRender && Model.SelectedCourse is not null && !Model.IsQuiz ? string.Empty : "active")" tabindex="0" aria-label="Course list">
-    <ul id="course-list">
-      @if (Model.ServerRender)
-      {
-        @foreach (var course in Model.PublicCourses)
+    <h1 id="curriculum-heading" class="visually-hidden" hidden="@(Model.SelectedCourse is not null)">Curriculum</h1>
+    <div data-nosnippet>
+      <ul id="course-list">
+        @if (Model.ServerRender)
         {
-          <li class="course-item @(course == Model.SelectedCourse ? "active" : string.Empty)" data-course-id="@course.RowKey">
-            <a href="/courses/@Uri.EscapeDataString(course.RowKey)">
-              <span class="material-symbols-outlined">@(string.IsNullOrWhiteSpace(course.Icon) ? "book" : course.Icon)</span><span class="course-name">@course.Name</span>
-            </a>
-          </li>
+          @foreach (var course in Model.PublicCourses)
+          {
+            <li class="course-item @(course == Model.SelectedCourse ? "active" : string.Empty)" data-course-id="@course.RowKey">
+              <a href="/courses/@Uri.EscapeDataString(course.RowKey)">
+                <span class="material-symbols-outlined" data-nosnippet>@(string.IsNullOrWhiteSpace(course.Icon) ? "book" : course.Icon)</span><span class="course-name">@course.Name</span>
+              </a>
+            </li>
+          }
         }
-      }
-    </ul>
+      </ul>
+    </div>
   </aside>
   <main class="@(Model.ServerRender && Model.SelectedCourse is not null && !Model.IsQuiz ? "active" : string.Empty)">
     <div id="course-detail" class="@(Model.ServerRender && Model.SelectedCourse is not null && Model.SelectedUnit is null && !Model.IsQuiz ? "active" : string.Empty)">
       @if (Model.ServerRender && Model.SelectedCourse is not null && Model.SelectedUnit is null && !Model.IsQuiz)
       {
         var courseUnits = Model.PublicUnits.Where(unit => unit.CourseId == Model.SelectedCourse.RowKey).ToList();
-        <h2 class="course-title">
-          <a class="back-button material-symbols-outlined" data-action="back-course" href="/courses" aria-label="Back to courses">arrow_back</a>
+        var visibleYears = courseUnits.Select(unit => unit.YearGroup).Distinct().ToList();
+        <h1 class="course-title">
+          <a class="back-button material-symbols-outlined" data-action="back-course" href="/courses" aria-label="Back to courses"><span data-nosnippet>arrow_back</span></a>
           <span>@Model.SelectedCourse.Name</span>
-        </h2>
+        </h1>
         <p class="course-info">
-          <b><span class="material-symbols-outlined icon">badge</span><span class="label">@(Model.SelectedCourse.LeaderNames?.Contains(',') == true ? "Course leaders" : "Course leader")</span></b>
+          <b><span class="material-symbols-outlined icon" data-nosnippet>badge</span><span class="label">@(Model.SelectedCourse.LeaderNames?.Contains(',') == true ? "Course leaders" : "Course leader")</span></b>
           <span class="value">@Model.SelectedCourse.LeaderNames</span>
         </p>
         @if (!string.IsNullOrWhiteSpace(Model.SelectedCourse.Specification) && !Model.SelectedCourse.Name.StartsWith("KS"))
         {
           <p class="course-info">
-            <b><span class="material-symbols-outlined icon">book_5</span><span class="label">Specification</span></b>
+            <b><span class="material-symbols-outlined icon" data-nosnippet>book_5</span><span class="label">Specification</span></b>
             <span class="value specification-content">@Model.SelectedCourse.Specification</span>
           </p>
         }
         @if (!string.IsNullOrWhiteSpace(Model.SelectedCourse.Intent))
         {
           <p class="course-info">
-            <b><span class="material-symbols-outlined icon">target</span><span class="label">Curriculum intent</span></b>
+            <b><span class="material-symbols-outlined icon" data-nosnippet>target</span><span class="label">Curriculum intent</span></b>
             <span class="value intent-content">@Model.SelectedCourse.Intent</span>
           </p>
         }
-        @foreach (var year in courseUnits.Select(unit => unit.YearGroup).Distinct())
+        @if (visibleYears.Count > 1)
         {
-          <div class="year-group-section">
-            <b class="year-group-heading"><span class="material-symbols-outlined">stacks</span><span class="year-title">Year @year units</span></b>
+          <nav class="year-group-links" aria-label="Jump to year group">
+            Jump to:
+            @foreach (var year in visibleYears)
+            {
+              <a href="#year-@year">Year @year</a>
+            }
+          </nav>
+        }
+        @foreach (var year in visibleYears)
+        {
+          <div class="year-group-section" id="year-@year">
+            <h2 class="year-group-heading"><span class="material-symbols-outlined" data-nosnippet>stacks</span><span class="year-title">Year @year units</span></h2>
             <ul class="units-list">
               @foreach (var unit in courseUnits.Where(unit => unit.YearGroup == year))
               {
@@ -98,7 +113,7 @@
                     }
                     else
                     {
-                      <span class="material-symbols-outlined">assignment</span>
+                      <span class="material-symbols-outlined" data-nosnippet>assignment</span>
                     }
                     <span><strong class="unit-title">@unit.Title</strong><span class="term-text">@($"Year {unit.YearGroup} {(string.IsNullOrWhiteSpace(unit.Term) ? string.Empty : $"{unit.Term} Term")}")</span></span>
                   </a>
@@ -127,26 +142,26 @@
           </div>
         }
         <div class="unit-header">
-          <a class="back-button material-symbols-outlined" data-action="back-to-course" href="/courses/@Uri.EscapeDataString(Model.SelectedCourse.RowKey)" aria-label="Back to course">arrow_back</a>
-          <h2 class="unit-title">@Model.SelectedUnit.Title</h2>
+          <a class="back-button material-symbols-outlined" data-action="back-to-course" href="/courses/@Uri.EscapeDataString(Model.SelectedCourse.RowKey)" aria-label="Back to course"><span data-nosnippet>arrow_back</span></a>
+          <h1 class="unit-title">@Model.SelectedUnit.Title</h1>
         </div>
         @if (!string.IsNullOrWhiteSpace(Model.SelectedUnit.WhyThis) || !string.IsNullOrWhiteSpace(Model.SelectedUnit.WhyNow))
         {
           <div class="unit-rationale">
             @if (!string.IsNullOrWhiteSpace(Model.SelectedUnit.WhyThis))
             {
-              <p class="why-this"><span class="material-symbols-outlined">info</span><span><strong>Why this?</strong> <span class="text">@Model.SelectedUnit.WhyThis</span></span></p>
+              <p class="why-this"><span class="material-symbols-outlined" data-nosnippet>info</span><span><strong>Why this?</strong> <span class="text">@Model.SelectedUnit.WhyThis</span></span></p>
             }
             @if (!string.IsNullOrWhiteSpace(Model.SelectedUnit.WhyNow))
             {
-              <p class="why-now"><span class="material-symbols-outlined">schedule</span><span><strong>Why now?</strong> <span class="text">@Model.SelectedUnit.WhyNow</span></span></p>
+              <p class="why-now"><span class="material-symbols-outlined" data-nosnippet>schedule</span><span><strong>Why now?</strong> <span class="text">@Model.SelectedUnit.WhyNow</span></span></p>
             }
           </div>
         }
         @if (Model.KeyKnowledge is not null)
         {
           <div class="key-knowledge">
-            <div id="declarative-header-container"><h3><span class="material-symbols-outlined">neurology</span>You need to know</h3></div>
+            <div id="declarative-header-container"><h2><span class="material-symbols-outlined" data-nosnippet>neurology</span>You need to know</h2></div>
             <div id="declarative-knowledge">
               @if (Model.KeyKnowledge.DeclarativeKnowledge?.Count > 0)
               {
@@ -158,7 +173,7 @@
                 </ul>
               }
             </div>
-            <h3><span class="material-symbols-outlined">rocket_launch</span>You must be able to</h3>
+            <h2><span class="material-symbols-outlined" data-nosnippet>rocket_launch</span>You must be able to</h2>
             <div id="procedural-knowledge">
               @if (Model.KeyKnowledge.ProceduralKnowledge?.Count > 0)
               {
@@ -179,9 +194,9 @@
       }
     </div>
     <div id="unit-quiz">
-      <button id="quiz-back" class="back-button material-symbols-outlined">arrow_back</button>
+      <button id="quiz-back" class="back-button material-symbols-outlined"><span data-nosnippet>arrow_back</span></button>
       <div class="quiz-shell">
-        <h2><span id="quiz-title"></span><br />Revision Quiz</h2>
+        <h1><span id="quiz-title">@Model.SelectedUnit?.Title</span><br />Revision Quiz</h1>
         <div id="quiz-play">
           <div id="progress-container"><div id="progress"></div></div>
           <div id="question"></div>
@@ -192,7 +207,7 @@
           <div id="outcome"></div>
         </div>
         <div id="quiz-result" class="hide">
-          <span class="material-symbols-outlined">trophy</span>
+          <span class="material-symbols-outlined" data-nosnippet>trophy</span>
           <span class="congratulations">Congratulations! You have completed the quiz.</span>
           <button id="quiz-restart">Restart</button>
         </div>
@@ -205,7 +220,7 @@
   <div id="modal-content">
     <div id="modal-header">
       <h2 id="modal-title"></h2>
-      <button id="modal-close" class="material-symbols-outlined" aria-label="Close modal">close</button>
+      <button id="modal-close" class="material-symbols-outlined" aria-label="Close modal"><span data-nosnippet>close</span></button>
     </div>
     <div id="modal-body">
       <p id="modal-body-question"></p>
@@ -243,7 +258,7 @@
 <template id="tpl-course-item">
   <li class="course-item" data-course-id="">
     <a href="">
-      <span class="material-symbols-outlined">book</span><span class="course-name"></span>
+      <span class="material-symbols-outlined" data-nosnippet>book</span><span class="course-name"></span>
     </a>
   </li>
 </template>
@@ -253,16 +268,16 @@
 </template>
 
 <template id="tpl-back-course">
-  <a class="back-button material-symbols-outlined" data-action="back-course" href="/courses" aria-label="Back to courses">arrow_back</a>
+  <a class="back-button material-symbols-outlined" data-action="back-course" href="/courses" aria-label="Back to courses"><span data-nosnippet>arrow_back</span></a>
 </template>
 
 <template id="tpl-course-title">
-  <h2 class="course-title"></h2>
+  <h1 class="course-title"></h1>
 </template>
 
 <template id="tpl-course-info">
   <p class="course-info">
-    <b><span class="material-symbols-outlined icon"></span><span class="label"></span></b> <span class="value"></span>
+    <b><span class="material-symbols-outlined icon" data-nosnippet></span><span class="label"></span></b> <span class="value"></span>
   </p>
 </template>
 
@@ -272,7 +287,7 @@
 
 <template id="tpl-year-group-section">
   <div class="year-group-section">
-    <b class="year-group-heading"><span class="material-symbols-outlined">stacks</span><span class="year-title"></span></b>
+    <h2 class="year-group-heading"><span class="material-symbols-outlined" data-nosnippet>stacks</span><span class="year-title"></span></h2>
     <ul class="units-list"></ul>
     <div class="no-units hide">No units configured</div>
   </div>
@@ -281,7 +296,7 @@
 <template id="tpl-unit-item">
   <li class="unit-item" data-id="">
     <a href="">
-      <span class="material-symbols-outlined">assignment</span><span><strong class="unit-title"></strong><span class="term-text"></span></span>
+      <span class="material-symbols-outlined" data-nosnippet>assignment</span><span><strong class="unit-title"></strong><span class="term-text"></span></span>
     </a>
   </li>
 </template>
@@ -292,8 +307,8 @@
 
 <template id="tpl-unit-header">
   <div class="unit-header">
-    <a class="back-button material-symbols-outlined" data-action="back-to-course" href="" aria-label="Back to course">arrow_back</a>
-    <h2 class="unit-title"></h2>
+    <a class="back-button material-symbols-outlined" data-action="back-to-course" href="" aria-label="Back to course"><span data-nosnippet>arrow_back</span></a>
+    <h1 class="unit-title"></h1>
   </div>
 </template>
 
@@ -305,16 +320,16 @@
 
 <template id="tpl-unit-rationale">
   <div class="unit-rationale">
-    <p class="why-this hide"><span class="material-symbols-outlined">info</span><span><strong>Why this?</strong> <span class="text"></span></span></p>
-    <p class="why-now hide"><span class="material-symbols-outlined">schedule</span><span><strong>Why now?</strong> <span class="text"></span></span></p>
+    <p class="why-this hide"><span class="material-symbols-outlined" data-nosnippet>info</span><span><strong>Why this?</strong> <span class="text"></span></span></p>
+    <p class="why-now hide"><span class="material-symbols-outlined" data-nosnippet>schedule</span><span><strong>Why now?</strong> <span class="text"></span></span></p>
   </div>
 </template>
 
 <template id="tpl-key-knowledge">
   <div class="key-knowledge">
-    <div id="declarative-header-container"><h3><span class="material-symbols-outlined">neurology</span>You need to know</h3></div>
+    <div id="declarative-header-container"><h2><span class="material-symbols-outlined" data-nosnippet>neurology</span>You need to know</h2></div>
     <div id="declarative-knowledge"><div class="loading">Loading...</div></div>
-    <h3><span class="material-symbols-outlined">rocket_launch</span>You must be able to</h3>
+    <h2><span class="material-symbols-outlined" data-nosnippet>rocket_launch</span>You must be able to</h2>
     <div id="procedural-knowledge"><div class="loading">Loading...</div></div>
   </div>
 </template>
@@ -325,12 +340,21 @@
 
 <template id="tpl-outcome">
   <span>
-    <span class="material-symbols-outlined"></span><span class="outcome-text"></span>
+    <span class="material-symbols-outlined" data-nosnippet></span><span class="outcome-text"></span>
   </span>
 </template>
 
 @section Scripts {
   <script>
+    const curriculumPage = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
+      Model.SchoolName,
+      Model.Website,
+      ServerRender = Model.ServerRender && !Model.IsQuiz,
+      PublicDataUrl = Model.ServerRender ? "/courses/public.json" : null,
+      CourseId = Model.SelectedCourse?.RowKey,
+      UnitId = Model.SelectedUnit?.Id,
+      RevisionQuiz = Model.KeyKnowledge?.RevisionQuiz ?? []
+    }, CurriculumPortal.JsonDefaults.CamelCase));
     const courses = @Html.Raw(Model.CoursesJson);
     const units = @Html.Raw(Model.UnitsJson);
     const editableCourseIds = @Html.Raw(Model.EditableCourseIdsJson);
@@ -360,6 +384,9 @@
     };
   </script>
   <script src="/lib/mathjax/tex-chtml.min.js"></script>
-  <script src="/lib/sortablejs/Sortable.min.js"></script>
+  @if (Model.IsStaff)
+  {
+    <script src="/lib/sortablejs/Sortable.min.js"></script>
+  }
   <script src="/js/curriculum-home.js"></script>
 }

@@ -8,6 +8,7 @@ public sealed class CourseEvaluationReport
   public CourseEntity Course { get; init; }
   public CourseEvaluation Evaluation { get; init; }
   public IReadOnlyList<UnitEntity> Units { get; init; } = [];
+  public bool IsPageHeading { get; init; }
   public bool ShowBackButton { get; init; }
   public bool ShowControls { get; init; }
   public bool ShowGenerationDetails { get; init; }

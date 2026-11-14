@@ -30,7 +30,14 @@
     }
     <div class="evaluation-heading">
       <span class="evaluation-kicker">Course evaluation</span>
-      <h2>@Model.Course.Name</h2>
+      @if (Model.IsPageHeading)
+      {
+        <h1>@Model.Course.Name</h1>
+      }
+      else
+      {
+        <h2>@Model.Course.Name</h2>
+      }
     </div>
     @if (Model.ShowControls && Model.CanEvaluateCourse)
     {

@@ -9,8 +9,8 @@ namespace CurriculumPortal;
 [AllowAnonymous]
 public class CoursesModel(CourseService courseService, CacheService cache, ConfigService config, AppOptions options, IAntiforgery antiforgery, BromcomAssessmentService bromcomCache) : PageModel
 {
-  public string CoursesJson { get; private set; }
-  public string UnitsJson { get; private set; }
+  public string CoursesJson { get; private set; } = "[]";
+  public string UnitsJson { get; private set; } = "[]";
   public string EditableCourseIdsJson { get; private set; } = "[]";
   public string IsAdminJson { get; private set; } = "false";
   public string BromcomSubjectsJson { get; private set; } = "[]";
@@ -20,6 +20,7 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
   public string CsrfToken { get; private set; }
   public string MicrosoftSharePointSubdomain { get; private set; } = options.MicrosoftSharePointSubdomain;
   public string SchoolName { get; private set; } = options.SchoolName;
+  public string Website { get; } = options.Website.TrimEnd('/');
   public string PageTitle { get; private set; } = $"Curriculum - {options.SchoolName}";
   public string MetaDescription { get; private set; } = $"Explore the curriculum at {options.SchoolName}, including courses, units, and revision quiz content.";
   public string CanonicalUrl { get; private set; } = $"{options.Website.TrimEnd('/')}/courses";
@@ -78,15 +79,16 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
     var cachedCourses = await cache.GetCachedDataAsync<List<CourseEntity>>("courses", () => courseService.ListCoursesAsync());
     var cachedUnits = await cache.GetCachedDataAsync<List<PublicFacingUnit>>("units", async () => (await courseService.ListUnitsAsync()).Select(o => new PublicFacingUnit(o)).ToList());
 
-    CoursesJson = cachedCourses.Data;
-    UnitsJson = cachedUnits.Data;
-
     if (isAuthenticated)
+    {
+      CoursesJson = cachedCourses.Data;
+      UnitsJson = cachedUnits.Data;
       return Page();
+    }
 
     ServerRender = true;
-    PublicCourses = JsonSerializer.Deserialize<List<CourseEntity>>(CoursesJson, JsonDefaults.CamelCase) ?? [];
-    PublicUnits = JsonSerializer.Deserialize<List<PublicFacingUnit>>(UnitsJson, JsonDefaults.CamelCase) ?? [];
+    PublicCourses = JsonSerializer.Deserialize<List<CourseEntity>>(cachedCourses.Data, JsonDefaults.CamelCase) ?? [];
+    PublicUnits = JsonSerializer.Deserialize<List<PublicFacingUnit>>(cachedUnits.Data, JsonDefaults.CamelCase) ?? [];
 
     if (string.IsNullOrWhiteSpace(courseId))
       return string.IsNullOrWhiteSpace(unitId) && string.IsNullOrWhiteSpace(action) ? Page() : NotFound();
@@ -95,8 +97,10 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
     if (SelectedCourse is null)
       return NotFound();
 
-    PageTitle = $"{SelectedCourse.Name} curriculum - {SchoolName}";
-    MetaDescription = string.IsNullOrWhiteSpace(SelectedCourse.Intent) ? MetaDescription : SelectedCourse.Intent;
+    PageTitle = $"{SelectedCourse.Name} - {SchoolName}";
+    MetaDescription = string.IsNullOrWhiteSpace(SelectedCourse.Intent)
+      ? $"Explore the {SelectedCourse.Name} curriculum at {SchoolName}, including units and key knowledge."
+      : SelectedCourse.Intent;
     CanonicalUrl = $"{options.Website.TrimEnd('/')}/courses/{Uri.EscapeDataString(courseId)}";
 
     if (string.IsNullOrWhiteSpace(unitId))
@@ -106,12 +110,13 @@ public class CoursesModel(CourseService courseService, CacheService cache, Confi
     if (SelectedUnit is null || (action is not null && action != "quiz"))
       return NotFound();
 
-    PageTitle = $"{SelectedUnit.Title} - {SelectedCourse.Name} - {SchoolName}";
+    IsQuiz = action == "quiz";
+    PageTitle = $"{SelectedUnit.Title}{(IsQuiz ? " Revision Quiz" : string.Empty)} - {SelectedCourse.Name} - {SchoolName}";
     MetaDescription = !string.IsNullOrWhiteSpace(SelectedUnit.WhyThis)
       ? SelectedUnit.WhyThis
-      : !string.IsNullOrWhiteSpace(SelectedUnit.WhyNow) ? SelectedUnit.WhyNow : MetaDescription;
+      : !string.IsNullOrWhiteSpace(SelectedUnit.WhyNow) ? SelectedUnit.WhyNow
+      : $"Explore Year {SelectedUnit.YearGroup} {SelectedUnit.Title} in the {SelectedCourse.Name} curriculum at {SchoolName}, including key knowledge and revision content.";
     CanonicalUrl += $"/{Uri.EscapeDataString(unitId)}";
-    IsQuiz = action == "quiz";
     if (!IsQuiz && SelectedUnit.HasKeyKnowledge)
     {
       var cachedKeyKnowledge = await cache.GetCachedDataAsync(unitId, () => courseService.GetBlobAsync<KeyKnowledge>(unitId));

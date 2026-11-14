@@ -1,5 +1,6 @@
 @page "/courses/evaluations"
 @model CurriculumPortal.CourseEvaluationsModel
+@inject CurriculumPortal.AppOptions AppOptions
 @{
   Layout = null;
 }
@@ -8,7 +9,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Course Evaluations</title>
+  <title>Course Evaluations - @AppOptions.SchoolName</title>
   <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
   <link rel="shortcut icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -100,6 +101,7 @@
 <body class="evaluation-layout">
 
 <main class="evaluation-main evaluation-collection active">
+  <h1 class="visually-hidden">Course Evaluations</h1>
   @if (Model.Reports.Count == 0)
   {
     <section class="evaluation-empty">

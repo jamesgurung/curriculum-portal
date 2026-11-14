@@ -1,8 +1,9 @@
 @page "/courses/{courseId}/evaluation"
 @model CurriculumPortal.CourseEvaluationModel
 @using System.Text.Json
+@inject CurriculumPortal.AppOptions AppOptions
 @{
-  ViewData["Title"] = $"{Model.Course.Name} Evaluation";
+  ViewData["Title"] = $"{Model.Course.Name} - {AppOptions.SchoolName}";
   ViewData["BodyClass"] = "evaluation-layout";
 }
 

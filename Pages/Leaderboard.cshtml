@@ -14,8 +14,7 @@
     <header class="leaderboard-header">
       <span class="leaderboard-emblem material-symbols-outlined" aria-hidden="true">emoji_events</span>
       <div>
-        <h2 class="course-title">Leaderboard</h2>
-        <p>Celebrating our students’ progress, one achievement at a time.</p>
+        <h1 class="course-title">Leaderboard</h1>
       </div>
     </header>
     @if (Model.Entries.Count == 0)
@@ -27,8 +26,7 @@
     }
     else
     {
-      <p class="leaderboard-description" id="leaderboard-description">All students with XP, ordered by total XP. Students with equal XP share a position.</p>
-      <div class="leaderboard-scroll" tabindex="0" role="region" aria-label="Student XP leaderboard" aria-describedby="leaderboard-description">
+      <div class="leaderboard-scroll" tabindex="0" role="region" aria-label="Student XP leaderboard">
         <table class="leaderboard-table">
           <thead>
             <tr>

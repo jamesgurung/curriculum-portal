@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace CurriculumPortal;
 
 [Authorize(Roles = Roles.Teacher)]
-public class BuildModel(CourseService courseService, CourseEvaluationService evaluationService, ConfigService config, IAntiforgery antiforgery) : PageModel
+public class BuildModel(CourseService courseService, CourseEvaluationService evaluationService, ConfigService config, IAntiforgery antiforgery, AppOptions options) : PageModel
 {
   public string PageTitle { get; private set; } = string.Empty;
   public string CourseIdJson { get; private set; } = "\"\"";
@@ -67,7 +67,7 @@ public class BuildModel(CourseService courseService, CourseEvaluationService eva
     CourseId = courseId;
     CourseTitle = BuildCourseTitle(course, unit);
     UnitTitle = unit.Title;
-    PageTitle = $"{unit.Title} - {CourseTitle}";
+    PageTitle = $"{unit.Title} - {options.SchoolName}";
     IsEditor = editable;
     CsrfToken = antiforgery.GetAndStoreTokens(HttpContext).RequestToken ?? string.Empty;
 

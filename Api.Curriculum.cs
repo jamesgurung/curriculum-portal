@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Net.Http.Headers;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
 
@@ -10,6 +13,22 @@ public static partial class Api
 {
   private static void MapCurriculumPaths(WebApplication app)
   {
+    app.MapGet("/courses/public.json", [AllowAnonymous] async (HttpContext context, CourseService courseService, CacheService cache) =>
+    {
+      var courses = await cache.GetCachedDataAsync<List<CourseEntity>>("courses", () => courseService.ListCoursesAsync());
+      var units = await cache.GetCachedDataAsync<List<PublicFacingUnit>>("units", async () => (await courseService.ListUnitsAsync()).Select(unit => new PublicFacingUnit(unit)).ToList());
+      var json = $$"""{"courses":{{courses.Data}},"units":{{units.Data}}}""";
+      var etag = new EntityTagHeaderValue($"\"{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)))}\"");
+
+      context.Response.Headers.CacheControl = "public, max-age=86400";
+      context.Response.Headers.ETag = etag.ToString();
+      if (EntityTagHeaderValue.TryParseList(context.Request.Headers.IfNoneMatch, out var tags)
+        && tags.Any(tag => tag.Tag == "*" || tag.Compare(etag, useStrongComparison: false)))
+        return Results.StatusCode(304);
+
+      return Results.Content(json, "application/json");
+    });
+
     app.MapGet("/keyknowledge", [AllowAnonymous] async (HttpContext context, string unit, CourseService courseService, CacheService cache) =>
     {
       if (unit?.Length != 36)
@@ -43,9 +62,11 @@ public static partial class Api
 
       XElement CreateUrl(string path, DateTimeOffset? lastModified, string priority)
       {
+        var metadataUpdatedAt = new DateTimeOffset(2026, 11, 14, 0, 0, 0, TimeSpan.Zero);
+        var modifiedAt = lastModified > metadataUpdatedAt ? lastModified.Value : metadataUpdatedAt;
         return new(ns + "url",
           new XElement(ns + "loc", website + path),
-          lastModified is null ? null : new XElement(ns + "lastmod", lastModified.Value.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)),
+          new XElement(ns + "lastmod", modifiedAt.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)),
           new XElement(ns + "priority", priority));
       }
 
@@ -70,7 +91,14 @@ public static partial class Api
       Allow: /$
       Allow: /courses
       Allow: /sitemap.xml
-      Disallow: /courses/*/*/quiz
+      Allow: /favicon-96x96.png$
+      Allow: /favicon.ico$
+      Allow: /apple-touch-icon.png$
+      Allow: /css/
+      Allow: /js/
+      Allow: /lib/
+      Allow: /images/
+      Allow: /keyknowledge
       Disallow: /
 
       Sitemap: {options.Website.TrimEnd('/')}/sitemap.xml

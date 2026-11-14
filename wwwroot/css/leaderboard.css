@@ -16,7 +16,6 @@ body.leaderboard-layout {
   align-items: center;
   gap: 1rem;
   padding: 0.6rem 0 1.5rem;
-  border-bottom: 2px solid var(--border-standard);
 }
 
 .leaderboard-emblem.material-symbols-outlined {
@@ -37,17 +36,10 @@ body.leaderboard-layout {
   margin: 0 0 0.4rem;
 }
 
-.leaderboard-header p,
-.leaderboard-description,
 .leaderboard-empty p {
   margin: 0;
   color: var(--ink-muted);
   line-height: 1.5;
-}
-
-.leaderboard-description {
-  padding: 1.15rem 0;
-  font-size: 0.86rem;
 }
 
 .leaderboard-scroll {
@@ -201,10 +193,6 @@ body.leaderboard-layout {
   .leaderboard-header {
     align-items: flex-start;
     gap: 0.75rem;
-  }
-
-  .leaderboard-header p {
-    font-size: 0.88rem;
   }
 
   .leaderboard-table th,

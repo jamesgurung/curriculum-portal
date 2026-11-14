@@ -6,7 +6,9 @@
 @{
   var title = ViewData["Title"] as string;
   var resolvedTitle = string.IsNullOrWhiteSpace(title) ? AppOptions.SchoolName : title;
+  var siteName = $"{AppOptions.SchoolName} Curriculum Portal";
   var metaDescription = ViewData["MetaDescription"] as string;
+  var metaImage = ViewData["MetaImage"] as string;
   var canonicalUrl = ViewData["CanonicalUrl"] as string;
   var robots = ViewData["Robots"] as string;
   var isCoursesSection = Context.Request.Path.StartsWithSegments("/courses");
@@ -36,15 +38,30 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>@resolvedTitle</title>
+  <meta property="og:site_name" content="@siteName" />
+  <script type="application/ld+json">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+    {
+      ["@context"] = "https://schema.org",
+      ["@type"] = "WebSite",
+      ["name"] = siteName,
+      ["url"] = $"{AppOptions.Website.TrimEnd('/')}/"
+    }))
+  </script>
   @if (!string.IsNullOrWhiteSpace(metaDescription))
   {
     <meta name="description" content="@metaDescription" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="@resolvedTitle" />
     <meta property="og:description" content="@metaDescription" />
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="@(string.IsNullOrWhiteSpace(metaImage) ? "summary" : "summary_large_image")" />
     <meta name="twitter:title" content="@resolvedTitle" />
     <meta name="twitter:description" content="@metaDescription" />
+    @if (!string.IsNullOrWhiteSpace(metaImage))
+    {
+      <meta property="og:image" content="@metaImage" />
+      <meta name="twitter:image" content="@metaImage" />
+    }
   }
   @if (!string.IsNullOrWhiteSpace(canonicalUrl))
   {
@@ -65,7 +82,7 @@
 
 <body class="@bodyClass">
   <header class="app-header" style="--brand-colour: @AppOptions.BrandColour; --brand-accent-colour: @AppOptions.BrandAccentColour;">
-    <div class="header-bar">
+    <div class="header-bar" data-nosnippet>
       <details class="nav-menu">
         <summary class="nav-menu-toggle" aria-label="Toggle navigation menu">
           <span></span>
@@ -92,12 +109,12 @@
           }
         </nav>
       </details>
-      <h1>
+      <div class="brand-heading">
         <a class="navbar-brand" href="/courses">
-          <img class="navbar-logo" src="/images/school-logo-navbar.png" alt="@AppOptions.SchoolName logo">
+          <img class="navbar-logo" src="/images/school-logo-navbar.png" alt="@AppOptions.SchoolName logo" width="100" height="100">
           <span>Curriculum Portal</span>
         </a>
-      </h1>
+      </div>
       @if (User.Identity.IsAuthenticated)
       {
         <nav class="nav-links" aria-label="Main navigation">

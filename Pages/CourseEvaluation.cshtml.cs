@@ -54,6 +54,7 @@ public class CourseEvaluationModel(CourseService courseService, CourseEvaluation
       Course = Course,
       Evaluation = Evaluation,
       Units = Units,
+      IsPageHeading = true,
       ShowBackButton = true,
       ShowControls = true,
       ShowGenerationDetails = true,

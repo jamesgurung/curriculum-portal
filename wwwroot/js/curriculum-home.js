@@ -115,6 +115,8 @@ const modalConfig = {
 };
 
 const elements = {
+  brand: document.querySelector('.navbar-brand'),
+  indexHeading: document.getElementById('curriculum-heading'),
   aside: document.querySelector('aside'),
   main: document.querySelector('main'),
   courseList: document.getElementById('course-list'),
@@ -162,7 +164,24 @@ function setPageScrollTop(scrollTop) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  renderCourseList();
+  if (curriculumPage.publicDataUrl) {
+    try {
+      const response = await fetch(curriculumPage.publicDataUrl, { cache: 'no-cache' });
+      if (!response.ok) throw new Error('Unable to load curriculum data.');
+      const data = await response.json();
+      courses.push(...data.courses);
+      units.push(...data.units);
+    } catch (error) {
+      console.error('Client navigation could not be enabled.', error);
+      return;
+    }
+  }
+
+  const isPageAnchor = !!document.getElementById(decodeSegment(window.location.hash.slice(1)));
+  const preserveServerRender = curriculumPage.serverRender && (!window.location.hash || isPageAnchor);
+  if (!preserveServerRender) {
+    renderCourseList();
+  }
 
   elements.courseList.addEventListener('click', event => {
     const li = event.target.closest('.course-item');
@@ -172,15 +191,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  $$('header h1').forEach(element => element.addEventListener('click', event => {
+  elements.brand.addEventListener('click', event => {
     if (isClientNavigationClick(event)) {
       showCourseList(event, { scrollCourseListToTop: true });
     }
-  }));
+  });
+  elements.courseDetail.addEventListener('click', event => {
+    if (!isClientNavigationClick(event)) return;
+
+    const back = event.target.closest('[data-action="back-course"]');
+    const unit = event.target.closest('.unit-item');
+    const year = event.target.closest('.year-group-links a');
+    if (back) {
+      showCourseList(event);
+    } else if (unit && !isStaff) {
+      event.preventDefault();
+      showUnit(unit.dataset.id);
+    } else if (year) {
+      event.preventDefault();
+      document.getElementById(year.hash.slice(1)).scrollIntoView({ block: 'start' });
+    }
+  });
+  elements.unitDetail.addEventListener('click', event => {
+    if (event.target.closest('[data-action="back-to-course"]') && isClientNavigationClick(event)) {
+      event.preventDefault();
+      showCourse(state.courseId, { keepEditMode: state.editMode });
+    }
+  });
   elements.answer1.addEventListener('click', () => answer(elements.answer1));
   elements.answer2.addEventListener('click', () => answer(elements.answer2));
   elements.quizBack.addEventListener('click', backToUnit);
-  elements.quizRestart.addEventListener('click', startQuiz);
+  elements.quizRestart.addEventListener('click', () => startQuiz());
   elements.aiModal.addEventListener('keydown', event => {
     if (event.key === 'Tab') {
       event.preventDefault();
@@ -205,7 +246,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('scroll', hideChecklistTooltip, true);
   window.addEventListener('resize', hideChecklistTooltip);
 
-  await syncFromLocation();
+  if (preserveServerRender) {
+    state.courseId = curriculumPage.courseId;
+    state.unitId = curriculumPage.unitId;
+    elements.courseDetail.classList.toggle('active', !state.unitId);
+    elements.courseDetail.classList.toggle('is-empty', !state.courseId);
+    elements.courseList.querySelector('.course-item.active')?.scrollIntoView({ block: 'nearest' });
+    updatePageMetadata(state.courseId, state.unitId);
+    if (!isPageAnchor) updateDisplayPath(buildCurriculumPath(state.courseId, state.unitId), true);
+    if (elements.unitDetail.querySelector('.key-knowledge')) {
+      initialiseRevisionQuiz(curriculumPage.revisionQuiz);
+      await MathJax.typesetPromise([
+        document.getElementById('declarative-knowledge'),
+        document.getElementById('procedural-knowledge')
+      ]);
+    }
+  } else {
+    await syncFromLocation();
+  }
   updateLoginPath();
 });
 
@@ -273,6 +331,63 @@ function updateLoginPath() {
 
   const path = `${window.location.pathname}${window.location.search}` || '/';
   loginButton.href = `/login?path=${encodeURIComponent(path)}`;
+}
+
+function setPageMeta(attribute, name, content) {
+  let meta = document.head.querySelector(`meta[${attribute}="${name}"]`);
+  if (!content) {
+    meta?.remove();
+    return;
+  }
+
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute(attribute, name);
+    document.head.appendChild(meta);
+  }
+  meta.content = content;
+}
+
+function updatePageMetadata(courseId, unitId, isQuiz = false) {
+  const course = courseById(courseId);
+  const unit = course && unitById(unitId);
+  const school = curriculumPage.schoolName;
+  let title = `Curriculum - ${school}`;
+  let description = `Explore the curriculum at ${school}, including courses, units, and revision quiz content.`;
+  if (course) {
+    title = `${course.name} - ${school}`;
+    description = course.intent?.trim() ? course.intent
+      : `Explore the ${course.name} curriculum at ${school}, including units and key knowledge.`;
+  }
+  if (unit) {
+    title = `${unit.title}${isQuiz ? ' Revision Quiz' : ''} - ${course.name} - ${school}`;
+    description = unit.whyThis?.trim() ? unit.whyThis
+      : unit.whyNow?.trim() ? unit.whyNow
+      : `Explore Year ${unit.yearGroup} ${unit.title} in the ${course.name} curriculum at ${school}, including key knowledge and revision content.`;
+  }
+  const image = unit?.hasImage && unit.imageUrl?.trim() ? unit.imageUrl : null;
+
+  document.title = title;
+  setPageMeta('name', 'description', description);
+  setPageMeta('property', 'og:type', 'website');
+  setPageMeta('property', 'og:title', title);
+  setPageMeta('property', 'og:description', description);
+  setPageMeta('property', 'og:image', image);
+  setPageMeta('name', 'twitter:card', image ? 'summary_large_image' : 'summary');
+  setPageMeta('name', 'twitter:title', title);
+  setPageMeta('name', 'twitter:description', description);
+  setPageMeta('name', 'twitter:image', image);
+  setPageMeta('name', 'robots', isQuiz ? 'noindex, follow' : null);
+
+  let canonical = document.head.querySelector('link[rel="canonical"]');
+  if (!canonical) {
+    canonical = document.createElement('link');
+    canonical.rel = 'canonical';
+    document.head.appendChild(canonical);
+  }
+  canonical.href = curriculumPage.website + buildCurriculumPath(course?.id, unit?.id);
+
+  elements.indexHeading.hidden = !!course;
 }
 
 function renderCourseList() {
@@ -379,6 +494,7 @@ function showCourseList(eventOrOptions, maybeOptions = {}) {
   }
   setPageScrollTop(0);
 
+  updatePageMetadata();
   if (!options.skipHistory) {
     updateDisplayPath(coursesRootPath, !!options.replaceHistory);
   } else {
@@ -419,11 +535,6 @@ function showCourse(courseId, options = {}) {
   const container = document.createDocumentFragment();
 
   const back = clone('tpl-back-course');
-  back.addEventListener('click', event => {
-    if (isClientNavigationClick(event)) {
-      showCourseList(event);
-    }
-  });
 
   if (state.courseEditable) {
     const actions = document.createElement('div');
@@ -553,7 +664,7 @@ function showCourse(courseId, options = {}) {
     container.appendChild(iconInfo);
   }
 
-  if (isStaff) {
+  if (visibleYears.length > 1) {
     const yearLinks = document.createElement('nav');
     yearLinks.className = 'year-group-links';
     yearLinks.setAttribute('aria-label', 'Jump to year group');
@@ -562,10 +673,6 @@ function showCourse(courseId, options = {}) {
       const link = document.createElement('a');
       link.href = `#year-${year}`;
       link.textContent = `Year ${year}`;
-      link.addEventListener('click', event => {
-        event.preventDefault();
-        document.getElementById(`year-${year}`).scrollIntoView({ block: 'start' });
-      });
       yearLinks.appendChild(link);
     }
     container.appendChild(yearLinks);
@@ -610,6 +717,7 @@ function showCourse(courseId, options = {}) {
     setupSortable();
   }
 
+  updatePageMetadata(courseId);
   if (!options.skipHistory) {
     updateDisplayPath(buildCurriculumPath(courseId), !!options.replaceHistory);
   } else {
@@ -619,9 +727,7 @@ function showCourse(courseId, options = {}) {
 
 function renderYearSection(courseId, unitsForCourse, yearGroup) {
   const section = clone('tpl-year-group-section');
-  if (isStaff) {
-    section.id = `year-${yearGroup}`;
-  }
+  section.id = `year-${yearGroup}`;
   qs('.year-title', section).textContent = `Year ${yearGroup} units`;
 
   const unitsList = qs('.units-list', section);
@@ -668,12 +774,6 @@ function renderUnit(courseId, unit) {
     if (thumbnail) {
       qs('.material-symbols-outlined', li).replaceWith(thumbnail);
     }
-    li.addEventListener('click', event => {
-      if (isClientNavigationClick(event)) {
-        event.preventDefault();
-        showUnit(unit.id);
-      }
-    });
     return li;
   }
 
@@ -1387,12 +1487,6 @@ async function showUnit(unitId, options = {}) {
   qs('.unit-title', header).textContent = unit.title;
   const back = qs('[data-action="back-to-course"]', header);
   back.href = buildCurriculumPath(state.courseId);
-  back.addEventListener('click', event => {
-    if (isClientNavigationClick(event)) {
-      event.preventDefault();
-      showCourse(state.courseId, { keepEditMode: state.editMode });
-    }
-  });
   fragment.appendChild(header);
 
   if (unit.whyThis || unit.whyNow) {
@@ -1427,6 +1521,7 @@ async function showUnit(unitId, options = {}) {
   elements.unitDetail.classList.add('active');
   setPageScrollTop(0);
 
+  updatePageMetadata(state.courseId, unitId, options.quiz);
   if (!options.skipHistory) {
     updateDisplayPath(buildCurriculumPath(state.courseId, unitId), !!options.replaceHistory);
   } else {
@@ -1451,13 +1546,14 @@ async function loadKeyKnowledge(unitId) {
   const procedural = document.getElementById('procedural-knowledge');
 
   const response = await fetch(`/keyknowledge?unit=${unitId}`);
+  const data = response.ok ? await response.json() : null;
+  if (state.unitId !== unitId || !declarative.isConnected) return;
+
   if (!response.ok) {
     declarative.textContent = 'Unable to load key knowledge.';
     procedural.textContent = '';
     return;
   }
-
-  const data = await response.json();
 
   declarative.replaceChildren();
   if (data.declarativeKnowledge?.length > 0) {
@@ -1483,16 +1579,19 @@ async function loadKeyKnowledge(unitId) {
     procedural.appendChild(list);
   }
 
-  if (data.revisionQuiz?.length > 0) {
+  initialiseRevisionQuiz(data.revisionQuiz);
+  await MathJax.typesetPromise([declarative, procedural]);
+}
+
+function initialiseRevisionQuiz(questions) {
+  state.quizQuestions = questions ?? [];
+  state.remainingQuestions = [];
+  if (state.quizQuestions.length > 0) {
     const button = document.createElement('button');
     button.textContent = 'Help me revise';
-    button.addEventListener('click', startQuiz);
+    button.addEventListener('click', () => startQuiz());
     document.getElementById('declarative-header-container').appendChild(button);
-    state.quizQuestions = data.revisionQuiz;
-    state.remainingQuestions = [];
   }
-
-  await MathJax.typesetPromise([declarative, procedural]);
 }
 
 function appendKnowledgeItem(element, item, images) {
@@ -1619,7 +1718,9 @@ async function navigateToRoute(route) {
     return buildCurriculumPath(route.courseId);
   }
 
-  await showUnit(route.unitId, { skipHistory: true });
+  const sourceUrl = window.location.href;
+  await showUnit(route.unitId, { skipHistory: true, quiz: route.action === 'quiz' });
+  if (window.location.href !== sourceUrl || state.courseId !== route.courseId || state.unitId !== route.unitId) return null;
 
   if (route.action === 'quiz') {
     startQuiz(true);
@@ -1630,16 +1731,23 @@ async function navigateToRoute(route) {
 }
 
 async function syncFromLocation() {
-  const hashRoute = parseHashRoute(window.location.hash);
+  const pageAnchor = /^#year-\d+$/.test(window.location.hash) ? window.location.hash : '';
+  const hashRoute = pageAnchor ? null : parseHashRoute(window.location.hash);
   if (hashRoute) {
     const canonical = await navigateToRoute(hashRoute);
+    if (!canonical) return;
     updateDisplayPath(canonical, true);
     return;
   }
 
   const pathRoute = parsePathRoute(window.location.pathname);
   const canonical = await navigateToRoute(pathRoute);
-  if (canonical !== window.location.pathname || window.location.search || window.location.hash) {
+  if (!canonical) return;
+  const anchor = pageAnchor && !pathRoute.unitId ? document.getElementById(pageAnchor.slice(1)) : null;
+  if (anchor) {
+    anchor.scrollIntoView({ block: 'start' });
+    updateLoginPath();
+  } else if (canonical !== window.location.pathname || window.location.search || window.location.hash) {
     updateDisplayPath(canonical, true);
   } else {
     updateLoginPath();
@@ -1669,6 +1777,7 @@ function startQuiz(skipHistoryUpdate = false) {
   showQuestion();
   updateQuizProgress();
 
+  updatePageMetadata(state.courseId, state.unitId, true);
   if (!skipHistoryUpdate) {
     updateDisplayPath(buildCurriculumPath(state.courseId, state.unitId, 'quiz'));
   } else {
@@ -1760,6 +1869,7 @@ async function answer(button) {
 function backToUnit() {
   elements.unitQuiz.classList.remove('active');
   elements.unitDetail.classList.add('active');
+  updatePageMetadata(state.courseId, state.unitId);
   updateDisplayPath(buildCurriculumPath(state.courseId, state.unitId));
 }
 

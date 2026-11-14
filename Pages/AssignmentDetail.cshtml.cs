@@ -57,7 +57,7 @@ public class AssignmentDetailModel(ConfigService config, AssignmentService assig
     PageDataJson = JsonSerializer.Serialize(PageData, JsonDefaults.CamelCase);
     SubmitUrlJson = JsonSerializer.Serialize($"/assignments/{Uri.EscapeDataString(courseId)}/year-{year}/{parsedDueDate:yyyy-MM-dd}/submit", JsonDefaults.CamelCase);
     CsrfToken = antiforgery.GetAndStoreTokens(HttpContext).RequestToken ?? string.Empty;
-    ViewData["Title"] = $"{PageData.CourseName} Assignment - {SchoolName}";
+    ViewData["Title"] = $"{PageData.CourseName} - {SchoolName}";
     return Page();
   }
 }

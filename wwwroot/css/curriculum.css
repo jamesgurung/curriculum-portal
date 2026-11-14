@@ -253,6 +253,7 @@ body.courses-layout #curriculum-app > main {
   min-width: 0;
 }
 
+main h1,
 main h2,
 #modal-title,
 #ai-modal-title {
@@ -312,6 +313,13 @@ main h2,
 .course-info > b .material-symbols-outlined,
 .year-group-heading .material-symbols-outlined {
   color: var(--ink-muted);
+}
+
+#curriculum-app .year-group-heading {
+  margin: 0 0 0.42rem;
+  font-size: inherit;
+  font-weight: 700;
+  letter-spacing: normal;
 }
 
 .course-placeholder {
@@ -394,7 +402,8 @@ main h2,
 
 }
 
-h3 {
+h3,
+.key-knowledge h2 {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -409,6 +418,10 @@ h3 {
 
     color: var(--ink-muted);
   }
+}
+
+.key-knowledge h2 {
+  letter-spacing: normal;
 }
 
 .unit-item {
@@ -1214,7 +1227,7 @@ h3 {
   margin: 0 auto;
 }
 
-#unit-quiz h2 {
+#unit-quiz h1 {
   text-align: center;
   margin-bottom: 0.68rem;
   line-height: 1.24;
@@ -1401,6 +1414,7 @@ body.evaluation-layout .app-footer {
   min-width: 0;
 }
 
+.evaluation-heading h1,
 .evaluation-heading h2 {
   margin: 0.1rem 0 0.36rem;
   font-size: 1.62rem;

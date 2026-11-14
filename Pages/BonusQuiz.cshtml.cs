@@ -24,7 +24,7 @@ public class BonusQuizModel(ConfigService config, BonusQuizService bonusQuizServ
 
     PageDataJson = JsonSerializer.Serialize(PageData, JsonDefaults.CamelCase);
     CsrfToken = antiforgery.GetAndStoreTokens(HttpContext).RequestToken ?? string.Empty;
-    ViewData["Title"] = $"Bonus Quiz - {SchoolName}";
+    ViewData["Title"] = $"Bonus quiz - {SchoolName}";
     return Page();
   }
 }

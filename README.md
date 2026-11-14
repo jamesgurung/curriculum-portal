@@ -114,7 +114,7 @@ Deploy effortlessly to Microsoft Azure.
 
     - Upload `school-logo.png`.
 
-    - Upload `school-logo-navbar.png`.
+    - Upload `school-logo-navbar.png` as a 100 × 100 pixel PNG.
 
 3. If you are using [Microsoft Foundry](https://ai.azure.com/), create a project and deploy an OpenAI reasoning model (e.g. `gpt-5.6-sol`). Set `MicrosoftFoundryEndpoint` to use Microsoft Foundry. If `MicrosoftFoundryEndpoint` is not set, the app uses the direct OpenAI API instead.
 
